@@ -1,0 +1,18 @@
+package_name: ravebuiltins
+dev_subject:
+  project_name: demo
+  subject_code: sub_large
+  electrodes: '14,15'
+  epoch: Auditory
+  time_range:
+    pre: 1.0
+    post: 2.0
+  reference: default
+  frequency_range: ~
+  data_types: ~
+  load_brain: yes
+  download_url: https://s3-us-west-2.amazonaws.com/rave-demo-subject/sfn-demo/data-large.zip
+modules:
+- module_id: beauchamplab_power_explorer
+  module_label: Power Explorer
+  config_name: module.yaml
