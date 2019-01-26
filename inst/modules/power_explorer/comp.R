@@ -9,11 +9,11 @@ mount_demo_subject()
 
 
 #  ----------------------  Initializing Global variables -----------------------
-load_scripts(
-  'inst/modules/rave_calculators.R',
-  'inst/modules/plot_helpers.R',
-  'inst/modules/plot_funcs.R'
-)
+# load_scripts(
+#   'inst/modules/rave_calculators.R',
+#   'inst/modules/plot_helpers.R',
+#   'inst/modules/plot_funcs.R'
+# )
 
 define_initialization({
   ##

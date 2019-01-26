@@ -190,14 +190,23 @@ init_module <- function(module_id){
   }
   
   # Still try to run the rest
-  data_env = rave::getDefaultDataRepository()
+  
+  # Find proper environment
+  pkg_name = get_package_name()
+  # if(paste0('package:', pkg_name) %in% search()){
+  #   pkg_env = parent.env(globalenv())
+  # }else{
+  #   pkg_env = loadNamespace(pkg_name)
+  # }
+  pkg_env = loadNamespace(pkg_name)
+  
   
   # get components
   envs = get_comp_env(module_id = module_id)
   has_content = get_content(content = envs$content, env = envs$tmp_env)
   
   # Initialize env
-  param_env = new.env(parent = data_env)
+  param_env = new.env(parent = pkg_env)
   param_env$rave_checks = function(...){}
   
   for(f in envs$script_env[['source']]){
@@ -253,8 +262,6 @@ get_main_function <- function(module_id){
   content = readLines(path)
   
   expr = get_content(content = content, evaluate = F)
-  
-  expr[[length(expr) + 1]] = quote(return(environment()))
   
   main_quos = rlang::quo({
     !!! as.list(expr)

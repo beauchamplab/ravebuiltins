@@ -1,3 +1,5 @@
+.packageName = 'ravebuiltins'
+
 # Functions from third-party packages
 read_yaml <- function(...){
   yaml::read_yaml(...)
@@ -27,7 +29,14 @@ rstudio_viewer <- function(...){
 
 #' Get project root dir
 get_root_dir <- function(){
-  rstudioapi::getActiveProject()
+  d = rstudioapi::getActiveProject()
+  if(length(d) == 1 && grepl(paste0('/', .packageName, '$'), d)){
+    # package developer
+    return(d)
+  }else{
+    # package user
+    return(system.file('/', package = .packageName))
+  }
 }
 
 verify_rstudio_version <- function(){

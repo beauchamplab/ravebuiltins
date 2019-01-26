@@ -184,11 +184,12 @@ trial_hm_decorator <- function(hmap, x, y, xax=TRUE, yax=TRUE, ...) {
 }
 
 # decorate a heatmap
-tf_hm_decorator <- function(hmap, x, y, ..., label.col='black', draw_time_baseline=TRUE, xax=TRUE, yax=TRUE) {
+tf_hm_decorator <- function(hmap, x, y, ..., label.col='black', draw_time_baseline=TRUE, xax=TRUE, yax=TRUE,
+                            TIME_RANGE = NULL, FREQUENCY = NULL, BASELINE = NULL) {
     heat_map_axes(x,y, xax=xax, yax=yax)
 
     if(draw_time_baseline) {
-        # these variables are set in the environment, as is BASELINE below
+        # These variables are in ...
         xy <- cbind(TIME_RANGE, FREQUENCY)
 
         polygon(c(xy[,1], rev(xy[,1])) , rep(xy[,2], each=2), lty=2, lwd=3, border=label.col, ...)
@@ -197,7 +198,7 @@ tf_hm_decorator <- function(hmap, x, y, ..., label.col='black', draw_time_baseli
         abline(v=BASELINE, lty=3, lwd=2, col=label.col)
 
         # label baseline region
-        text(BASELINE %>% median, quantile(y, .7), 'baseline', col=label.col, cex=rave_cex.lab, pos=3)
+        text(median(BASELINE), quantile(y, .7), 'baseline', col=label.col, cex=rave_cex.lab, pos=3)
         arrows(BASELINE[1], quantile(y, .7), BASELINE[2], col=label.col, length=.1, code=3)
     }
 }

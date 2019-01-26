@@ -69,11 +69,37 @@ get_module <- function(module_id, interactive = FALSE, check_dependencies = TRUE
   
   main_quos = env$get_main_function(module_id)
   
+  outputIds = lapply(envs$output_env, function(comp){
+    if(is(comp, 'comp_output')){
+      return(comp$outputId)
+    }else{
+      NULL
+    }
+  })
+  outputIds = unlist(outputIds)
+  
   
   FUN = function(){}
   
   environment(FUN) = runtime_env
-  body(FUN) = rlang::quo_squash(main_quos)
+  body(FUN) = rlang::quo_squash(rlang::quo({
+    !!main_quos
+    
+    results = environment()
+    ..re = sapply(!!outputIds, function(nm){
+      ..f = get0(nm, envir = results, inherits = TRUE, ifnotfound = NULL)
+      function(...){
+        if(is.null(..f)){
+          rutabaga::cat2('Function ', nm, ' is not available.', level = 'ERROR')
+          return(invisible())
+        }else{
+          return(..f(results, ...))
+        }
+      }
+    }, simplify = F, USE.NAMES = T)
+    ..re$results = results
+    return(..re)
+  }))
   formals(FUN) = args
   
   return(FUN)

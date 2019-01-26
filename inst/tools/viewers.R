@@ -16,16 +16,16 @@ view_layout <- function(module_id, sidebar_width = 5, launch.browser = rstudio_v
     s = paste(deparse(rlang::quo_squash(f)), collapse = '\n')
     s = paste(nm, '<-', s)
     s
-  })
+  }, simplify = T, USE.NAMES = F)
   
-  s = c(
+  s = unlist(c(
     src, 
     deparse(rlang::quo_squash(quos$rave_inputs_quo)),
     deparse(rlang::quo_squash(quos$rave_update_quo)),
     deparse(rlang::quo_squash(quos$rave_output_quo)),
     deparse(rlang::quo_squash(exec)),
     funs
-  )
+  ))
   tmpfile = tempfile(pattern = 'junk')
   writeLines(s, tmpfile)
   m = rave::ModuleEnvir$new(module_id = module_id, label_name = get_module_label(module_id),

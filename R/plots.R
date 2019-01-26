@@ -25,8 +25,9 @@ heat_map_plot = function(results){
     
     # here we need to pass in the decorator because dmhm is going to loop over the heatmaps
     # and take care of drawing a color bar for us
-    draw_many_heat_maps(heat_map_data, allow_log_scale = TRUE)
-    
+    draw_many_heat_maps(hmaps = heat_map_data, x = preload_info$time_points, 
+                        y = preload_info$frequencies, log_scale = log_scale,
+                        TIME_RANGE = TIME_RANGE, BASELINE = BASELINE, FREQUENCY = FREQUENCY, max_zlim = max_zlim)
   })
 }
 

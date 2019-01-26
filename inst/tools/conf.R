@@ -64,8 +64,7 @@ mount_demo_subject <- function(subject_code, project_name,
                                force_reload_subject = FALSE, ..., download_url){
   if(!force_reload_subject && rave:::any_subject_loaded()){
     if(!'rave_data' %in% search()){
-      rave_data = rave::getDefaultDataRepository()
-      attach(rave_data)
+      rave::attachDefaultDataRepository()
     }
     return(invisible())
   }

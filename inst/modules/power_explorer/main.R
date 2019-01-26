@@ -1,13 +1,15 @@
 # Main algorithm - rave_executes
 
 # Initialize inputs
+ravebuiltins:::dev_ravebuiltins(T)
+
 mount_demo_subject()
 list2env(as.list(init_module(module_id = 'power_explorer')), globalenv())
-
+devtools::load_all()
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
-requested_electrodes = parse_selections(electrode_text %>% str_replace_all(':', '-'))
+requested_electrodes = rutabaga::parse_svec(electrode_text, sep = ':-')
 requested_electrodes %<>% get_by(`%in%`, electrodes)
 
 # this will be NA if the only requested electrodes are not available
@@ -15,48 +17,39 @@ requested_electrodes %<>% get_by(`%in%`, electrodes)
 assertthat::assert_that(length(requested_electrodes) >= 1 &&
                           all(not_NA(requested_electrodes)), msg = 'No electrode selected')
 
-# ce_main(requested_electrodes)
-#baseline all available trials
-GROUPS = lapply(GROUPS, function(g){ g$Trial_num = epoch_data$Trial[epoch_data$Condition %in% unlist(g$GROUP)]; g })
-has_trials <- vapply(GROUPS, function(g) length(g$GROUP) > 0, TRUE)
+
+
+# Clean group input data
+group_data = lapply(seq_along(GROUPS), function(idx){
+  g = GROUPS[[idx]]
+  
+  Trial_num = epoch_data$Trial[epoch_data$Condition %in% unlist(g$GROUP)]
+  list(
+    name = g$GROUP_NAME,
+    Trial_num = Trial_num,
+    group_index = idx,
+    has_trials = length(Trial_num) > 0,
+    conditions = unlist(g$GROUP)
+  )
+  
+})
+has_trials <- vapply(group_data, function(g){g$has_trials}, FALSE)
 any_trials <- any(has_trials)
 
+# Subset data
 bl_power <- cache(
   key = list(subject$id, requested_electrodes, BASELINE, any_trials, preload_info),
   val = baseline(power$subset(Electrode = Electrode %in% requested_electrodes),
                  BASELINE[1],  BASELINE[2], hybrid = FALSE, mem_optimize = FALSE)
 )
 
-# we were repeating a lot of calculations and looping over GROUPS too many times
-# let's clean that up
-
-#helper file to build lists with common elements pre-populated
-build_list <- function() {
-  ##NB: this is faster than using replicate(length(has_trials))
-  lapply(seq_len(length(has_trials)), function(ii)
-    list('has_trials' = has_trials[ii],
-         'name' = GROUPS[[ii]]$GROUP_NAME))
-}
-
-# declare all our variables with pre-populated 'has_trials' and 'name' variables
-build_list() ->
-  scatter_bar_data -> line_plot_data ->
-  by_trial_heat_map_data -> heat_map_data
-
+# Prepare plot datasets
+scatter_bar_data <- line_plot_data <- by_trial_heat_map_data <- heat_map_data <- group_data
 flat_data <- data.frame()
 
-# load up our collapsers into a list, this allows us to swap them out as needed
-collapse <- rave_collapsers.mean()
-
-# swap out the collapsers for medians
-if (exists('collapse_using_median')) {
-  if(isTRUE(collapse_using_median)) {
-    collapse <- rave_collapsers.median()
-  }
-}
-
-# how should we collapse across electrodes?
+# set transform method
 .transform <- electrode_transform(combine_method)
+
 #relies on transform as defined above
 do_row_transform <- function(.tens) {
   vapply(seq_len(dim(.tens)[3]), function(ei) {
@@ -64,96 +57,128 @@ do_row_transform <- function(.tens) {
   }, FUN.VALUE = .tens[,,1])
 }
 
-# now we loop through only those groups with data
-# voltage.time_ind <- which(volt$dimnames$Time %within% TIME_RANGE)
-# system.time( {
-for(ii in which(has_trials)) {
+# Collapse data
+
+## Leave it here in case you want to change it later (make it user specific, for example!)
+collapse_method = 'mean'
+
+# Q: how should we collapse across electrodes?
+for(ii in which(has_trials)){
+  .power_all = bl_power$subset(Trial = Trial %in% group_data[[ii]]$Trial_num, data_only = FALSE, drop=FALSE)
+  .power_freq = .power_all$subset(Frequency=Frequency %within% FREQUENCY, data_only = FALSE, drop=FALSE)
   
-  .power = bl_power$subset(Trial = Trial %in% GROUPS[[ii]]$Trial_num)
+  N = dim(.power_all)[1L]
+  trials = epoch_data$Condition
   
-  #helper function to clean up the syntax below, value here should be a function
-  # we're relying on power being defined above, so don't move this function out of this scope
-  `add_data<-` <- function(x, value) {
-    x[c('data', 'range', 'N', 'trials')] <-
-      list(value, .fast_range(value), dim(.power)[1L], epoch_data$Condition)
-    return(x)
+  # utils functions
+  wrap_data = function(value){
+    list(
+      data = value,
+      range = .fast_range(value),
+      N = N,
+      trials = trials
+    )
   }
   
+  
+  # Case 1: if no tranformation,
   if(identical(.transform, IDENTITY_TRANSFORM)) {
-    # first build the heat map data
-    add_data(heat_map_data[[ii]]) <- .power$collapse(keep = c(3,2), method = 'mean')
     
+    # 1 Time x Frequency
+    heat_map_data[[ii]] = append(heat_map_data[[ii]], wrap_data(
+      .power_all$collapse(keep = c(3,2), method = collapse_method)
+    ))
+    
+    # 2 Time x Trial (.power_freq)
     # by trial data. Set drop to FALSE b/c we want to keep the electrode dim even if #e ==1
-    bt_dat <- .power$subset(Frequency=Frequency %within% FREQUENCY, data_only = FALSE, drop=FALSE)
-    add_data(by_trial_heat_map_data[[ii]]) <- bt_dat$collapse(keep = c(3,1), method = 'mean')
+    by_trial_heat_map_data[[ii]] <- append( by_trial_heat_map_data[[ii]], wrap_data(
+      .power_freq$
+        collapse(keep = c(3,1), method = collapse_method)
+    ))
     
+    # 3 Time only
     # coll freq and trial for line plot w/ ebar. Because we're doing error bars, we have to know whether we have 1 vs. >1 electrodes
-    if(dim(.power)[4] == 1) {
-      add_data(line_plot_data[[ii]]) <- collapse$over_frequency_and_trial(.power)
-    } else {
-      # here we want the error bars to be across electrodes, rather than across trials
-      #NB: take advantage of bt_dat having already subset'd FREQ
-      oft <- bt_dat$collapse(keep = c(3,4), method = 'mean')
-      add_data(line_plot_data[[ii]]) <- apply(oft, 1, .fast_mse) %>% t
+    if(length(requested_electrodes) == 1){
+      # Single electrode, mean and mse for each time points
+      line_plot_data[[ii]] = append(line_plot_data[[ii]], wrap_data(t(
+        apply(
+          .power_freq$collapse(keep = c(1,3), method = 'mean'),
+          2, .fast_mse)
+      )))
+    }else{
+      # multiple electrodes, mean and mse across electrodes
+      # Note by Zhengjia: I don't think this calculation is correct, the actual sample size is larger and the stat power is lowered (type-II error increases)
+      
+      line_plot_data[[ii]] = append(line_plot_data[[ii]], wrap_data(t(
+        apply(
+          .power_freq$collapse(keep = c(3,4), method = 'mean'),
+          1, .fast_mse)
+      )))
     }
     
-    # we want to make a special range for the line plot data that takes into account mean +/- SE
-    line_plot_data[[ii]]$range <- .fast_range(plus_minus(line_plot_data[[ii]]$data[,1],
-                                                         line_plot_data[[ii]]$data[,2]))
+    
     
     # scatter bar data
-    add_data(scatter_bar_data[[ii]]) <- collapse$over_frequency_and_time(.power, TIME_RANGE, FREQUENCY)
+    scatter_bar_data[[ii]] = append(scatter_bar_data[[ii]], wrap_data(
+      rowMeans(.power_freq$subset(
+        Time = (Time %within% TIME_RANGE),
+        data_only = TRUE
+      ))
+    ))
     
-    # for the scatter_bar_data we also need to get m_se within condition
-    scatter_bar_data[[ii]]$mse <- .fast_mse(scatter_bar_data[[ii]]$data)
-    
-  } else {
-    # we need to transform the data before combining
-    
-    # collapse over trial then row transform
+  }else{
+    # transform data
     hmd <- do_row_transform(
-      .power$collapse(keep = 2:4, method = 'mean')
+      .power_all$collapse(keep = 2:4, method = 'mean')
     )
-    add_data(heat_map_data[[ii]]) <- rutabaga::collapse(hmd, keep=2:1) / dim(hmd)[3]
+    
+    heat_map_data[[ii]] = append(heat_map_data[[ii]], wrap_data(rutabaga::collapse(hmd, keep=2:1, average = TRUE)))
+    
     
     #collapse over frequency then row transform
-    bt_dat <- .power$subset(Frequency=Frequency %within% FREQUENCY, data_only = FALSE, drop=FALSE)
     bthmd <- do_row_transform(
-      bt_dat$collapse(keep = c(1,3,4), method = 'mean')
+      .power_freq$collapse(keep = c(1,3,4), method = 'mean')
     )
-    add_data(by_trial_heat_map_data[[ii]]) <-  rutabaga::collapse(bthmd, keep=2:1) / dim(bthmd)[3]
+    by_trial_heat_map_data[[ii]] =  append(by_trial_heat_map_data[[ii]], wrap_data(rutabaga::collapse(bthmd, keep=2:1, average = TRUE)))
     
-    # collapse over frequency and trial. here we have to consider #elec b/c of the error bars
-    if(dim(.power)[4] == 1) {
-      add_data(line_plot_data[[ii]]) <- collapse$over_frequency_and_trial(.power)
-    } else {
-      # here we want the error bars to be across electrodes, rather than across trials
+    
+    if(length(requested_electrodes) == 1){
+      line_plot_data[[ii]] = append(line_plot_data[[ii]], wrap_data(t(
+        apply(
+          .power_freq$collapse(keep = c(1,3), method = 'mean'),
+          2, .fast_mse)
+      )))
+    }else{
+      
       oft <- apply(
-        bt_dat$collapse(keep = c(3,4), method = 'mean'),
+        .power_freq$collapse(keep = c(3,4), method = 'mean'),
         2, .transform)
-      add_data(line_plot_data[[ii]]) <- apply(oft, 1, .fast_mse) %>% t
+      line_plot_data[[ii]] <- append(line_plot_data[[ii]], wrap_data(
+        t(apply(oft, 1, .fast_mse))
+      ))
     }
-    
-    # we want to make a special range for the line plot data that takes into account mean +/- SE
-    line_plot_data[[ii]]$range <- .fast_range(plus_minus(line_plot_data[[ii]]$data[,1],
-                                                         line_plot_data[[ii]]$data[,2]))
     
     # collapse over freq and time so we get response per trial for scatter bar data.
     # use the bthmd that is already frequency selected and transformed per trial (across time)
     
     # now we want the summary across time \in TIME_RANGE and electrode. one mean per trial
-    ind.t <- .power$dimnames$Time %within% TIME_RANGE
-    add_data(scatter_bar_data[[ii]]) <- rowMeans(bthmd[,ind.t,])
-    
-    # for the scatter_bar_data we also need to get m_se within condition
-    scatter_bar_data[[ii]]$mse <- .fast_mse(scatter_bar_data[[ii]]$data)
+    ind.t <- preload_info$time_points %within% TIME_RANGE
+    scatter_bar_data[[ii]] <- append(scatter_bar_data[[ii]], wrap_data(rowMeans(bthmd[,ind.t,])))
   }
+  
+  # we want to make a special range for the line plot data that takes into account mean +/- SE
+  line_plot_data[[ii]]$range <- .fast_range(plus_minus(line_plot_data[[ii]]$data[,1],
+                                                       line_plot_data[[ii]]$data[,2]))
   
   # for the scatter_bar_data we also need to get m_se within condition
   scatter_bar_data[[ii]]$mse <- .fast_mse(scatter_bar_data[[ii]]$data)
   
+  
   flat_data %<>% rbind(data.frame('group'=ii, 'y' = scatter_bar_data[[ii]]$data))
+  
 }
+
+# .power_freq[,, preload_info$time_points %within% TIME_RANGE, ]$data
 
 # for baseline you want to have only the baseline times
 flat_data$group %<>% factor
@@ -168,9 +193,16 @@ has_data = sum(has_trials)
 if(length(unique(flat_data$group)) > 1) {
   # we need to check if they have supplied all identical data sets
   # easy way is to check that the trials are the same?
-  g1 <- GROUPS[[which(has_trials)[1]]]$GROUP
-  if(all(sapply(which(has_trials)[-1],
-                function(ii) identical(GROUPS[ii]$GROUP, g1)))) {
+  g1 <- unlist(GROUPS[[which(has_trials)[1]]]$GROUP)
+  if(all(
+    sapply(which(has_trials)[-1],
+           function(ii) {
+             setequal(
+               unlist(GROUPS[[ii]]$GROUP),
+               g1
+             )
+           })
+  )) {
     result_for_suma <-
       get_t(flat_data$y[flat_data$group==flat_data$group[1]])
   } else {
@@ -183,7 +215,23 @@ if(length(unique(flat_data$group)) > 1) {
 attr(scatter_bar_data, 'stats') <- result_for_suma
 
 
-# Optional, return variables
-# rave_return(as.list(environment()))
+
+
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
+# Debug
+require(ravebuiltins)
+module_id = 'power_explorer'
+
+env = dev_ravebuiltins()
+env$mount_demo_subject()
+
+attachDefaultDataRepository()
+search()
+
+module = ravebuiltins:::get_module(module_id)
+result = module()
+
+result$heat_map_plot()
+
+result$results$heat_map_data

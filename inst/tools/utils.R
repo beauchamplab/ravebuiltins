@@ -3,8 +3,7 @@
 
 #' Get current package name
 get_package_name <- function(){
-  project_dir = get_root_dir()
-  tail(strsplit(project_dir, '/|\\\\')[[1]], 1)
+  .packageName
 }
 
 #' Find path from inst

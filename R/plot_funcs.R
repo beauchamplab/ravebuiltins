@@ -1,62 +1,23 @@
-# this doesn't really work
-brushed = function(event, env){
-    if(is.null(event)){
-        msg = 'Please Choose on plot'
-    } else{
-        fmax = 200#max(power$dimnames$Frequency)
-        tmax = 2#max(power$dimnames$Time)
-        tmin = -1#min(power$dimnames$Time)
-        msg = sprintf('Frequency range: %.1fHz - %.1fHz',
-                      event$ymin * fmax, event$ymax * fmax, event$xmin * (tmax-tmin), event$xmax * (tmax-tmin))
-    }
-    logger(msg)
-    # env$msg = msg
-}
-
-
-
-#this file and plot_helpers.R should be merged/sorted
-# source('plot_helpers.R')
-
-rave_color_ramp_palette <- colorRampPalette(c('navy', 'white', 'red'), interpolate='linear', space='Lab')
-
-rave_heat_map_colors <- rave_color_ramp_palette(1001)
-
-# put this hear for legacy, but we need to exterminate these references
-crp <- rave_heat_map_colors
-
-group_colors <- c('purple3', 'orange', 'dodgerblue3', 'darkgreen', 'orangered', 'brown')
-
-# allow color cycling
-get_color <- function(ii) {
-    group_colors[ii %% length(group_colors) + 1]
-}
-
-rave_colors <- list('BASELINE_WINDOW'='gray60', 'ANALYSIS_WINDOW' = 'salmon2', 'GROUP'=group_colors,
-                    'TRIAL_TYPE_SEPARATOR'='gray40')
-
-rave_main <- function(main, cex=rave_cex.main, col='black', font=1) {
-    title(main=list(main, cex=cex, col=col, font=font))
-}
-
-### FIXME
-
 
 #' @author John Magnotti
 #' @description Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar. By default it is setup for time/freq, but by swapping labels and decorators you can do anything
-draw_many_heat_maps <- function(hmaps, x, y, xlab='Time', ylab='Frequency',
-                                allow_log_scale=TRUE, show_color_bar=TRUE, HM_DECORATOR=tf_hm_decorator, ...) {
+draw_many_heat_maps <- function(
+    hmaps, x, y, xlab='Time', ylab='Frequency',
+    log_scale=FALSE, show_color_bar=TRUE, HM_DECORATOR=tf_hm_decorator,
+    max_zlim = 0, TIME_RANGE = NULL, FREQUENCY = NULL, BASELINE = NULL, ...
+) {
     k <- hmaps %>% get_list_elements('has_trials') %>% sum
 
+    
     layout_heat_maps(k)
 
-    if(missing(x)) x <- time_points
-    if(missing(y)) {
-        y <- frequencies
-        if(length(y) != dim(hmaps[[1]]$data)[2L]) {
-            y <- seq_len(dim(hmaps[[1]]$data)[2L])
-        }
-    }
+    # if(missing(x)) x <- time_points # MUST specify x
+    # if(missing(y)) {
+    #     y <- frequencies
+    #     if(length(y) != dim(hmaps[[1]]$data)[2L]) {
+    #         y <- seq_len(dim(hmaps[[1]]$data)[2L])
+    #     }
+    # }
 
     # print(paste0(dim(hmaps[[1]]$data), collapse=':') %&% " | " %&% length(x) %&% ":" %&% length(y))
     #
@@ -68,19 +29,17 @@ draw_many_heat_maps <- function(hmaps, x, y, xlab='Time', ylab='Frequency',
     # }
     #
     # print('-----')
-
+    args = list(...)
 
 
     # actual data range
     actual_lim = get_data_range(hmaps)
-
-    max_zlim <- get0('max_zlim', ifnotfound = 0)
+    
     if(max_zlim==0) {
         max_zlim <- max(abs(actual_lim))
     }
-
-    log_scale <- get0('log_scale', ifnotfound = FALSE)
-    if(allow_log_scale & isTRUE(log_scale)){
+    
+    if(isTRUE(log_scale)){
         log_scale <- 'y'
     } else {
         log_scale <- ''
@@ -99,7 +58,7 @@ draw_many_heat_maps <- function(hmaps, x, y, xlab='Time', ylab='Frequency',
                      zlim = c(-max_zlim, max_zlim),
                      main = map$name, log=log_scale)#, ...)
 
-            HM_DECORATOR(map, x=x, y=.y)
+            HM_DECORATOR(map, x=x, y=.y, TIME_RANGE = TIME_RANGE, FREQUENCY = TIME_RANGE, BASELINE = TIME_RANGE)
         }
     })
 
@@ -112,7 +71,7 @@ draw_many_heat_maps <- function(hmaps, x, y, xlab='Time', ylab='Frequency',
 
 
 #' @author John Magnotti
-#' @Note We are just plotting image(zmat) rather than t(zmat) as you might expect. the rave_calculators know this so we can
+#' We are just plotting image(zmat) rather than t(zmat) as you might expect. the rave_calculators know this so we can
 #' save a few transposes along the way
 #' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators
 draw_img <- function(zmat, x, y, xlab='Time (s)', ylab='Frequency (Hz)',
