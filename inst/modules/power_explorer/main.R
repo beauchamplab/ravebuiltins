@@ -232,6 +232,6 @@ search()
 module = ravebuiltins:::get_module(module_id)
 result = module()
 
-result$heat_map_plot()
+result$over_time_plot()
 
 result$results$heat_map_data

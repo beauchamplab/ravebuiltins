@@ -8,7 +8,10 @@ view_layout <- function(module_id, sidebar_width = 5, launch.browser = rstudio_v
   })
   names(src) = NULL
   
-  exec = rlang::quo(rave_execute({eval(!!get_main_function(module_id))})) 
+  
+  pkg_name = get_package_name()
+  
+  exec = rlang::quo(rave_execute(!!get_main_function(module_id))) 
   
   funs = sapply(names(quos$output_functions), function(nm){
     f = quos$output_functions[[nm]]
@@ -29,7 +32,7 @@ view_layout <- function(module_id, sidebar_width = 5, launch.browser = rstudio_v
   tmpfile = tempfile(pattern = 'junk')
   writeLines(s, tmpfile)
   m = rave::ModuleEnvir$new(module_id = module_id, label_name = get_module_label(module_id),
-                            script_path = tmpfile)
+                            script_path = tmpfile, parent_env = loadNamespace(pkg_name))
   m$sidebar_width = sidebar_width
   init_app(m, launch.browser = launch.browser, disable_sidebar = T, simplify_header = T)
   

@@ -8,7 +8,8 @@ over_time_plot <- function(results) {
   })
 }
 
-# by trial plot with statistics
+#' by trial plot with statistics
+#' @export
 windowed_comparison_plot <- function(results){
   with(results, {
     
@@ -18,7 +19,8 @@ windowed_comparison_plot <- function(results){
   })
 }
 
-#basic time frequency plot
+#' basic time frequency plot
+#' @export
 heat_map_plot = function(results){
   with(results, {
     validate(need((exists('has_data') && (has_data)), "No Condition Specified"))
