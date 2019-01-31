@@ -188,14 +188,14 @@ define_output(
   definition = plotOutput('over_time_plot'),
   title = 'Collapse freq+trial',
   width = 8,
-  order = 3
+  order = 4
 )
 
 define_output(
   definition = plotOutput(outputId = 'windowed_comparison_plot'),
   title = 'Collapse time+freq',
   width = 4,
-  order = 4
+  order = 3
 )
 
 define_output(

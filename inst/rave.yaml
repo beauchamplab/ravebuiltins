@@ -13,6 +13,6 @@ dev_subject:
   load_brain: yes
   download_url: https://s3-us-west-2.amazonaws.com/rave-demo-subject/sfn-demo/data-large.zip
 modules:
-- module_id: beauchamplab_power_explorer
+- module_id: power_explorer
   module_label: Power Explorer
   config_name: module.yaml

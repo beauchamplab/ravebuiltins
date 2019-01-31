@@ -223,8 +223,8 @@ attr(scatter_bar_data, 'stats') <- result_for_suma
 require(ravebuiltins)
 module_id = 'power_explorer'
 
-env = dev_ravebuiltins()
-env$mount_demo_subject()
+dev_toolbox = dev_ravebuiltins()
+dev_toolbox$mount_demo_subject()
 
 attachDefaultDataRepository()
 search()
@@ -235,3 +235,9 @@ result = module()
 result$over_time_plot()
 
 result$results$heat_map_data
+
+view_layout(module_id, sidebar_width = 3, launch.browser = T)
+
+
+m = dev_toolbox$to_module(module_id)
+init_app(m)

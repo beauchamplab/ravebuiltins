@@ -1,4 +1,4 @@
-view_layout <- function(module_id, sidebar_width = 5, launch.browser = rstudio_viewer){ 
+to_module <- function(module_id, sidebar_width = 3){
   quos = parse_components(module_id)
   
   
@@ -34,6 +34,11 @@ view_layout <- function(module_id, sidebar_width = 5, launch.browser = rstudio_v
   m = rave::ModuleEnvir$new(module_id = module_id, label_name = get_module_label(module_id),
                             script_path = tmpfile, parent_env = loadNamespace(pkg_name))
   m$sidebar_width = sidebar_width
+  m
+}
+
+view_layout <- function(module_id, sidebar_width = 5, launch.browser = rstudio_viewer){ 
+  m = to_module(module_id = module_id, sidebar_width = sidebar_width)
   init_app(m, launch.browser = launch.browser, disable_sidebar = T, simplify_header = T)
   
 }
