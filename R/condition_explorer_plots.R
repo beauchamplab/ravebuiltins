@@ -139,7 +139,7 @@ time_series_plot <- function(plot_data, x, xlab='Time (s)', ylab='% Signal Chang
                         ' || Ns ' %&% paste0(ns, collapse=', ')
     }
 
-    plot.clean(x, ylim, xlab=xlab, ylab=ylab, main='')
+    plot_clean(x, ylim, xlab=xlab, ylab=ylab, main='')
     rave_main(title)
 
     # draw polys and labels for baseline and analysis ranges

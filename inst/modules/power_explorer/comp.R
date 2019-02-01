@@ -1,8 +1,12 @@
 # File defining module inputs, outputs
 
 # ----------------------------------- Debug ------------------------------------
+require(ravebuiltins)
+
+env = dev_ravebuiltins(T)
+
 ## Load subject for debugging
-mount_demo_subject()
+env$mount_demo_subject()
 
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
@@ -10,9 +14,7 @@ mount_demo_subject()
 
 #  ----------------------  Initializing Global variables -----------------------
 # load_scripts(
-#   'inst/modules/rave_calculators.R',
-#   'inst/modules/plot_helpers.R',
-#   'inst/modules/plot_funcs.R'
+#   'inst/modules/power_explorer/3d_viewer.R'
 # )
 
 define_initialization({
@@ -221,4 +223,4 @@ define_output(
 
 # -------------------------------- View layout ---------------------------------
 quos = parse_components(module_id = 'power_explorer')
-view_layout('power_explorer')
+env$view_layout('power_explorer')

@@ -45,6 +45,31 @@ get_path <- function(..., mustWork = F, is_directory = FALSE){
 
 # Reload current dev package
 reload_this_package <- function(){
-  devtools::reload(get_root_dir())
+  local = TRUE
+  if(is.function(get0('reload_this_package', envir = globalenv(), inherits = FALSE))){
+    local = FALSE
+  }
+  
+  # devtools::build(get_root_dir())
+  devtools::load_all(get_root_dir(), reset = TRUE, export_all = TRUE)
+  
+  
+  if(!local){
+    
+    
+    
+    .fs_dir = find_path('inst/tools')
+    if(.fs_dir != '' && dir.exists(.fs_dir)){
+      
+      cat2('Reloading rave devel tools.')
+      .fs = list.files(.fs_dir, pattern = '\\.R$', full.names = T)
+      for(.f in .fs){
+        source(.f, local = F) 
+      }
+    }
+    
+  }
+  
+  
 }
 

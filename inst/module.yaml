@@ -52,13 +52,13 @@ inputs:
     type: numericInput
     label: 'Number Input: '
 input_layouts:
-  Base Example Inputs:
+  Base Examples:
   - ELECTRODE
   - BASELINE_RANGE
   - BASELINE_TYPE
   Compound Example:
   - GROUP
-  '[#ccff99] Customized Example':
+  Customized Example:
   - input_customized
   '[#99ccff] More Examples':
   - - MORE_TEXT

@@ -77,3 +77,8 @@ ask_question <- function(title, message, ok = 'Yes', cancel = 'No',
 }
 
 `%?<-%` <- rave::`%?<-%`
+
+
+is_local_debug <- function(){
+  is.null(shiny::getDefaultReactiveDomain())
+}

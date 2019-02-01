@@ -50,6 +50,10 @@ get_module <- function(module_id, interactive = FALSE, check_dependencies = TRUE
     cat2('Error: No subject found! Please load one subject', level = 'ERROR')
   }
   
+  if(has_subject && !'rave_data' %in% search()){
+    rave::attachDefaultDataRepository()
+  }
+  
   param_env = env$init_module(module_id = module_id)
   
   runtime_env = new.env(parent = param_env)
