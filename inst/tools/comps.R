@@ -1,4 +1,4 @@
-get_content <- function(content, keyword = c('Start', 'End'), env = parent.frame(), evaluate = TRUE){
+.get_content_r = function(content, keyword = c('Start', 'End'), env = parent.frame(), evaluate = TRUE, chunks = FALSE){
   start_line = which(stringr::str_detect(content, paste0('^# >>>>>>>>>>>> ', keyword[1])))
   end_line = which(stringr::str_detect(content, paste0('^# <<<<<<<<<<<< ', keyword[2])))
   has_inputs = FALSE
@@ -13,13 +13,61 @@ get_content <- function(content, keyword = c('Start', 'End'), env = parent.frame
   if(!has_inputs){
     return(FALSE)
   }
-  text = paste(content[start_line:end_line], collapse = '\n')
+  content = content[start_line:end_line]
+  
+  # If sep exists, first one MUST be a regex pattern with "^.....$"
+  chunk_names = ''
+  auto = TRUE
+  if(chunks){
+    sep = '^#{6}( @[\\w=\\ ]+|)[\\ #]{0,}$'
+    sel = stringr::str_detect(content, sep)
+    
+    if(sum(sel)){
+      idx = which(sel)
+      if(!1 %in% idx){
+        idx = c(1, idx + 1)
+        content = c('###### @auto=TRUE', content)
+      }
+      chunk_names = stringr::str_match(content[idx], sep)[,2]
+      chunk_names = stringr::str_remove_all(chunk_names, '[\\ @]')
+      chunk_names = stringr::str_to_lower(chunk_names)
+      
+      # 1. auto = true or false
+      if('auto=false' %in% chunk_names){
+        auto = FALSE
+      }
+      
+      # 2. find async
+      chunk_names[!chunk_names %in% c('async')] = ''
+      fixes = chunk_names
+      fixes[-1] = '}; \n{'
+      fixes[1] = '{'
+      
+      content[idx] = fixes
+      content = c(content, '}')
+    }else{
+      content = c('{', content, '}')
+    }
+    
+  }
+  
+  text = paste(content, collapse = '\n')
   expr = parse(text = text)
   if(evaluate){
     eval(expr, envir = env)
     return(TRUE)
   }else{
+    
+    attr(expr, 'chunk_names') = chunk_names
+    attr(expr, 'auto') = auto
+    
     return(expr)
+  }
+}
+
+get_content <- function(content, env = parent.frame(), evaluate = TRUE, chunks = FALSE, type = 'R'){
+  if(type == 'R'){
+    .get_content_r(content = content, keyword = c('Start', 'End'), env = env, evaluate = evaluate, chunks = chunks)
   }
 }
 
@@ -27,6 +75,7 @@ get_comp_env <- function(module_id){
   path = get_path('inst', 'modules', module_id, 'comp.R')
   content = readLines(path)
   input_env = new.env(parent = emptyenv())
+  pkg_env = loadNamespace(get_package_name())
   define_input <- function(definition, init_args, init_expr){
     definition = substitute(definition)
     definition = match.call(definition = eval(definition[[1]]), definition)
@@ -58,12 +107,16 @@ get_comp_env <- function(module_id){
     definition = substitute(definition)
     definition = match.call(definition = eval(definition[[1]]), definition)
     outputId = definition[['outputId']]
-    if(!is.null(outputId)){
-      definition[['outputId']] = paste0('..', outputId)
-    }else{
-      outputId = definition[['inputId']]
-      definition[['inputId']] = paste0('..', outputId)
+    has_output_id = !is.null(outputId)
+    outputId %?<-% definition[['inputId']]
+    mod_id = outputId
+    # try to get function `outputId` from the package
+    has_function = exists(outputId, envir = pkg_env, inherits = FALSE) && is.function(pkg_env[[outputId]])
+    if(has_function){
+      mod_id = paste0('..', outputId)
     }
+    
+    definition[[ifelse(has_output_id, 'outputId', 'inputId')]] = mod_id
     
     # output width
     
@@ -91,10 +144,11 @@ get_comp_env <- function(module_id){
     init_env[['init']] = definition
   }
   scripts = new.env(parent = emptyenv())
-  load_scripts = function(...){
+  load_scripts = function(..., asis = FALSE){
     fs = unlist(list(...))
     fs = sapply(fs, get_path)
     scripts[['source']] = fs
+    scripts[['asis']] = asis
   }
   
   tmp_env = new.env()
@@ -175,7 +229,7 @@ parse_components <- function(module_id){
     rave_update_quo = rave_update_quo,
     rave_output_quo = rave_output_quo,
     output_functions = output_functions,
-    additional_scripts = envs$script_env$source,
+    script_env = envs$script_env,
     env = environment()
   ))
 }
@@ -258,21 +312,14 @@ init_module <- function(module_id){
 
 # Function to extract rave_execute
 get_main_function <- function(module_id){
+  # module_id = 'power_explorer'
   path = get_path('inst', 'modules', module_id, 'main.R')
   content = readLines(path)
   
-  expr = get_content(content = content, evaluate = F)
+  expr = get_content(content = content, evaluate = F, chunks = TRUE)
+  main_quos = rlang::quos(!!! as.list(expr))
   
-  main_quos = rlang::quo({
-    !!! as.list(expr)
-  })
+  names(main_quos) = attr(expr, 'chunk_names')
   main_quos
 }
-
-
-
-
-
-
-
 

@@ -23,40 +23,67 @@ package_installed <- function(...){
 }
 
 
-rstudio_viewer <- function(...){
-  rstudioapi::viewer(...)
+rstudio_viewer <- function(..., default = TRUE){
+  if(verify_rstudio_version()){
+    rstudioapi::viewer(...)
+  }else{
+    return(default)
+  }
 }
 
 #' Get project root dir
 get_root_dir <- function(){
-  d = rstudioapi::getActiveProject()
+  if(verify_rstudio_version()){
+    d = rstudioapi::getActiveProject()
+  }else{
+    d = NULL
+  }
+  
   if(length(d) == 1 && grepl(paste0('/', .packageName, '$'), d)){
     # package developer
     return(d)
   }else{
     # package user
-    return(system.file('/', package = .packageName))
+    return(system.file('', package = .packageName))
   }
 }
 
-verify_rstudio_version <- function(){
-  rstudioapi::verifyAvailable(version_needed = '1.2')
+verify_rstudio_version <- function(version_needed = '1.2'){
+  
+  if(!is.null(shiny::getDefaultReactiveDomain())){
+    return(FALSE)
+  }
+  
+  tryCatch({
+    rstudioapi::verifyAvailable(version_needed = version_needed)
+    TRUE
+  }, error = function(e){
+    FALSE
+  })
 }
 
 select_path <- function(is_directory = TRUE){
-  if(is_directory){
-    path = rstudioapi::selectDirectory()
+  if(verify_rstudio_version()){
+    if(is_directory){
+      path = rstudioapi::selectDirectory()
+    }else{
+      path = rstudioapi::selectFile()
+    }
+    warning("Please fix the path in your script!!!\n\t", path)
+    return(path)
   }else{
-    path = rstudioapi::selectFile()
+    stop("Cannot find file path. Please contact package owner to fix it.")
   }
-  path
 }
 
 #' Get yes or no answer
 ask_question <- function(title, message, ok = 'Yes', cancel = 'No', 
                          use_console = FALSE, level = 'WARNING'){
+  if(!verify_rstudio_version()){
+    use_console = TRUE
+  }
   if(use_console){
-    rutabaga::cat2(title, ' - ', message, ' [yes or no]?', level = level, sep = '')
+    cat2(title, ' - ', message, ' [yes or no]?', level = level, sep = '')
     v = readline(prompt = 'y or N: ')
     if(!v %in% c('y', 'N')){
       stop('Please enter "y" or "N", case sensitive.')

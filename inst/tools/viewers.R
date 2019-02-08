@@ -1,17 +1,53 @@
 to_module <- function(module_id, sidebar_width = 3){
   quos = parse_components(module_id)
   
+  tempdir = file.path(tempdir(), 'rave_modules', module_id)
+  dir.create(tempdir, showWarnings = F, recursive = T)
+  tmpfile = tempfile(pattern = module_id, tmpdir = tempdir)
   
-  src = sapply(quos$additional_scripts, function(f){
-    quo = rlang::quo(source(!!f, local = TRUE))
-    paste(deparse(rlang::quo_squash(quo)), collapse = '\n')
+  asis = quos$script_env$asis
+  asis %?<-% FALSE
+  
+  src = sapply(quos$script_env$source, function(f){
+    
+    if(f != '' && file.exists(f)){
+      
+      if(!asis){
+        # This file is valid R script, 
+        fname = unlist(stringr::str_split(stringr::str_trim(f), '/|\\\\'))
+        fname = tail(fname, 1)
+        
+        fpath = file.path(tempdir, fname)
+        file.copy(f, fpath, overwrite = TRUE)
+        
+        cat2("Copying ", f, ' >> ', fpath)
+        
+        # if the file ends with .R, source it
+        if(stringr::str_detect(fname, pattern = '\\.[Rr]$')){
+          quo = rlang::quo(source(!!fname, local = TRUE))
+          expr = paste(deparse(rlang::quo_squash(quo)), collapse = '\n')
+          return(expr)
+        }
+      }else{
+        if(stringr::str_detect(f, pattern = '\\.[Rr]$')){
+          quo = rlang::quo(source(!!f, local = TRUE))
+          expr = paste(deparse(rlang::quo_squash(quo)), collapse = '\n')
+          return(expr)
+        }
+      }
+      
+      
+    }else{
+      cat2("Cannot find path to ", f, level = 'ERROR')
+    }
+    return(NULL)
   })
   names(src) = NULL
   
   
   pkg_name = get_package_name()
   
-  exec = rlang::quo(rave_execute(!!get_main_function(module_id))) 
+  exec = rlang::quo(rave_execute(!!!get_main_function(module_id))) 
   
   funs = sapply(names(quos$output_functions), function(nm){
     f = quos$output_functions[[nm]]
@@ -29,7 +65,7 @@ to_module <- function(module_id, sidebar_width = 3){
     deparse(rlang::quo_squash(exec)),
     funs
   ))
-  tmpfile = tempfile(pattern = 'junk')
+  
   writeLines(s, tmpfile)
   m = rave::ModuleEnvir$new(module_id = module_id, label_name = get_module_label(module_id),
                             script_path = tmpfile, parent_env = loadNamespace(pkg_name))

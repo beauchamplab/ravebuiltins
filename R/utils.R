@@ -1,5 +1,23 @@
 # Function to load all dev funtions and wrap them within an environment
 
+cat2 <- function(..., end = '\n', level = 'DEBUG', print_level = FALSE, pal = list(
+  'DEBUG' = 'grey60',
+  'INFO' = '#1d9f34',
+  'WARNING' = '#ec942c',
+  'ERROR' = '#f02c2c',
+  'FATAL' = '#763053',
+  'DEFAULT' = '#000000'
+)){
+  if(system.file('', package = 'rutabaga') != ''){
+    f = do.call('::', list(pkg = 'rutabaga', name = 'cat2'))
+  }else{
+    f = function(..., end = end, level = level, print_level = print_level, pal = pal){
+      base::cat(...)
+    }
+  }
+  f(..., end = end, level = level, print_level = print_level, pal = pal)
+}
+
 rave_dev_load <- function(local = TRUE){
   # Get package name
   
@@ -31,6 +49,7 @@ dev_ravebuiltins <- function(expose_functions = FALSE){
     return(invisible(env))
   }else{
     load_dev_env()
+    return(invisible(globalenv()))
   }
 }
 
@@ -94,7 +113,7 @@ get_module <- function(module_id, interactive = FALSE, check_dependencies = TRUE
       ..f = get0(nm, envir = results, inherits = TRUE, ifnotfound = NULL)
       function(...){
         if(is.null(..f)){
-          rutabaga::cat2('Function ', nm, ' is not available.', level = 'ERROR')
+          cat2('Function ', nm, ' is not available.', level = 'ERROR')
           return(invisible())
         }else{
           return(..f(results, ...))

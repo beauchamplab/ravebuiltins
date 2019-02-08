@@ -1,8 +1,6 @@
 # Imports from other packages
 
 #' @importFrom rutabaga %&%
-#' @importFrom rutabaga is_within
-#' @importFrom rutabaga %within%
 #' @importFrom rutabaga clip_x
 #' @importFrom rutabaga do_if
 #' @importFrom rutabaga ebar_polygon
@@ -34,6 +32,14 @@
 #' @importFrom rlang quo
 #' 
 #' @importFrom methods is
+#' 
+#' @import shiny
+#' @import rave
+#' @import stringr
+#' @importFrom rlang quo
+#' @importFrom rlang quos
+#' @importFrom rlang quo_squash
+#' @import magrittr
 
 
 

@@ -40,36 +40,61 @@ get_path <- function(..., mustWork = F, is_directory = FALSE){
 }
 
 
+has_shiny <- function(){
+  !is.null(shiny::getDefaultReactiveDomain())
+}
 
 
 
 # Reload current dev package
-reload_this_package <- function(){
-  local = TRUE
-  if(is.function(get0('reload_this_package', envir = globalenv(), inherits = FALSE))){
-    local = FALSE
+reload_this_package <- function(expose, clear_env = FALSE){
+  if(missing(expose)){
+    local = TRUE
+    if(is.function(get0('reload_this_package', envir = globalenv(), inherits = FALSE))){
+      local = FALSE
+    }
+  }else{
+    local = !expose
+  }
+  
+  pkg_name = get_root_dir()
+  .fs_dir = get_path('inst/tools')
+  
+  if(clear_env){
+    rm(list = ls(all.names = T, envir = globalenv()), envir = globalenv())
   }
   
   # devtools::build(get_root_dir())
-  devtools::load_all(get_root_dir(), reset = TRUE, export_all = TRUE)
+  devtools::load_all(pkg_name, reset = TRUE, export_all = TRUE)
   
   
   if(!local){
-    
-    
-    
-    .fs_dir = find_path('inst/tools')
-    if(.fs_dir != '' && dir.exists(.fs_dir)){
-      
-      cat2('Reloading rave devel tools.')
-      .fs = list.files(.fs_dir, pattern = '\\.R$', full.names = T)
-      for(.f in .fs){
-        source(.f, local = F) 
-      }
-    }
-    
+    env = globalenv()
+  }else{
+    env = new.env(parent = globalenv())
   }
   
+  if(.fs_dir != '' && dir.exists(.fs_dir)){
+    
+    cat2('Reloading rave devel tools.')
+    .fs = list.files(.fs_dir, pattern = '\\.R$', full.names = T)
+    for(.f in .fs){
+      env$...tmp = .f
+      with(env, {
+        source(...tmp, local = T) 
+      })
+    }
+  }
+  invisible(env)
   
 }
 
+is_directory <- function(path){
+  if(!file.exists(path)){
+    return(NA)
+  }
+  
+  finfo = file.info(path)
+  
+  finfo[['isdir']]
+}

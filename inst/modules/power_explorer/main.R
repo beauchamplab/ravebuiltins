@@ -214,7 +214,8 @@ if(length(unique(flat_data$group)) > 1) {
 
 attr(scatter_bar_data, 'stats') <- result_for_suma
 
-
+###### @async
+print(Sys.getpid())
 
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------

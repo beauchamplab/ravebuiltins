@@ -1,4 +1,4 @@
-load_scripts <- function(...){
+load_scripts <- function(..., asis = FALSE){
   src = c(...)
   
   for(s in src){
@@ -29,11 +29,11 @@ define_input <- function(definition, init_args, init_expr){
   env_name = environmentName(environment(f))
   if(env_name == ''){env_name = '<No Name>'}
   
-  rutabaga::cat2('Input Definition - ', level = 'INFO')
-  rutabaga::cat2(' ', def_text, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
+  cat2('Input Definition - ', level = 'INFO')
+  cat2(' ', def_text, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
   
-  rutabaga::cat2('Package/Environment - \t', level = 'INFO', end = '')
-  rutabaga::cat2(env_name, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
+  cat2('Package/Environment - \t', level = 'INFO', end = '')
+  cat2(env_name, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
   
   val = comp$initial_value
   
@@ -42,7 +42,7 @@ define_input <- function(definition, init_args, init_expr){
   
   # Update info
   if(!missing(init_args)){
-    rutabaga::cat2('Updating Input Parameter(s) - ', level = 'INFO')
+    cat2('Updating Input Parameter(s) - ', level = 'INFO')
     
     env = new.env(parent = parent.frame())
     eval(init_expr, envir = env)
@@ -51,20 +51,22 @@ define_input <- function(definition, init_args, init_expr){
       v = paste(deparse(v), collapse = '\n  ')
       
       cat2(' ', arg, '- ', level = 'INFO', pal = list('INFO' = 'orangered'), end = '')
-      rutabaga::cat2(v, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
+      cat2(v, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
     }
     
     if('value' %in% init_args){
-      val = env[[arg]]
+      val = env[['value']]
+    }else if('selected' %in% init_args){
+      val = env[['selected']]
     }
     
   }
   
   v = paste(deparse(val), collapse = '\n  ')
   
-  rutabaga::cat2('Input Value - \t', level = 'INFO', end = '')
+  cat2('Input Value - \t', level = 'INFO', end = '')
   cat2(input_id, '= ', level = 'INFO', pal = list('INFO' = 'orangered'), end = '')
-  rutabaga::cat2(v, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
+  cat2(v, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
   
   assign(input_id, val, envir = parent.frame())
   invisible(val)
@@ -85,23 +87,23 @@ define_output <- function(definition, title, width, order){
   env_name = environmentName(environment(f))
   if(env_name == ''){env_name = '<No Name>'}
   
-  rutabaga::cat2('Title - \t\t', level = 'INFO', end = '')
-  rutabaga::cat2(title, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
+  cat2('Title - \t\t', level = 'INFO', end = '')
+  cat2(title, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
   
-  rutabaga::cat2('Definition - \t\t', level = 'INFO', end = '')
-  rutabaga::cat2(paste(deparse(comp$expr), collapse = '\n  '), level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
+  cat2('Definition - \t\t', level = 'INFO', end = '')
+  cat2(paste(deparse(comp$expr), collapse = '\n  '), level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
   
-  rutabaga::cat2('Package/Environment - \t', level = 'INFO', end = '')
-  rutabaga::cat2(env_name, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
+  cat2('Package/Environment - \t', level = 'INFO', end = '')
+  cat2(env_name, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
   
-  rutabaga::cat2('Width - \t\t', level = 'INFO', end = '')
-  rutabaga::cat2(sprintf('%d (%.1f%% of output panel width)', width, width/12*100), level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
+  cat2('Width - \t\t', level = 'INFO', end = '')
+  cat2(sprintf('%d (%.1f%% of output panel width)', width, width/12*100), level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
   
-  rutabaga::cat2('Order - \t\t', level = 'INFO', end = '')
-  rutabaga::cat2(order, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
+  cat2('Order - \t\t', level = 'INFO', end = '')
+  cat2(order, level = 'INFO', pal = list('INFO' = 'dodgerblue3'))
   
   # try to locate function
-
+  
   output_id = comp$outputId
   
   pname = get_package_name()
@@ -111,21 +113,21 @@ define_output <- function(definition, title, width, order){
   
   if(is.function(f)){
     if(length(formals(f))){
-      rutabaga::cat2('Output function `', output_id, '` found in package ', pname, '.', level = 'INFO', sep = '')
+      cat2('Output function `', output_id, '` found in package ', pname, '.', level = 'INFO', sep = '')
     }else{
-      rutabaga::cat2('Output function `', output_id, '` MUST take in at least one argument(s)!', level = 'ERROR', sep = '')
+      cat2('Output function `', output_id, '` MUST take in at least one argument(s)!', level = 'ERROR', sep = '')
     }
   }else{
     fn_found = FALSE
     if(stringr::str_detect(deparse(definition[[1]]), '(customizedUI)|(uiOutput)|(htmlOutput)')){
       f = get0(output_id, envir = globalenv(), ifnotfound = NULL, inherits = FALSE)
       if(is.function(f) && length(formals(f))){
-        rutabaga::cat2('Output function `', output_id, '` found in global environment. (Shiny-RAVE Customized UI)', level = 'INFO', sep = '')
+        cat2('Output function `', output_id, '` found in global environment. (Shiny-RAVE Customized UI)', level = 'INFO', sep = '')
         fn_found = TRUE
       }
     }
     if(!fn_found){
-      rutabaga::cat2('Cannot find output function `', output_id, '` in package ', pname, '!', level = 'ERROR', sep = '')
+      cat2('Cannot find output function `', output_id, '` in package ', pname, '!', level = 'ERROR', sep = '')
     }
   }
   

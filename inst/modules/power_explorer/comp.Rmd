@@ -1,17 +1,45 @@
-# File defining module inputs, outputs
+---
+title: "Module Input Output"
+author: "Zhengjia Wang"
+date: "2/7/2019"
+output: html_document
+runtime: shiny
+---
 
-# ----------------------------------- Debug ------------------------------------
-require(ravebuiltins)
+<style>
+.shiny-frame{
+  min-width: 100vw;
+  height: 80vh;
+  position: relative;
+  transform: translateX(-50%);
+  left: 50%;
+  margin-right: -99vw
+}
+</style>
 
-env = dev_ravebuiltins(F)
+```{r setup, include=FALSE, message=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
+
+```{r debug, message=FALSE, echo=FALSE, warning=FALSE}
+junk = capture.output({..env = ravebuiltins::dev_ravebuiltins()})
+..env$cat2 = function(...){}
 ## Load subject for debugging
-env$mount_demo_subject()
+# ..env$mount_demo_subject()
+..env$view_layout('power_explorer')
+```
 
 
-# >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
+This R Markdown document is made interactive using Shiny. Unlike the more traditional workflow of creating static reports, you can now create documents that allow your readers to change the assumptions underlying your analysis and see the results immediately. 
 
+To learn more, see [Interactive Documents](http://rmarkdown.rstudio.com/authoring_shiny.html).
 
+## Inputs and Outputs
+
+You can embed Shiny inputs and outputs in your document. Outputs are automatically updated whenever inputs change.  This demonstrates how a standard R plot can be made interactive by wrapping it in the Shiny `renderPlot` function. The `selectInput` and `sliderInput` functions create the input widgets used to drive the plot.
+
+```{r module_inputs, eval=FALSE}
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
   'inst/modules/power_explorer/3d_viewer.R'
@@ -169,8 +197,9 @@ input_layout = list(
   )
 )
 
-# End of input
-# ----------------------------------  Outputs ----------------------------------
+```
+
+```{r module outputs, eval=FALSE}
 # Define Outputs
 define_output(
   definition = plotOutput(outputId = 'heat_map_plot'),
@@ -214,16 +243,18 @@ define_output(
 #   # )
 #   'Multiple Output' = 'heat_map_plot'
 # )
-# <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
+```
+
+## Embedded Application
+
+It's also possible to embed an entire Shiny application within an R Markdown document using the `shinyAppDir` function. This example embeds a Shiny application located in another directory:
+
+
+Note the use of the `height` parameter to determine how much vertical space the embedded application should occupy.
+
+You can also use the `shinyApp` function to define an application inline rather then in an external directory.
+
+In all of R code chunks above the `echo = FALSE` attribute is used. This is to prevent the R code within the chunk from rendering in the document alongside the Shiny components.
 
 
 
-
-
-
-# -------------------------------- View layout ---------------------------------
-quos = env$parse_components(module_id = 'power_explorer')
-env$view_layout('power_explorer')
-
-
-m = env$to_module(module_id = 'power_explorer')
