@@ -1,14 +1,19 @@
-#' time series plot
+# rutabaga::pretty_package_docs()
+
+
+#' @title Time Series Plot
 #' @export
 over_time_plot <- function(results) {
   with(results, {
     validate(need((exists('has_data') && (has_data)), "No Condition Specified"))
     
-    time_series_plot(line_plot_data)
+    time_series_plot(line_plot_data, x=time_points, frequencies=FREQUENCY,
+                     SHADER=window_highlighter(windows=list(BASELINE, TIME_RANGE), window_names = c('baseline', 'analysis'))
+    )
   })
 }
 
-#' by trial plot with statistics
+#' @title By Trial Plot With Statistics
 #' @export
 windowed_comparison_plot <- function(results){
   with(results, {
@@ -19,9 +24,19 @@ windowed_comparison_plot <- function(results){
   })
 }
 
-#' basic time frequency plot
+#' @title Basic Time Frequency Plot
+#' 
+#' @param results result environment from ???
+#' 
+#' @examples 
+#' \dontrun{
+#' rave_prepare(...)
+#' fn = ravebuiltins:::get_module('power_explorer')
+#' res = fn()
+#' heat_map_plot(res$result)
+#' }
 #' @export
-heat_map_plot = function(results){
+heat_map_plot = function(results, ...){
   with(results, {
     validate(need((exists('has_data') && (has_data)), "No Condition Specified"))
     
@@ -29,7 +44,9 @@ heat_map_plot = function(results){
     # and take care of drawing a color bar for us
     draw_many_heat_maps(hmaps = heat_map_data, x = preload_info$time_points, 
                         y = preload_info$frequencies, log_scale = log_scale,
-                        TIME_RANGE = TIME_RANGE, BASELINE = BASELINE, FREQUENCY = FREQUENCY, max_zlim = max_zlim)
+                        max_zlim = max_zlim,
+                        HM_DECORATOR=tf_hm_decorator(TIME_RANGE = TIME_RANGE, FREQUENCY = FREQUENCY, BASELINE = BASELINE)
+    )
   })
 }
 

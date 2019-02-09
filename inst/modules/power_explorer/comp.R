@@ -13,9 +13,10 @@ env$mount_demo_subject()
 
 
 #  ----------------------  Initializing Global variables -----------------------
-load_scripts(
-  'inst/modules/power_explorer/3d_viewer.R'
-)
+# TODO get_module doesn't handle this well
+# load_scripts(
+#   'inst/modules/power_explorer/3d_viewer.R'
+# )
 
 define_initialization({
   ##

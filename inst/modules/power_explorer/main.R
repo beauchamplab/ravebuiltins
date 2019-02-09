@@ -224,7 +224,7 @@ print(Sys.getpid())
 require(ravebuiltins)
 module_id = 'power_explorer'
 
-dev_toolbox = dev_ravebuiltins()
+dev_toolbox = dev_ravebuiltins(T)
 dev_toolbox$mount_demo_subject()
 
 attachDefaultDataRepository()
@@ -237,7 +237,7 @@ result$over_time_plot()
 
 result$results$heat_map_data
 
-view_layout(module_id, sidebar_width = 3, launch.browser = T)
+view_layout('power_explorer', sidebar_width = 3, launch.browser = T)
 
 
 m = dev_toolbox$to_module(module_id)

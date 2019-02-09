@@ -1,47 +1,17 @@
 # Imports from other packages
 
-#' @importFrom rutabaga %&%
-#' @importFrom rutabaga clip_x
-#' @importFrom rutabaga do_if
-#' @importFrom rutabaga ebar_polygon
-#' @importFrom rutabaga ebars
-#' @importFrom rutabaga format_f
-#' @importFrom rutabaga format_stat
-#' @importFrom rutabaga get_data_range
-#' @importFrom rutabaga get_f
-#' @importFrom rutabaga get_list_elements
-#' @importFrom rutabaga get_t
-#' @importFrom rutabaga getAlphaRGB
-#' @importFrom rutabaga jitr
-#' @importFrom rutabaga m_sd
-#' @importFrom rutabaga m_se
-#' @importFrom rutabaga not_NA
-#' @importFrom rutabaga not_null
-#' @importFrom rutabaga pm
-#' @importFrom rutabaga rave_barplot
-#' @importFrom rutabaga round_range
-#' @importFrom rutabaga stretch
-#' @importFrom rutabaga trim
-#' @importFrom rutabaga trimmed.mean
-#' @importFrom rutabaga trimmed.mse
-#' @importFrom rutabaga ruta_axis
-#' @importFrom rutabaga plot_clean
-#' 
+#' @import rutabaga
 #' @importFrom rave %?<-%
 #' 
-#' @importFrom rlang quo
+#' @import rlang 
 #' 
 #' @importFrom methods is
-#' 
-#' @import shiny
-#' @import rave
-#' @import stringr
-#' @importFrom rlang quo
-#' @importFrom rlang quos
-#' @importFrom rlang quo_squash
-#' @import magrittr
 
 
+cat2 <- function(..., pal = list(DEBUG = "grey60", INFO = "#1d9f34", WARNING = "#ec942c", 
+                                 ERROR = "#f02c2c", FATAL = "#763053", DEFAULT = "#000000")){
+  rutabaga::cat2(..., pal = pal)
+}
 
 rave_cex.main <- 1.5
 rave_cex.axis <- 1.3

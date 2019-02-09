@@ -204,8 +204,7 @@ parse_components <- function(module_id){
     # generate temp functions
     output_functions = lapply(comps, function(comp){
       rlang::quo(function(...){
-        result = environment()
-        do.call(!!comp$outputId, c(list(result), list(...)))
+        do.call(!!comp$outputId, c(list(environment()), list(...)))
       })
     })
     

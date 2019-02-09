@@ -26,46 +26,56 @@ fix_pdf_name <- function(fname) {
 # is the data and the decoration. Use the core heatmap function
 # to enforce consistent look/feel
 # expects by_trial_heat_map_data to exist
-by_trial_heat_map <- function(result) {
-    with(result, {
-        
-        validate(need((exists('has_data') && (has_data)), "No Condition Specified"))
+by_trial_heat_map <- function(results) {
+    validate(need((exists('has_data', envir = results, inherits = FALSE) && (results$has_data)), "No Condition Specified"))
+    # if the user wants the data to be sorted by trial type (rather than trial number) then we
+    # # need to sort the data
     
-        # if the user wants the data to be sorted by trial type (rather than trial number) then we
-        # # need to sort the data
+    decorator <- trial_hm_decorator(baseline=results$BASELINE)
     
-        decorator <- trial_hm_decorator
-        # do we need to sort the trials into trial type ordering? (instead of just ascending by trial #)
-        if(exists('sort_trials_by_type')) {
-            if(isTRUE(sort_trials_by_type)) {
-                for(ii in which(has_trials)) {
-                    by_trial_heat_map_data[[ii]] %<>% reorder_trials_by_type
-                }
-                # change the y axis and draw label boundaries
-                decorator <- add_decorator(trial_type_boundaries_hm_decorator,
-                                           function(map,x,y,...) trial_hm_decorator(map,x,y,yax=FALSE))
-            }
-        }
+    # do we need to sort the trials into trial type ordering? (instead of just ascending by trial #)
     
-        # the y variable is changing each time,
-        # so we provide a function that will be used to calculate the
-        # y variable on a per map basis
-        draw_many_heat_maps(by_trial_heat_map_data, y=function(m) seq_len(dim(m)[2L]),
-                            ylab='Trials', HM_DECORATOR=decorator, allow_log_scale=FALSE)
-    })
-
+    # if(exists('sort_trials_by_type', envir = results) && isTRUE(results$sort_trials_by_type)) {
+    #     for(ii in which(results$has_trials)) {
+    #         (results$by_trial_heat_map_data[[ii]]) %<>% reorder_trials_by_type
+    #     }
+    #     # change the y axis and draw label boundaries
+    #     decorator <- add_decorator(trial_type_boundaries_hm_decorator,
+    #                                function(map,x,y,...) trial_hm_decorator(map,x,y,yax=FALSE, baseline=BASELINE))
+    # }
+    
+    # the y variable is changing each time,
+    # so we provide a function that will be used to calculate the
+    # y variable on a per map basis
+    
+    time_points = get('time_points', envir = results)
+    by_trial_heat_map_data = get('by_trial_heat_map_data', envir = results)
+    
+    draw_many_heat_maps(by_trial_heat_map_data, 
+                        x = time_points, y=function(m) seq_len(dim(m)[2L]),
+                        ylab='Trials', HM_DECORATOR=decorator, allow_log_scale=FALSE)
 }
 
-window_highlighter <- function(ylim, draw_labels=TRUE) {
-    mapply(function(x, y, txt) {
-        clr <- rave_colors[[toupper(txt %&% '_window')]]
-        do_poly(x, range(y), col=clr)
-        if(draw_labels)
-            text(min(x), max(y), txt, col=clr, adj=c(0,1))
-    },
-    list(BASELINE, TIME_RANGE), list(ylim, ylim), c('baseline', 'analysis')
-    )
-    abline(h=0, col='gray70')
+window_highlighter <- function(ylim, draw_labels=TRUE, windows, window_names) {
+    
+    do_wh <- function(ylim, draw_labels) {
+        mapply(function(x, y, txt) {
+            clr <- rave_colors[[toupper(txt %&% '_window')]]
+            clr %?<-% 'gray50'
+            
+            do_poly(x, range(y), col=clr)
+            if(draw_labels)
+                text(min(x), max(y), txt, col=clr, adj=c(0,1))
+        },
+        windows, list(ylim, ylim), window_names)
+        abline(h=0, col='gray70')
+    }
+    
+    if(missing(ylim)) {
+        return(do_wh)
+    }
+
+    do_wh(ylim, draw_labels)    
 }
 
 # helper function for drawing vertical borders
@@ -123,11 +133,10 @@ ts_labels_only <- function(plot_data) {
 }
 
 # show power over time with MSE by condition
-time_series_plot <- function(plot_data, x, xlab='Time (s)', ylab='% Signal Change', DECORATOR=ts_labels_only, SHADER=window_highlighter,
-                             title, draw_labels=TRUE) {
+time_series_plot <- function(plot_data, x, xlab='Time (s)', ylab='% Signal Change', DECORATOR=ts_labels_only, SHADER,
+                             title, frequencies=NA, draw_labels=TRUE) {
     # validate(need((exists('has_data') && (has_data)), "No Condition Specified"))
-
-    if(missing(x)) x <- time_points
+    # if(missing(x)) x <- time_points
 
     ylim <- pretty(get_data_range(plot_data), min.n=2, n=4)
 
@@ -135,7 +144,7 @@ time_series_plot <- function(plot_data, x, xlab='Time (s)', ylab='% Signal Chang
 
     if(missing(title)) {
         ns <- unlist(lapply(plot_data, getElement, 'N'))
-        title <- 'Freq ' %&% paste0(round(FREQUENCY), collapse=':') %&%
+        title <- 'Freq ' %&% paste0(round(frequencies), collapse=':') %&%
                         ' || Ns ' %&% paste0(ns, collapse=', ')
     }
 
@@ -168,8 +177,8 @@ time_series_plot <- function(plot_data, x, xlab='Time (s)', ylab='% Signal Chang
 
 
 heat_map_axes <- function(x, y, xax=TRUE, yax=TRUE, yntick=6) {
-    if(missing(x)) x <- time_points
-    if(missing(y)) y <- frequencies
+    # if(missing(x)) x <- time_points
+    # if(missing(y)) y <- frequencies
 
     if(xax) rave_axis(1, at=pretty(x), tcl=0, lwd=0)
     if(yax) rave_axis(2, at=quantile(y, 0:(yntick-1)/(yntick-1)) %>% round, tcl=0, lwd=0)
@@ -177,30 +186,51 @@ heat_map_axes <- function(x, y, xax=TRUE, yax=TRUE, yntick=6) {
 
 
 #this function is relying on the environment-wide variable BASELINE
-trial_hm_decorator <- function(hmap, x, y, xax=TRUE, yax=TRUE, ...) {
-    abline(v=BASELINE, lty=3, lwd=2)
-
-    heat_map_axes(x,y, xax=xax, yax=yax)
+trial_hm_decorator <- function(hmap, baseline, x, y, xax=TRUE, yax=TRUE, ...) {
+    
+    do_thmd <- function(hmap, x, y, ...) {
+        list2env(list(...), environment())
+        abline(v=baseline, lty=3, lwd=2)
+        heat_map_axes(x,y, xax=xax, yax=yax)
+    }
+    
+    if(any(c(missing(hmap), missing(x), missing(y)))) {
+        return (do_thmd)
+    }
+    
+    do_thmd(hmap, x, y, ...)
 }
 
 # decorate a heatmap
 tf_hm_decorator <- function(hmap, x, y, ..., label.col='black', draw_time_baseline=TRUE, xax=TRUE, yax=TRUE,
                             TIME_RANGE = NULL, FREQUENCY = NULL, BASELINE = NULL) {
-    heat_map_axes(x,y, xax=xax, yax=yax)
-
-    if(draw_time_baseline) {
-        # These variables are in ...
-        xy <- cbind(TIME_RANGE, FREQUENCY)
-
-        polygon(c(xy[,1], rev(xy[,1])) , rep(xy[,2], each=2), lty=2, lwd=3, border=label.col, ...)
-
-        #draw baseline region
-        abline(v=BASELINE, lty=3, lwd=2, col=label.col)
-
-        # label baseline region
-        text(median(BASELINE), quantile(y, .7), 'baseline', col=label.col, cex=rave_cex.lab, pos=3)
-        arrows(BASELINE[1], quantile(y, .7), BASELINE[2], col=label.col, length=.1, code=3)
+    
+    do_tfhmd <- function(hmap, x, y, ...) {
+        list2env(list(...), environment())
+        
+        heat_map_axes(x,y, xax=xax, yax=yax)
+        
+        if(draw_time_baseline) {
+            # These variables are in ...
+            xy <- cbind(TIME_RANGE, FREQUENCY)
+            
+            #TODO refactor with rutabaga::do_poly
+            polygon(c(xy[,1], rev(xy[,1])) , rep(xy[,2], each=2), lty=2, lwd=3, border=label.col)
+            
+            #draw baseline region
+            abline(v=BASELINE, lty=3, lwd=2, col=label.col)
+            
+            # label baseline region
+            text(median(BASELINE), quantile(y, .7), 'baseline', col=label.col, cex=rave_cex.lab, pos=3)
+            arrows(BASELINE[1], quantile(y, .7), BASELINE[2], col=label.col, length=.1, code=3)
+        }
     }
+    
+    if(any(c(missing(hmap), missing(x), missing(y)))) {
+        return (do_tfhmd)
+    }
+    
+    do_tfhmd(hmap=hmap, x=x,y=y)
 }
 
 #

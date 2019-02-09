@@ -42,6 +42,10 @@ rave_dev_load <- function(local = TRUE){
 
 #' @export
 dev_ravebuiltins <- function(expose_functions = FALSE){
+  # Reload first 
+  env = rave_dev_load(local = T)
+  env$reload_this_package(expose = FALSE, clear_env = FALSE)
+  
   env = rave_dev_load(local = !expose_functions)
   
   if(is.environment(env)){
@@ -106,7 +110,7 @@ get_module <- function(module_id, interactive = FALSE, check_dependencies = TRUE
   
   environment(FUN) = runtime_env
   body(FUN) = rlang::quo_squash(rlang::quo({
-    !!main_quos
+    !!!main_quos
     
     results = environment()
     ..re = sapply(!!outputIds, function(nm){

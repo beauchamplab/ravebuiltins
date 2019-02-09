@@ -3,8 +3,8 @@
 #' @description Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar. By default it is setup for time/freq, but by swapping labels and decorators you can do anything
 draw_many_heat_maps <- function(
     hmaps, x, y, xlab='Time', ylab='Frequency',
-    log_scale=FALSE, show_color_bar=TRUE, HM_DECORATOR=tf_hm_decorator,
-    max_zlim = 0, TIME_RANGE = NULL, FREQUENCY = NULL, BASELINE = NULL, ...
+    log_scale=FALSE, show_color_bar=TRUE, HM_DECORATOR,
+    max_zlim = 0, ...
 ) {
     k <- hmaps %>% get_list_elements('has_trials') %>% sum
 
@@ -58,7 +58,7 @@ draw_many_heat_maps <- function(
                      zlim = c(-max_zlim, max_zlim),
                      main = map$name, log=log_scale)#, ...)
 
-            HM_DECORATOR(map, x=x, y=.y, TIME_RANGE = TIME_RANGE, FREQUENCY = TIME_RANGE, BASELINE = TIME_RANGE)
+            HM_DECORATOR(map, x=x, y=.y)
         }
     })
 
@@ -71,7 +71,7 @@ draw_many_heat_maps <- function(
 
 
 #' @author John Magnotti
-#' We are just plotting image(zmat) rather than t(zmat) as you might expect. the rave_calculators know this so we can
+#' @title We Are Just Plotting Image(Zmat) Rather Than T(Zmat) As You Might Expect. The Rave_calculators Know This So We Can
 #' save a few transposes along the way
 #' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators
 draw_img <- function(zmat, x, y, xlab='Time (s)', ylab='Frequency (Hz)',
