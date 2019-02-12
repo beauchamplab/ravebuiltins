@@ -204,7 +204,24 @@ parse_components <- function(module_id){
     # generate temp functions
     output_functions = lapply(comps, function(comp){
       rlang::quo(function(...){
-        do.call(!!comp$outputId, c(list(environment()), list(...)))
+        ._current_env = environment()
+        ._env = new.env()
+        ._env$get_value = function(key, ifNotFound = NULL){
+          get0(key, envir = ._current_env, ifnotfound = ifNotFound)
+        }
+        
+        ._env$async_value = function(key){
+          ..param_env = get0('..param_env', envir = ._current_env)
+          if(is.environment(..param_env)){
+            async_var = get0('async_var', envir = ..param_env)
+            if(is.function(async_var)){
+              return(async_var(key))
+            }
+          }
+          
+          return(NULL)
+        }
+        do.call(!!comp$outputId, c(list(._env), list(...)))
       })
     })
     

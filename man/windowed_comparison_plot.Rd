@@ -2,10 +2,10 @@
 % Please edit documentation in R/plots.R
 \name{windowed_comparison_plot}
 \alias{windowed_comparison_plot}
-\title{by trial plot with statistics}
+\title{By Trial Plot With Statistics}
 \usage{
 windowed_comparison_plot(results)
 }
 \description{
-by trial plot with statistics
+By Trial Plot With Statistics
 }

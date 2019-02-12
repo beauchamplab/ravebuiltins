@@ -2,10 +2,10 @@
 % Please edit documentation in R/plots.R
 \name{over_time_plot}
 \alias{over_time_plot}
-\title{time series plot}
+\title{Time Series Plot}
 \usage{
 over_time_plot(results)
 }
 \description{
-time series plot
+Time Series Plot
 }

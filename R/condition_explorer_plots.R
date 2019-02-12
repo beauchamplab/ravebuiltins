@@ -27,11 +27,16 @@ fix_pdf_name <- function(fname) {
 # to enforce consistent look/feel
 # expects by_trial_heat_map_data to exist
 by_trial_heat_map <- function(results) {
-    validate(need((exists('has_data', envir = results, inherits = FALSE) && (results$has_data)), "No Condition Specified"))
+    has_data = results$get_value('has_data', ifNotFound = FALSE)
+    BASELINE = results$get_value('BASELINE')
+    time_points = results$get_value('time_points')
+    by_trial_heat_map_data = results$get_value('by_trial_heat_map_data')
+    
+    validate(need(has_data, message = "No Condition Specified"))
     # if the user wants the data to be sorted by trial type (rather than trial number) then we
     # # need to sort the data
     
-    decorator <- trial_hm_decorator(baseline=results$BASELINE)
+    decorator <- trial_hm_decorator(baseline=BASELINE)
     
     # do we need to sort the trials into trial type ordering? (instead of just ascending by trial #)
     
@@ -48,12 +53,18 @@ by_trial_heat_map <- function(results) {
     # so we provide a function that will be used to calculate the
     # y variable on a per map basis
     
-    time_points = get('time_points', envir = results)
-    by_trial_heat_map_data = get('by_trial_heat_map_data', envir = results)
     
-    draw_many_heat_maps(by_trial_heat_map_data, 
-                        x = time_points, y=function(m) seq_len(dim(m)[2L]),
-                        ylab='Trials', HM_DECORATOR=decorator, allow_log_scale=FALSE)
+    
+    
+    draw_many_heat_maps(
+        by_trial_heat_map_data,
+        x = time_points,
+        y = function(m)
+            seq_len(dim(m)[2L]),
+        ylab = 'Trials',
+        HM_DECORATOR = decorator,
+        allow_log_scale = FALSE
+    )
 }
 
 window_highlighter <- function(ylim, draw_labels=TRUE, windows, window_names) {

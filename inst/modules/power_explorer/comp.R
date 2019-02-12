@@ -3,12 +3,12 @@
 # ----------------------------------- Debug ------------------------------------
 require(ravebuiltins)
 
-env = dev_ravebuiltins(F)
+env = dev_ravebuiltins(T)
 
 ## Load subject for debugging
 env$mount_demo_subject()
 
-
+env$view_layout('power_explorer')
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
 

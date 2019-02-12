@@ -230,13 +230,18 @@ dev_toolbox$mount_demo_subject()
 attachDefaultDataRepository()
 search()
 
-module = ravebuiltins:::get_module(module_id)
+module = ravebuiltins:::get_module('power_explorer')
 result = module()
 
-result$over_time_plot()
+result$by_trial_heat_map()
+result$heat_map_plot()
+by_trial_heat_map
 
 result$results$heat_map_data
 
+
+reload_this_package(clear_env = T)
+dev_toolbox = dev_ravebuiltins(F)
 view_layout('power_explorer', sidebar_width = 3, launch.browser = T)
 
 

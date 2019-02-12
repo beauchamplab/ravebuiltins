@@ -76,7 +76,7 @@ reload_this_package <- function(expose, clear_env = FALSE){
   
   if(.fs_dir != '' && dir.exists(.fs_dir)){
     
-    cat2('Reloading rave devel tools.')
+    cat2('Reloading rave devel tools and package', pkg_name)
     .fs = list.files(.fs_dir, pattern = '\\.R$', full.names = T)
     for(.f in .fs){
       env$...tmp = .f

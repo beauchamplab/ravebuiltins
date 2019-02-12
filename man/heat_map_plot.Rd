@@ -2,10 +2,21 @@
 % Please edit documentation in R/plots.R
 \name{heat_map_plot}
 \alias{heat_map_plot}
-\title{basic time frequency plot}
+\title{Basic Time Frequency Plot}
 \usage{
-heat_map_plot(results)
+heat_map_plot(results, ...)
+}
+\arguments{
+\item{results}{result environment from ???}
 }
 \description{
-basic time frequency plot
+Basic Time Frequency Plot
+}
+\examples{
+\dontrun{
+rave_prepare(...)
+fn = ravebuiltins:::get_module('power_explorer')
+res = fn()
+heat_map_plot(res$result)
+}
 }
