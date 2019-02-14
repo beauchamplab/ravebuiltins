@@ -1,12 +1,13 @@
 # Imports from other packages
 
-#' @import rutabaga
-#' @importFrom rave %?<-%
-#' 
-#' @import rlang 
-#' 
 #' @importFrom methods is
-
+#' @import rutabaga
+#' @import rlang 
+#' @import shiny
+#' @import rave
+#' @importFrom magrittr %<>%
+#' @importFrom magrittr %>% 
+#' @importFrom magrittr extract
 
 cat2 <- function(..., pal = list(DEBUG = "grey60", INFO = "#1d9f34", WARNING = "#ec942c", 
                                  ERROR = "#f02c2c", FATAL = "#763053", DEFAULT = "#000000")){

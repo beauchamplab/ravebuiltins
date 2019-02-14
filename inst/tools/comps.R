@@ -4,7 +4,7 @@
   has_inputs = FALSE
   if(length(start_line)){
     start_line = start_line[1]
-    end_line = end_line[end_line >= start_line]
+    end_line = end_line[end_line > start_line]
     if(length(end_line)){
       end_line = end_line[1]
       has_inputs = TRUE
@@ -13,32 +13,54 @@
   if(!has_inputs){
     return(FALSE)
   }
-  content = content[start_line:end_line]
-  
+  content = content[(start_line+1):end_line]
+  content = stringr::str_trim(content)
+  content = content[content!='']
   # If sep exists, first one MUST be a regex pattern with "^.....$"
   chunk_names = ''
   auto = TRUE
+  async_vars = NULL
   if(chunks){
-    sep = '^#{6}( @[\\w=\\ ]+|)[\\ #]{0,}$'
+    sep = '^#{6}\'( @[^#]+|)[\\ #]{0,}$'
     sel = stringr::str_detect(content, sep)
     
     if(sum(sel)){
       idx = which(sel)
       if(!1 %in% idx){
         idx = c(1, idx + 1)
-        content = c('###### @auto=TRUE', content)
+        content = c('######\' @auto=TRUE', content)
       }
       chunk_names = stringr::str_match(content[idx], sep)[,2]
       chunk_names = stringr::str_remove_all(chunk_names, '[\\ @]')
-      chunk_names = stringr::str_to_lower(chunk_names)
       
       # 1. auto = true or false
-      if('auto=false' %in% chunk_names){
-        auto = FALSE
+      auto_chunk = stringr::str_detect(chunk_names, '^auto=')
+      if(any(auto_chunk)){
+        auto_chunk = stringr::str_to_lower(chunk_names[auto_chunk][1])
+        if(stringr::str_detect(auto_chunk, '=false')){
+          auto = FALSE
+        }
       }
       
       # 2. find async
-      chunk_names[!chunk_names %in% c('async')] = ''
+      async_chunk = stringr::str_detect(chunk_names, '^async(,|$)')
+      if(any(async_chunk)){
+        async_idx = which(async_chunk)
+        async_idx = tail(async_idx, 1)
+        chunk_names[-async_idx] = ''
+        
+        async_chunk = chunk_names[async_idx]
+        # try to obtain async_vars
+        async_vars = stringr::str_match(async_chunk, 'async_vars=(.*)')[,2]
+        if(is.na(async_vars)){
+          async_vars = NULL
+        }else{
+          async_vars = unlist(stringr::str_split(async_vars, ','))
+        }
+        chunk_names[async_idx] = 'async'
+      }else{
+        chunk_names[] = ''
+      }
       fixes = chunk_names
       fixes[-1] = '}; \n{'
       fixes[1] = '{'
@@ -60,6 +82,7 @@
     
     attr(expr, 'chunk_names') = chunk_names
     attr(expr, 'auto') = auto
+    attr(expr, 'async_vars') = async_vars
     
     return(expr)
   }
@@ -78,7 +101,7 @@ get_comp_env <- function(module_id){
   pkg_env = loadNamespace(get_package_name())
   define_input <- function(definition, init_args, init_expr){
     definition = substitute(definition)
-    definition = match.call(definition = eval(definition[[1]]), definition)
+    definition = match.call(definition = eval(definition[[1]], envir = pkg_env), definition)
     inputId = definition[['inputId']]
     re = list(
       inputId = inputId,
@@ -105,7 +128,7 @@ get_comp_env <- function(module_id){
   output_env = new.env(parent = emptyenv())
   define_output <- function(definition, title = '', width = 12L, order = Inf){
     definition = substitute(definition)
-    definition = match.call(definition = eval(definition[[1]]), definition)
+    definition = match.call(definition = eval(definition[[1]], envir = pkg_env), definition)
     outputId = definition[['outputId']]
     has_output_id = !is.null(outputId)
     outputId %?<-% definition[['inputId']]
@@ -336,6 +359,9 @@ get_main_function <- function(module_id){
   main_quos = rlang::quos(!!! as.list(expr))
   
   names(main_quos) = attr(expr, 'chunk_names')
+  
+  main_quos$async_vars = attr(expr, 'async_vars')
+  
   main_quos
 }
 

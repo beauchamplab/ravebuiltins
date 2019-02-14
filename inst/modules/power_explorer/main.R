@@ -9,6 +9,9 @@ devtools::load_all()
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
+
+######' @auto=TRUE
+
 requested_electrodes = rutabaga::parse_svec(electrode_text, sep = ':-')
 requested_electrodes %<>% get_by(`%in%`, electrodes)
 
@@ -214,8 +217,10 @@ if(length(unique(flat_data$group)) > 1) {
 
 attr(scatter_bar_data, 'stats') <- result_for_suma
 
-###### @async
-print(Sys.getpid())
+######' @async, async_vars = result_for_suma, async_done
+Sys.sleep(3)
+result_for_suma
+async_done = TRUE
 
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
@@ -242,8 +247,8 @@ result$results$heat_map_data
 
 reload_this_package(clear_env = T)
 dev_toolbox = dev_ravebuiltins(F)
-view_layout('power_explorer', sidebar_width = 3, launch.browser = T)
+dev_toolbox$view_layout('power_explorer', sidebar_width = 3, launch.browser = T)
 
 
-m = dev_toolbox$to_module(module_id)
+m = dev_toolbox$to_module('power_explorer')
 init_app(m)
