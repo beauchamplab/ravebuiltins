@@ -28,6 +28,19 @@ get_by <- function(x, FUN, ...) {
   x[FUN(x, ...)]
 }
 
+# is_within <- function(x, ref, strict = FALSE){
+#     rg = range(ref)
+#     if(strict){
+#         return(x > rg[1] & x < rg[2])
+#     }else{
+#         return(x >= rg[1] & x <= rg[2])
+#     }
+# }
+#
+# `%within%` <- function(x,ref){
+#     is_within(x,ref)
+# }
+
 
 # this can be better than baselining using cumsum over the network
 .local_baseline <- function(e_tensor, baseline_range, data_only=FALSE) {
