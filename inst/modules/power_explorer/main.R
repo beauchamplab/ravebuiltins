@@ -253,4 +253,15 @@ module = rave::get_module(package = 'ravebuiltins', module_id = 'power_explorer'
 
 res = module()
 
+# Step 4: launch modules in RAVE (production)
+# Cmd+Shift+B
+m = rave::detect_modules('ravebuiltins')
+rave::init_app(m)
+
+
+
+
+
+
+
 
