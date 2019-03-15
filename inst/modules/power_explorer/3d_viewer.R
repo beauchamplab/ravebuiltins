@@ -19,12 +19,11 @@ viewer_3d = function(){
         ),
         div(
            class = 'col-sm-12 col-md-9',
-            div(style = 'float:right; width: 50px; position: absolute; right: 20px;',
+            div(style = 'float:right; width: 75px; position: absolute; right: 20px;',
                 plotOutput(ns('3d_color_bar'), height = '60vh')),
             threejsr::threejsOutput(ns('3d_output'), height = '60vh')
         )
     )
-
 }
 
 observeEvent(input[['3d_generate']], {
@@ -35,14 +34,23 @@ observeEvent(input[['3d_generate']], {
     # on.exit({.prog$close()})
     # .prog$inc()
 
-    # showNotification(p())
+    showNotification(p('Getting analysis for all electrodes...'), type = 'message', id = ns('3d_viewer_msg'))
 
     dat <- get_summary()
 
     # for each electrode, we want to test the different conditions
     .FUN <- if(length(levels(dat$condition)) > 1) {
-      function(x) {
-        get_f(power ~ condition, data=x)
+
+      if (length(levels(dat$condition)) == 2) {
+        function(x) {
+          res = get_t(power ~ condition, data=x)
+          res = c(res[1] - res[2], res[3], res[4])
+          res %>% set_names(c('b', 't', 'p'))
+        }
+      } else {
+        function(x) {
+          get_f(power ~ condition, data=x)
+        }
       }
     } else {
       function(x) {
@@ -56,9 +64,11 @@ observeEvent(input[['3d_generate']], {
 
     local_data$viewer_data = res
     local_data$summary_data = list(
-        baseline = BASELINE,
+        baseline = BASELINE_WINDOW,
         frequencies = FREQUENCY
     )
+
+    removeNotification(id = '3d_viewer_msg', session = session)
 })
 
 output[['3d_summary']] <- renderText({
@@ -67,7 +77,7 @@ output[['3d_summary']] <- renderText({
     }else{
         sprintf('Electrodes (%s), with baseline %.1f - %.1f (s) and frequency range %.0f - %.0f (Hz)',
                 deparse_selections(preload_info$electrodes),
-                BASELINE[1],BASELINE[2],
+                BASELINE_WINDOW[1],BASELINE_WINDOW[2],
                 FREQUENCY[1], FREQUENCY[2])
     }
 })
@@ -139,12 +149,18 @@ output[['3d_output']] <- threejsr::renderThreejs({
 })
 
 
-
 output[['3d_color_bar']] <- renderPlot({
-  k=100
-  pal = colorRampPalette(c('navy', 'white', 'red'))(k)
-  par(mar = rep(0.25,4))
-  image(matrix(1:k, nrow=1), col = pal, useRaster = T)
+
+  if(!is.null(local_data$viewer_data)) {
+    k=101
+    pal = colorRampPalette(c('navy', 'white', 'red'))(k)
+    par(mar = c(4,3,4,0.01))
+    image(matrix(1:k, nrow=1), col = pal, useRaster = T, axes=F)
+
+    .zlim <- round(max(abs(local_data$viewer_data[,input$param_displ])))
+    box()
+    ruta_axis(2, at=c(0,.5, 1), labels=c(-.zlim, 0, .zlim))
+  }
 })
 
 

@@ -8,29 +8,29 @@ env = dev_ravebuiltins(T)
 ## Load subject for debugging
 env$mount_demo_subject()
 
-env$view_layout('power_explorer')
+
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
 
 #  ----------------------  Initializing Global variables -----------------------
-# TODO get_module doesn't handle this well
-# load_scripts(
-#   'inst/modules/power_explorer/3d_viewer.R'
-# )
+load_scripts(
+  # 'inst/modules/power_explorer/3d_viewer.R',
+  'inst/modules/power_explorer/exports.R'
+)
 
 define_initialization({
   ##
   ## Make sure power (referenced) exists
-  ## with the following line, RAVE will pop up a dialogue if 
+  ## with the following line, RAVE will pop up a dialogue if
   ## power is not loaded and ask users to load data
-  ## 
+  ##
   rave_checks('power referenced')
-  
+
   ##
   ## Get referenced power (Wavelet power)
-  ## 
+  ##
   power = module_tools$get_power(referenced = TRUE)
-  
+
   ## Shared variables
   frequencies = preload_info$frequencies
   time_points = preload_info$time_points
@@ -44,126 +44,63 @@ define_initialization({
 #  ---------------------------------  Inputs -----------------------------------
 # Define inputs
 
-# Select from multiple choices, 
-define_input(
-  definition = textInput('electrode_text', 'Electrodes', value = "", placeholder = '1-5,8,11-20'),
-  init_args = c('label', 'value'),
-  init_expr = {
-    last_input = cache_input('electrode_text', val = as.character(electrodes[1]))
-    e = rutabaga::parse_svec(last_input)
-    e = e[e %in% electrodes]
-    if(!length(e)){
-      e = electrodes[1]
-    }
-    value = rutabaga::deparse_svec(e)
-    label = 'Electrodes (' %&% deparse_selections(electrodes) %&% ')'
-  }
-)
-
+# Select from multiple choices,
 define_input(
   definition = customizedUI(inputId = 'input_customized')
 )
 
-define_input(
-  definition = sliderInput('FREQUENCY', 'Frequency', min = 1, max = 200, value = c(1,200), step = 1, round = 1),
-  init_args = c('min', 'max', 'value'),
-  init_expr = {
-    min = floor(min(frequencies))
-    max = ceiling(max(frequencies))
-    value = cache_input('FREQUENCY', c(min, max))
-  }
-)
-
-define_input(
-  definition = sliderInput('TIME_RANGE', 'Analysis', min = 0, max = 1, value = c(0,1), step = 0.01, round = -2),
-  init_args = c('min', 'max', 'value'),
-  init_expr = {
-    min = min(time_points)
-    max = max(time_points)
-    value = cache_input('TIME_RANGE', c(0, max(time_points)))
-  }
-)
-
-define_input(
-  definition = sliderInput('BASELINE', 'Baseline', min = 0, max = 1, value = c(0,1), step = 0.01, round = -2),
-  init_args = c('min', 'max', 'value'),
-  init_expr = {
-    min = min(time_points)
-    max = max(time_points)
-    value = cache_input('BASELINE', c(min(time_points), 0))
-  }
-)
+define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT')
+define_input_frequency(inputId = 'FREQUENCY')
+define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis', initial_value = c(0,1))
+define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline', initial_value = c(-1,0))
+define_input_condition_groups(inputId = 'GROUPS')
 
 define_input(
   definition = selectInput('combine_method', 'Electrode Transforms',
-                           choices = c('none', 'z-score', 'max-scale', '0-1 scale', 'rank'), 
+                           choices = c('none', 'z-score', 'max-scale', '0-1 scale', 'rank'),
                            multiple = F, selected = 'none')
 )
 
-
-define_input(
-  definition = selectInput('reference_type', 'Transform Reference',
-                           choices = c('Trial', 'Trial type', 'Active trial types', 'All trials'), 
-                           selected='Trial')
-)
-
-define_input(
-  definition = selectInput('reference_group', 'Reference Group',
-                           choices = c('Per Electrode', 'All Electrodes'), selected = 'Per Electrode')
-)
+# define_input(
+#   definition = selectInput('reference_type', 'Transform Reference',
+#                            choices = c('Trial', 'Trial type', 'Active trial types', 'All trials'),
+#                            selected='Trial')
+# )
+#
+# define_input(
+#   definition = selectInput('reference_group', 'Reference Group',
+#                            choices = c('Per Electrode', 'All Electrodes'), selected = 'Per Electrode')
+# )
 
 define_input(
   definition = numericInput('max_zlim', 'Maximum Plot Value', value = 0, min = 0, step = 1)
 )
 define_input(
-  definition = checkboxInput('log_scale', 'Log Freq')
+  definition = checkboxInput('log_scale', 'Log Freq (NI)')
 )
 define_input(
   definition = checkboxInput('sort_trials_by_type', 'Sort Trials')
 )
-
-
-
 define_input(
-  definition = compoundInput(
-    inputId = 'GROUPS', prefix= 'Group', inital_ncomp = 1, components = {
-      textInput('GROUP_NAME', 'Name', value = '', placeholder = 'Name')
-      selectInput('GROUP', ' ', choices = '', multiple = TRUE)
-    }),
-  init_args = c('initialize', 'value'),
-  init_expr = {
-    trials = preload_info$condition
-    initialize = list(
-      GROUP = list(
-        choices = unique(trials)
-      )
-    )
-    value = cache_input('GROUPS', list(
-      list(
-        GROUP = list(trials),
-        GROUP_NAME = 'All Conditions'
-      )
-    ))
-  }
+    definition = checkboxInput('collapse_using_median', 'Collapse w/ Median (NI)')
 )
-
 
 # Define layouts if exists
 input_layout = list(
   '[#cccccc]Electrodes' = list(
-    c('electrode_text'),
-    c('combine_method'),
-    c('reference_type', 'reference_group')
+    c('ELECTRODE_TEXT'),
+    c('combine_method')#,
+    #c('reference_type', 'reference_group')
   ),
   '[#99ccff]Trial Selector' = list(
     'GROUPS'
   ),
   'Analysis Settings' = list(
     'FREQUENCY',
-    'BASELINE',
-    'TIME_RANGE'
+    'BASELINE_WINDOW',
+    'ANALYSIS_WINDOW'
   ),
-  '[-][#33aaff]Export Options' = list(),
+  '[-][#aaaaaa]Export Options' = list(),
   '[-]Plotting' = list(
     c('log_scale', 'sort_trials_by_type', 'collapse_using_median'),
     c('max_zlim')
@@ -191,23 +128,36 @@ define_output(
   definition = plotOutput('over_time_plot'),
   title = 'Collapse freq+trial',
   width = 8,
-  order = 4
-)
-
-define_output(
-  definition = plotOutput(outputId = 'windowed_comparison_plot'),
-  title = 'Collapse time+freq',
-  width = 4,
   order = 3
 )
 
 define_output(
-  definition = customizedUI('viewer_3d'),
-  title = '3D Viewer',
-  width = 12,
-  order = 5
+  definition = plotOutput(outputId = 'windowed_comparison_plot'),
+  title = 'Collapse freq+time',
+  width = 4,
+  order = 4
 )
 
+# define_output(
+#   definition = customizedUI('viewer_3d'),
+#   title = '3D Viewer',
+#   width = 12,
+#   order = 5
+# )
+
+define_output_3d_viewer(
+  outputId = 'power_3d',
+  title = '3D Viewer for Power',
+  surfaces = 'pial',
+  multiple_subject = F,
+  height = '70vh',
+  order = 0,
+  width = 12,
+  additional_ui = tagList(
+    selectInput(ns('viewer_3d_type'), 'Which statistics', choices = c('b', 't', 'p')),
+    p(ns('blah'))
+  )
+)
 
 # output_layout = list(
 #   # 'Tabset One' = list(
@@ -220,11 +170,7 @@ define_output(
 
 
 
-
-
 # -------------------------------- View layout ---------------------------------
 quos = env$parse_components(module_id = 'power_explorer')
-env$view_layout('power_explorer')
 
-
-m = env$to_module(module_id = 'power_explorer')
+view_layout('power_explorer', launch.browser = T, sidebar_width = 3)
