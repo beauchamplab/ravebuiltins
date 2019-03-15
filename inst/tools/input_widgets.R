@@ -83,6 +83,24 @@ define_input_frequency <- function(inputId, label = 'Frequency', is_range = TRUE
   rave::eval_dirty(quo, env = parent_frame)
 }
 
+define_srate_input_slider <- function(inputId, label) {
+  quo = rlang::quo({
+    define_input(
+      definition = sliderInput(!!inputId, !!label, min = 1, max = 100, value = 100, step = 1, round = 1),
+      init_args = c('min', 'max', 'value'),
+      init_expr = {
+        min =1
+        initial_value = module_tools$get_sample_rate(original = FALSE)
+        max = min(initial_value * 2, module_tools$get_sample_rate(original = TRUE))
+        value = cache_input(!!inputId, initial_value)
+      }
+    )
+  })
+  parent_frame = parent.frame()
+  
+  rave::eval_dirty(quo, env = parent_frame)
+}
+
 
 define_input_time <- function(inputId, label = 'Time Range', is_range = TRUE, round = -2, initial_value = NULL){
   if(is_range){
