@@ -6,6 +6,11 @@
 \usage{
 over_time_plot(results)
 }
+\arguments{
+\item{results}{results returned by module}
+
+\item{...}{other parameters passed to module output}
+}
 \description{
 Time Series Plot
 }

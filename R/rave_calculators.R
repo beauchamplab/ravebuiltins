@@ -79,6 +79,11 @@ collapse_over_trial <- function(el) {
 
 #keep time/freq, median over trial
 collapse_over_trial.median <- function(el) {
+    rowMedians = get_from_package('rowMedians', 'Biobase', ifNotFound = function(x){
+        apply(x, 1, median)
+    })
+  
+  
     # ~ 708 ms
     # el <- el$data
     # vapply(seq_len(dim(el)[2L]), FUN = function(ii) {
@@ -88,7 +93,7 @@ collapse_over_trial.median <- function(el) {
     # 12 ms
     el <- el$data
     vapply(seq_len(dim(el)[2L]), FUN = function(ii) {
-        Biobase::rowMedians(t(el[,ii,,1]))
+        rowMedians(t(el[,ii,,1]))
     }, FUN.VALUE = rep(0.0, dim(el)[3L])) -> r2
 }
 
@@ -165,13 +170,17 @@ collapse_over_freq <- function(el, frange) {
 
 collapse_over_freq.median <- function(el) {
     if(prod(dim(el))<1) return(matrix(NA, ncol=2, nrow=1))
+    
+    rowMedians = get_from_package('rowMedians', 'Biobase', ifNotFound = function(x){
+        apply(x, 1, median)
+    })
 
     eCon <- el$subset(Frequency=Frequency %within% FREQUENCY, data_only = TRUE, drop=TRUE)
 
     # make sure how this should (not) be transposed so that TIME is down the rows, rather than across the columns
     # when we draw_img TIME will end up on the x axis
     t(vapply(seq_len(dim(eCon)[3L]), FUN = function(ii) {
-        Biobase::rowMedians(eCon[,,ii])
+        rowMedians(eCon[,,ii])
     }, FUN.VALUE = rep(0.0, dim(eCon)[1L])))
 }
 
@@ -227,10 +236,14 @@ collapse_over_freq_and_trial.median <- function(el){
 
     # ~ 159 ms
     eCon <- el$subset(Frequency = (Frequency %within% FREQUENCY), data_only = TRUE, drop=TRUE)
+    
+    rowMedians = get_from_package('rowMedians', 'Biobase', ifNotFound = function(x){
+        apply(x, 1, median)
+    })
 
     # not sure if we can avoid the transpose here
     t(vapply(seq_len(dim(eCon)[3L]), function(ii) {
-        .fast_mse(Biobase::rowMedians(eCon[,,ii]))
+        .fast_mse(rowMedians(eCon[,,ii]))
     }, c(0, 0)))
 }
 
@@ -270,20 +283,24 @@ get_favored_collapsers <- function(swap_var = 'collapse_using_median') {
 
 
 
-
 # don't do NA checking here to keep the speed
 # if you're doing this on a matrix, check out .fast_column_se and .colMeans
 .fast_mse <- function(x) {
+    
+    C_cov <- get_from_package('C_cov', 'stats', internal = TRUE, check = FALSE)
+    
     # apparently sum(x) / length(x) is faster than mean(x) -- because of the use of generics and input checking?
     c(sum(x)/length(x),
-      sqrt(.Call(stats:::C_cov, x, NULL, 4, FALSE)/length(x)))
+      sqrt(.Call(C_cov, x, NULL, 4, FALSE)/length(x)))
 }
 
 # no NA checking
 .fast_range <- function(x) c(min(x), max(x))
 
 .fast_pearson <- function(x,y) {
-    .Call(stats:::C_cor, x, y, 4, FALSE)
+    
+    C_cor <- get_from_package('C_cor', 'stats', internal = TRUE, check = FALSE)
+    .Call(C_cor, x, y, 4, FALSE)
 }
 
 .fast_one_sample_t <- function(y, sided=1) {
@@ -317,14 +334,20 @@ get_favored_collapsers <- function(swap_var = 'collapse_using_median') {
 # per-column se calculation,
 # even if it means a transpose from the calling function
 .fast_column_se <- function(y) {
+    
+    C_cov <- get_from_package('C_cov', 'stats', internal = TRUE, check = FALSE)
+    
     sqrt(
-        .fast_diagonal(.Call(stats:::C_cov, y, NULL, 4, FALSE))/dim(y)[1L]
+        .fast_diagonal(.Call(C_cov, y, NULL, 4, FALSE))/dim(y)[1L]
     )
 }
 
 .fast_column_sd <- function(y) {
+    
+    C_cov <- get_from_package('C_cov', 'stats', internal = TRUE, check = FALSE)
+    
     sqrt(
-        .fast_diagonal(.Call(stats:::C_cov, y, NULL, 4, FALSE))
+        .fast_diagonal(.Call(C_cov, y, NULL, 4, FALSE))
     )
 }
 
@@ -334,7 +357,10 @@ get_favored_collapsers <- function(swap_var = 'collapse_using_median') {
 }
 
 .fast_se <- function(x) {
-    sqrt(.Call(stats:::C_cov, x, NULL, 4, FALSE)/length(x))
+    
+    C_cov <- get_from_package('C_cov', 'stats', internal = TRUE, check = FALSE)
+    
+    sqrt(.Call(C_cov, x, NULL, 4, FALSE)/length(x))
 }
 
 

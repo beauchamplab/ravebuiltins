@@ -1,4 +1,6 @@
 #' @title Voltage Time Series Plot
+#' @param results results returned by module
+#' @param ... other parameters passed to module output
 #' @export
 erp_over_time_plot <- function(results, ...) {
 
@@ -18,6 +20,8 @@ erp_over_time_plot <- function(results, ...) {
 }
 
 #' @title By Trial Plot for ERP data
+#' @param results results returned by module
+#' @param ... other parameters passed to module output
 #' @export
 by_trial_erp_map <- function(results, ...){
     has_data <- results$get_value('has_data', FALSE)
@@ -40,8 +44,10 @@ by_trial_erp_map <- function(results, ...){
 }
 
 
-#'@title Welch periodogram per condition
-#'@export
+#' @title Welch periodogram per condition
+#' @param results results returned by module
+#' @param ... other parameters passed to module output
+#' @export
 by_condition_welch <- function(results, ...) {
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))

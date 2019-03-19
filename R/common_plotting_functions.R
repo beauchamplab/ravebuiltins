@@ -1,6 +1,14 @@
 
 #' @author John Magnotti
 #' @title Draws several heatmaps in a row and (optionally) a color bar
+#' @param hmaps data to draw heatmaps
+#' @param x,y x and y axis values
+#' @param log_scale draw x and y in log scale?
+#' @param show_color_bar show color legend to the right?
+#' @param DECORATOR decorator
+#' @param max_zlim zlim that trims z value
+#' @param wide wide margin on the left
+#' @param xlab,ylab,useRaster,... passed to image()
 #' @description Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar.
 #' By default it is setup for time/freq, but by swapping labels and decorators you can do anything
 draw_many_heat_maps <- function(hmaps, x, y, xlab='Time', ylab='Frequency', log_scale=FALSE,
@@ -58,6 +66,12 @@ draw_many_heat_maps <- function(hmaps, x, y, xlab='Time', ylab='Frequency', log_
 
 #' @author John Magnotti
 #' @title RAVE custom image plot
+#' @param zmat z-matrix
+#' @param x,y z and y axis
+#' @param xlab,ylab label for x and y
+#' @param zlim value to trim zmat
+#' @param log which axis will be in log scale
+#' @param useRaster,... passed to image()
 #' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators. We are just plotting image(zmat) Rather Than t(zmat) as you might expect. The Rave_calculators know this so we can save a few transposes along the way.
 draw_img <- function(zmat, x, y, xlab='Time (s)', ylab='Frequency (Hz)',
                      zlim, log='', useRaster=TRUE, ...) {
@@ -460,8 +474,8 @@ easy_layout <- function(K, nrows = 1, legend,
     par(mar = s_margin)
 }
 
-#' Try to guess decimal points of the number and returns string
 #TODO RUTABAGA
+# Try to guess decimal points of the number and returns string
 pretty_num <- function(x, digits = 3, roundup = 5, decimal.mark = '.', ...){
     ss = base::prettyNum(x, ...)
     s = unlist(strsplit(ss, ''))

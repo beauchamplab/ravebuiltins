@@ -1,4 +1,6 @@
 #' @title Time Series Plot
+#' @param results results returned by module
+#' @param ... other parameters passed to module output
 #' @export
 over_time_plot <- function(results) {
 
@@ -14,6 +16,8 @@ over_time_plot <- function(results) {
 }
 
 #' @title By Trial Plot With Statistics
+#' @param results results returned by module
+#' @param ... other parameters passed to module output
 #' @export
 windowed_comparison_plot <- function(results){
     with(results, {
@@ -24,7 +28,8 @@ windowed_comparison_plot <- function(results){
 
 #' @title Basic Time Frequency Plot
 #'
-#' @param results result environment from ???
+#' @param results results returned by module
+#' @param ... other parameters passed to module output
 #'
 #' @examples
 #' \dontrun{
@@ -34,7 +39,7 @@ windowed_comparison_plot <- function(results){
 #' heat_map_plot(res$result)
 #' }
 #' @export
-heat_map_plot = function(results, ...){
+heat_map_plot <- function(results, ...){
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
 

@@ -6,6 +6,11 @@
 \usage{
 by_condition_welch(results, ...)
 }
+\arguments{
+\item{results}{results returned by module}
+
+\item{...}{other parameters passed to module output}
+}
 \description{
 Welch periodogram per condition
 }

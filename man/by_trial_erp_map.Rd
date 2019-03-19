@@ -6,6 +6,11 @@
 \usage{
 by_trial_erp_map(results, ...)
 }
+\arguments{
+\item{results}{results returned by module}
+
+\item{...}{other parameters passed to module output}
+}
 \description{
 By Trial Plot for ERP data
 }

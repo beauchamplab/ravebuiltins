@@ -5,7 +5,7 @@ Title: What the Package Does (Title Case)
 Version: 0.1.0
 Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 6.1.1
@@ -18,7 +18,15 @@ Imports:
     shiny (>= 1.2.0),
     rlang (>= 0.3.0),
     stringr (>= 1.3.1),
-    magrittr
+    magrittr,
+    circular,
+    lmerTest,
+    methods,
+    rave,
+    rutabaga,
+    future,
+    abind,
+    stats
 Suggests:
     devtools,
     yaml (>= 2.2.0),

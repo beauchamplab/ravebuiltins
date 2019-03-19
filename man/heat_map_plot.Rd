@@ -7,7 +7,9 @@
 heat_map_plot(results, ...)
 }
 \arguments{
-\item{results}{result environment from ???}
+\item{results}{results returned by module}
+
+\item{...}{other parameters passed to module output}
 }
 \description{
 Basic Time Frequency Plot

@@ -7,6 +7,19 @@
 draw_img(zmat, x, y, xlab = "Time (s)", ylab = "Frequency (Hz)", zlim,
   log = "", useRaster = TRUE, ...)
 }
+\arguments{
+\item{zmat}{z-matrix}
+
+\item{x, y}{z and y axis}
+
+\item{xlab, ylab}{label for x and y}
+
+\item{zlim}{value to trim zmat}
+
+\item{log}{which axis will be in log scale}
+
+\item{useRaster, ...}{passed to image()}
+}
 \description{
 The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators. We are just plotting image(zmat) Rather Than t(zmat) as you might expect. The Rave_calculators know this so we can save a few transposes along the way.
 }

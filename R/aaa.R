@@ -14,6 +14,17 @@
 #'
 #' @importFrom methods is
 #' @import circular
+#' 
+#' @importFrom grDevices dev.off
+#' @importFrom grDevices pdf
+#' 
+#' @import graphics
+#' 
+#' @importFrom stats median
+#' @importFrom stats median.default
+#' @importFrom stats pt
+#' @importFrom stats quantile
+#' 
 
 cat2 <- function(..., end = '\n', level = 'DEBUG', print_level = FALSE, pal = list(
     'DEBUG' = 'grey60',

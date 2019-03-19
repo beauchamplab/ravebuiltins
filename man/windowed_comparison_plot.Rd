@@ -6,6 +6,11 @@
 \usage{
 windowed_comparison_plot(results)
 }
+\arguments{
+\item{results}{results returned by module}
+
+\item{...}{other parameters passed to module output}
+}
 \description{
 By Trial Plot With Statistics
 }

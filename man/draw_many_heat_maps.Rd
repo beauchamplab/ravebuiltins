@@ -8,6 +8,23 @@ draw_many_heat_maps(hmaps, x, y, xlab = "Time", ylab = "Frequency",
   log_scale = FALSE, show_color_bar = TRUE, DECORATOR, max_zlim = 0,
   useRaster = TRUE, wide = FALSE, ...)
 }
+\arguments{
+\item{hmaps}{data to draw heatmaps}
+
+\item{x, y}{x and y axis values}
+
+\item{xlab, ylab, useRaster, ...}{passed to image()}
+
+\item{log_scale}{draw x and y in log scale?}
+
+\item{show_color_bar}{show color legend to the right?}
+
+\item{DECORATOR}{decorator}
+
+\item{max_zlim}{zlim that trims z value}
+
+\item{wide}{wide margin on the left}
+}
 \description{
 Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar.
 By default it is setup for time/freq, but by swapping labels and decorators you can do anything
