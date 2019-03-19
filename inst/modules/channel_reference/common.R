@@ -99,7 +99,7 @@ load_ref = function(ref){
     }
 
 
-    es = str_extract(ref, '[0-9\\-,]+'); if(is.na(es)){es = ''}
+    es = stringr::str_extract(ref, '[0-9\\-,]+'); if(is.na(es)){es = ''}
     e = rave:::parse_selections(es)
     e = subject$filter_all_electrodes(e)
 
@@ -331,7 +331,7 @@ channel_plot = function(){
 
     # Calculate reference
     sapply(ref, function(r){
-        r = str_extract(r, '[0-9,\\-]+')
+        r = stringr::str_extract(r, '[0-9,\\-]+')
         if(is.na(r)){
             return(rep(0, n_electrode_total))
         }
@@ -349,7 +349,7 @@ channel_plot = function(){
         s_mean = s_na
     }else{
         r = unique(ref[sel])
-        r = str_extract(r, '[0-9,\\-]+')
+        r = stringr::str_extract(r, '[0-9,\\-]+')
         r = r[!is.na(r)]
         if(!length(r)){
             s_mean = s_na

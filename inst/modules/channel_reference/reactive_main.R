@@ -7,7 +7,7 @@ local_data = shiny::reactiveValues(
     group_number = NULL,
     refresh = NULL,
     do_parallel_plot = NULL,
-    load_mesh = F
+    load_mesh = TRUE
 )
 
 
@@ -100,7 +100,7 @@ observeEvent(input[[('bipolar_table_cell_edit')]], {
 })
 
 
-output[['elec_loc']] <- threejsr::renderThreejs({
+output[['elec_loc']] <- threeBrain::renderBrain({
     local_data$refresh
     group_info = current_group()
     group_info %?<-% list(electrodes = NULL)
@@ -113,7 +113,11 @@ output[['elec_loc']] <- threejsr::renderThreejs({
     tbl$Label[is.na(tbl$Label)] = 'No Label'
 
     electrodes = group_info$electrodes
-    with(tbl, {
+    sapply(electrodes, function(e){
+        sel = tbl$Electrode == e
+        Group = tbl$Group[sel]
+        Type = tbl$Type[sel]
+        Reference = tbl$Reference[sel]
         sprintf('<p>Reference - %s (%s)<br/>Reference to - %s</p>', Group, Type, Reference)
     }) ->
         marker
@@ -123,16 +127,19 @@ output[['elec_loc']] <- threejsr::renderThreejs({
     values[electrodes %in% bad_electrodes] = 1
 
 
-    module_tools$plot_3d_electrodes(
-        tbl = tbl,
-        electrodes = electrodes,
-        values = values,
-        marker = marker,
-        pal = colorRampPalette(c('navy', 'black', 'red'))(11),
-        show_mesh = local_data$load_mesh
-        # link_module = 'condition_explorer',
-        # variable_name = 'electrode'
-    )
+    brain = rave_brain2(surfaces = 'pial', multiple_subject = F)
+    brain$load_electrodes(subject)
+    
+    if(local_data$load_mesh){
+        brain$load_surfaces(subject)
+    }
+    
+    for(ii in seq_along(electrodes)){
+        brain$set_electrode_value(subject = subject, electrode = electrodes[[ii]], value = values[[ii]], time = 0, message = marker[[ii]])
+    }
+    
+    brain$view(value_range = c(-1,1), control_panel = F)
+    
 })
 
 observeEvent(input$load_mesh, {
@@ -143,9 +150,13 @@ observeEvent(input$load_mesh, {
 
 
 elec_loc_ui = function(){
-    tagList(
-        actionLink(ns('load_mesh'), 'Show Mesh'),
-        threejsr::threejsOutput(ns('elec_loc'), height = '300px')
+    div(
+        tags$style(
+            '.threejs-control, .threejs-control * {pointer-events: none !important; max-width: 150px !important; font-size: x-small !important;}'
+        ),
+        actionLink(ns('load_mesh'), 'Hide Mesh'),
+        threeBrain::threejsBrainOutput(ns('elec_loc'), height = '300px')
+        # threejsr::threejsOutput(ns('elec_loc'), height = '300px')
     )
 
 }
@@ -680,7 +691,7 @@ export_ref_table = function(){
 
 
 load_refchan = function(r, subject_channel_dir, blocks, ram = T){
-    es = str_extract(r, '[0-9,\\-]+')
+    es = stringr::str_extract(r, '[0-9,\\-]+')
     es = rave:::parse_selections(es)
 
     ref_file = file.path(subject_channel_dir, 'reference', sprintf('%s.h5', r))
@@ -896,9 +907,9 @@ console = function(){
 ref_generator_ui = function(){
     tagList(
         textInput(ns('ref_electrodes'), label = 'Electrodes', value = '', placeholder = 'e.g. 1-3,5'),
-        actionButton(ns('ref_calc'), 'Generate Reference', width = '100%'),
-        hr(),
-        actionButton(ns('ref_blockwise'), 'Generate Reference for Each Blocks', width = '100%')
+        actionButton(ns('ref_calc'), 'Generate Reference', width = '100%')
+        # hr(),
+        # actionButton(ns('ref_blockwise'), 'Generate Reference for Each Blocks', width = '100%')
     )
 }
 

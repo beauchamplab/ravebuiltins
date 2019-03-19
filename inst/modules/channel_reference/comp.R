@@ -149,4 +149,4 @@ output_layout = list(
 module_id <- 'channel_reference'
 quos = env$parse_components(module_id)
 
-view_layout(module_id, launch.browser = T)
+view_layout(module_id, launch.browser = T, sidebar_width = 3)
