@@ -102,7 +102,8 @@ phase_histogram <- function(results, ...) {
         .res$get_data(drop = TRUE) %>% as.numeric %>% as.circular(units='rad', type='angles', template='none', modulo='asis', zero=0, rotation='counter') %>%
             hist(col=clr, main=.main, nticks=3)
 
-    }, plot_data, rave_colors$GROUP[1+seq_along(plot_data)])
+        ##FIXME take into account has_data
+    }, plot_data, rave_colors$GROUP[seq_along(plot_data)])
 }
 
 phase_plot <- function(results, ...) {

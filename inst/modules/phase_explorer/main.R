@@ -12,17 +12,22 @@ init_module(module_id = 'phase_explorer', debug = TRUE)
 # people might choose a time point or a frequency that doesn't exist in the data. Warn them that we are changing this value, but it will not
 # be reflected in the UI element
 
-if(! (FREQUENCY %in% frequencies)) {
-    new_frequency <- frequencies[..get_nearest(FREQUENCY, frequencies)]
-
-    showNotification(p('Chosen frequency: ', strong(FREQUENCY), "doesn't exist. Switching to: ", strong(new_frequency)), type = 'warning', id='BAD_FREQ')
-    FREQUENCY <- new_frequency
-}
+# if(! (FREQUENCY %in% frequencies)) {
+#     new_frequency <- frequencies[..get_nearest(FREQUENCY, frequencies)]
+# 
+#     showNotification(p('Chosen frequency: ', strong(FREQUENCY),
+#                        "doesn't exist. Switching to: ", strong(new_frequency)), type = 'warning', id='BAD_FREQ')
+#     FREQUENCY <- new_frequency
+#     
+#     updateSliderInput(session, 'FREQUENCY', value = FREQUENCY)
+#     
+# }
 
 if(! (ANALYSIS_WINDOW %in% time_points)) {
     new_aw <- time_points[..get_nearest(ANALYSIS_WINDOW, time_points)]
 
-    showNotification(p('Chosen analysis point: ', strong(ANALYSIS_WINDOW), "doesn't exist. Switching to: ", strong(new_aw)), type = 'warning', id='BAD_TP')
+    showNotification(p('Chosen analysis point: ', strong(ANALYSIS_WINDOW),
+                       "doesn't exist. Switching to: ", strong(new_aw)), type = 'warning', id='BAD_TP')
     ANALYSIS_WINDOW <- new_aw
 }
 
@@ -117,8 +122,10 @@ has_data <- any(sapply(calc_results, `[[`, 'has_trials'))
 
 # Debug
 # require(ravebuiltins)
+
 # devtools::document()
 rave_tools = ravebuiltins::dev_ravebuiltins(expose_functions = T)
+
 # reload_this_package(expose = T, clear_env = F)
 mount_demo_subject(force_reload_subject = T)
 

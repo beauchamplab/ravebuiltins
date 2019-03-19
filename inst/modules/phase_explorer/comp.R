@@ -17,8 +17,23 @@ module_id <- 'phase_explorer'
 
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
-    'inst/modules/power_explorer/3d_viewer.R',
-    'inst/modules/power_explorer/exports.R'
+    'inst/modules/phase_explorer/exports.R',
+    rlang::quo({
+        observeEvent(input$FREQUENCY, {
+            FREQUENCY = input$FREQUENCY
+            frequencies %?<-% NULL
+            if(length(FREQUENCY) && length(frequencies) && ! (FREQUENCY %in% frequencies)) {
+                new_frequency <- frequencies[..get_nearest(FREQUENCY, frequencies)]
+                
+                showNotification(p('Chosen frequency: ', strong(FREQUENCY),
+                                   "doesn't exist. Switching to: ", strong(new_frequency)), type = 'warning', id='BAD_FREQ')
+                FREQUENCY <- new_frequency
+                
+                updateSliderInput(session, 'FREQUENCY', value = FREQUENCY)
+            }
+        }, priority = 1000)
+        
+    })
 )
 
 define_initialization({
@@ -132,27 +147,43 @@ define_output(
     order = 5
 )
 
-define_output(
-    definition = customizedUI('threeD_viewer'),
-    title = '3D Viewer',
-    width = 12,
-    order = 5
-)
-
 
 # Show ITPC across frequencies
 define_output(
     definition = plotOutput(outputId = 'itpc_plot_heatmap'),
     title = 'Inter-trial Phase Coherence across Frequencies',
     width = 12,
-    order = -1e10
+    order = -3
 )
 
+define_output_3d_viewer(
+    outputId = 'phase_3d',
+    title = '3D Viewer for Phase',
+    surfaces = 'pial',
+    multiple_subject = F,
+    height = '70vh',
+    order = 5e10,
+    width = 12,
+    additional_ui = tagList(
+        selectInput(ns('viewer_3d_type'), 'Which statistics', choices = c('b', 't', 'p')),
+        p(ns('blah'))
+    )
+)
+
+
+
+
+
 # output_layout = list(
-#   # 'Tabset One' = list(
-#   #   'Multiple Output' = 'heat_map_plot'
-#   # )
-#   'Multiple Output' = 'heat_map_plot'
+#   'Tab1' = list(
+#       'ITPC (All Freq)' = c('..itpc_plot_heatmap'),
+#       '3D Viewer' = c('phase_3d_widget')
+#   ),
+#   'Phase Over Time' = list(
+#       'Abs-Phase' = c('..phase_plot'),
+#       'Sine-Phase' = c('..sine_phase_over_time_plot')
+#   ),
+#   width = c(12)
 # )
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
@@ -163,5 +194,10 @@ define_output(
 
 # -------------------------------- View layout ---------------------------------
 module_id <- 'phase_explorer'
-quos = env$parse_components(module_id)
-view_layout(module_id, launch.browser = T)
+quos = parse_components(module_id)
+view_layout(module_id, launch.browser = T, sidebar_width = 3L)
+
+m = to_module('phase_explorer')
+rave::init_app(m, test.mode = T)
+
+
