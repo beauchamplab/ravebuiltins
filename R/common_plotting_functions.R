@@ -410,6 +410,7 @@ tf_hm_decorator <- function(hmap, x, y, xlab=x, ylab=y, ..., label.col='black', 
     do_tfhmd(hmap=hmap, x=x,y=y)
 }
 
+#' Create a easy layout for multiple plots sharing the same x,y and legend
 #' @author Zhengjia Wang, John Magnotti
 #' @description Provide easy ways to set plot layouts
 #' @param K number of plots to be made
