@@ -58,7 +58,7 @@ define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline', initial_value =
 define_srate_input_slider('ERP_SAMPLE_RATE', 'Sampling Rate (Hz)')
 
 define_input(
-    definition = numericInput('max_zlim', 'Maximum Plot Value', value = 0, min = 0, step = 1)
+    definition = numericInput('max_zlim', 'Max Heatmap Plot Value', value = 0, min = 0, step = 1)
 )
 
 define_input(
@@ -69,13 +69,13 @@ define_input(
     definition = selectInput(inputId = 'BASELINE_TYPE', label = 'Baseline Method', choices=c('% Change', 'dB'), selected='% Change')
 )
 
-
 # Define layouts if exists
 input_layout = list(
     '[#cccccc]Electrodes' = list(
         c('ELECTRODE_TEXT')
     ),
-    '[#99ccff]Trial Selector' = list(
+    #[#99ccff]
+    'Trial Selector' = list(
         'GROUPS'
     ),
     'Analysis Settings' = list(
@@ -86,7 +86,8 @@ input_layout = list(
         'BASELINE_WINDOW',
         'ANALYSIS_WINDOW'
     ),
-    '[-][#aaaaaa]Export Options' = list(),
+    #[#aaaaaa]
+    '[-]Export Options' = list(),
     '[-]Plotting' = list()
 )
 

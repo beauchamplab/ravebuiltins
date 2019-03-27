@@ -2,32 +2,40 @@
 % Please edit documentation in R/common_plotting_functions.R
 \name{draw_many_heat_maps}
 \alias{draw_many_heat_maps}
-\title{Draws several heatmaps in a row and (optionally) a color bar}
+\title{Draw several heatmaps in a row and (optionally) a color bar}
 \usage{
-draw_many_heat_maps(hmaps, x, y, xlab = "Time", ylab = "Frequency",
-  log_scale = FALSE, show_color_bar = TRUE, DECORATOR, max_zlim = 0,
-  useRaster = TRUE, wide = FALSE, ...)
+draw_many_heat_maps(hmaps, max_zlim = 0, log_scale = FALSE,
+  show_color_bar = TRUE, useRaster = TRUE, wide = FALSE,
+  PANEL.FIRST = NULL, PANEL.LAST = NULL, ...)
 }
 \arguments{
 \item{hmaps}{data to draw heatmaps}
 
-\item{x, y}{x and y axis values}
-
-\item{xlab, ylab, useRaster, ...}{passed to image()}
-
-\item{log_scale}{draw x and y in log scale?}
-
-\item{show_color_bar}{show color legend to the right?}
-
-\item{DECORATOR}{decorator}
-
 \item{max_zlim}{zlim that trims z value}
 
-\item{wide}{wide margin on the left}
+\item{log_scale}{draw y in log scale?}
+
+\item{show_color_bar}{show color legend to the right? Future: Will will check to see if this parameter is a function. If so, we
+can call it to allow arbitrary legends in the right-most (half) panel}
+
+\item{useRaster, ...}{passed to image()}
+
+\item{wide}{boolean. should we use a wider margin on the left? defaults to false}
+
+\item{PANEL.FIRST}{a function that is called after each plot window has been created, but before any rendering is done. In truth, this is currently called AFTER the call to image(),
+so if you draw within the plotting region it will overwrite the heatmap. To fix this requires editing draw_img(...) to allow for a function to be called after creation but before rendering.
+Don't depend on this call order, use PANEL.LAST if you want to draw things on top of the heatmap}
+
+\item{PANEL.LAST}{a function that is called after the rendering of each heat map. It is not called after the rendering of the color bar.}
 }
 \description{
 Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar.
-By default it is setup for time/freq, but by swapping labels and decorators you can do anything
+By default it is setup for time/freq, but by swapping labels and decorators you can do anything.
+}
+\seealso{
+layout_heat_maps
+
+draw_img
 }
 \author{
 John Magnotti

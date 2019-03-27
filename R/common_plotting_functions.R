@@ -1,18 +1,24 @@
 
 #' @author John Magnotti
-#' @title Draws several heatmaps in a row and (optionally) a color bar
+#' @title Draw several heatmaps in a row and (optionally) a color bar
 #' @param hmaps data to draw heatmaps
-#' @param x,y x and y axis values
-#' @param log_scale draw x and y in log scale?
-#' @param show_color_bar show color legend to the right?
-#' @param DECORATOR decorator
+#' @param log_scale draw y in log scale?
+#' @param show_color_bar show color legend to the right? Future: Will will check to see if this parameter is a function. If so, we
+#' can call it to allow arbitrary legends in the right-most (half) panel
 #' @param max_zlim zlim that trims z value
-#' @param wide wide margin on the left
-#' @param xlab,ylab,useRaster,... passed to image()
+#' @param wide boolean. should we use a wider margin on the left? defaults to false
+#' @param useRaster,... passed to image()
+#' @param PANEL.FIRST a function that is called after each plot window has been created, but before any rendering is done. In truth, this is currently called AFTER the call to image(),
+#' so if you draw within the plotting region it will overwrite the heatmap. To fix this requires editing draw_img(...) to allow for a function to be called after creation but before rendering.
+#' Don't depend on this call order, use PANEL.LAST if you want to draw things on top of the heatmap
+#' @param PANEL.LAST a function that is called after the rendering of each heat map. It is not called after the rendering of the color bar. 
 #' @description Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar.
-#' By default it is setup for time/freq, but by swapping labels and decorators you can do anything
-draw_many_heat_maps <- function(hmaps, x, y, xlab='Time', ylab='Frequency', log_scale=FALSE,
-                                show_color_bar=TRUE, DECORATOR, max_zlim = 0, useRaster=TRUE, wide=FALSE, ...) {
+#' By default it is setup for time/freq, but by swapping labels and decorators you can do anything.
+#' @seealso layout_heat_maps
+#' @seealso draw_img
+draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
+                                show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
+                                PANEL.FIRST=NULL, PANEL.LAST=NULL, ...) {
 
     k <- sum(hmaps %>% get_list_elements('has_trials'))
     orig.pars <- layout_heat_maps(k)
@@ -20,6 +26,8 @@ draw_many_heat_maps <- function(hmaps, x, y, xlab='Time', ylab='Frequency', log_
         par(orig.pars)
     })
 
+    # this is to add some extra spacing on the LEFT margin to allow, e.g., longer axis titles
+    # we could also set this adaptively based on the max(nchar(...)) for the appropriate labels from hmap[[ii]] condition names
     if(wide) {
         par(mar = c(5.1, 7, 2, 2))
     }
@@ -31,26 +39,50 @@ draw_many_heat_maps <- function(hmaps, x, y, xlab='Time', ylab='Frequency', log_
         max_zlim <- max(abs(actual_lim))
     }
 
-    log_scale <- if(isTRUE(log_scale)){
+    log_scale <- if(isTRUE(log_scale)) {
         'y'
     } else {
         ''
     }
-
+    
     lapply(hmaps, function(map){
         if(map$has_trials){
-            # if y is a function, then use it to build the ys
-            # this feels a little ridiculous, as we don't know the type of y, is there a cleaner way?
-            # the problem is that draw_img() needs 'y' in order to put the image at the right location, so it is more than
-            # just a decoration issue
-            .y <- do_if(is.function(y), y(map$data), y)
+            # we are linearizing the x and y spaces so that we can use the fast raster
+            x <- seq_along(map$x)
+            y <- seq_along(map$y)
+            
+            # because image plot centers the data on the y-variable, it can introduce 0s which fail when log='y'
+            # so we shift y by a small amount so that the minimum is > 0
+            dy <- 0
+            if(log_scale == 'y') {
+                dy <- (y[2]-y[1])/2 + min(y)
+                #FIXME I think this may be making the edge boxes too small cf. the else block where we pad 0.5
+                plot_clean(x,y+dy, xlab=xlab, ylab=ylab, cex.lab=rave_cex.axis, log='y')
+            } else {
+                pad = c(-0.5, 0.5)
+                plot_clean(xlim=range(x) + pad,
+                           ylim=range(y) + pad)#, xlab=xlab, ylab=ylab, cex.lab=rave_cex.axis, log='y')
+            }
+            
+            if(is.function(PANEL.FIRST)) {
+                PANEL.FIRST(map)
+            }
+            
+            # make sure the decorators are aware that we are linearizing the y scale here
+            make_image(map$data,x=x, y=y, log=ifelse(log_scale, 'y', ''), zlim=c(-1,1)*max_zlim)
+            
+            xticks <- ..get_nearest(pretty(map$x), map$x)
+            yticks <- ..get_nearest(pretty(map$y), map$y)
 
-            # draw_img(map$data, x = x, y = seq_along(.y), xlab=xlab, ylab=ylab,
-            draw_img(map$data, x = x, y = .y, xlab=xlab, ylab=ylab,
-                     zlim = c(-max_zlim, max_zlim),
-                     main = map$name, log=log_scale, useRaster=useRaster)
+            rave_axis(1, at=xticks, labels=map$x[xticks], tcl=0, lwd=0)
+            rave_axis(2, at=yticks, labels=map$y[yticks], tcl=0, lwd=0)
 
-            DECORATOR(map, x=x, y=.y, ylab=.y)
+            if(is.function(PANEL.LAST)) {
+                #PANEL.LAST needs to know about the coordinate transform we made
+                PANEL.LAST(map,
+                           Xmap=function(x) ..get_nearest_i(x, map$x),
+                           Ymap=function(y) ..get_nearest_i(y, map$y))
+            }
         }
     })
 
@@ -64,47 +96,111 @@ draw_many_heat_maps <- function(hmaps, x, y, xlab='Time', ylab='Frequency', log_
 }
 
 
+# the Xmap and Ymap here are functions that allow for transformation of the plot_data $x and $y into
+# the coordinate system of the plot
+spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=force, btype='line', atype='box', 
+                                          title_options=list(allow_freq=FALSE), ...) {
+    shd <- function(plot_data, Xmap=Xmap, Ymap=Ymap) {
+        title_options$plot_data = plot_data
+        title_options$results=results
+        
+        do.call(title_decorator, args=title_options)
+        
+        axis_label_decorator(plot_data)
+        
+        windows <- list(
+            'Baseline'=list(
+                window = Xmap(results$get_value('BASELINE_WINDOW')),
+                type=btype
+            ),
+            'Analysis'=list(
+                window = if(atype=='box') {
+                    list(x=Xmap(results$get_value('ANALYSIS_WINDOW')),
+                         y=Ymap(results$get_value('FREQUENCY')))
+                } else {
+                    Xmap(results$get_value('ANALYSIS_WINDOW'))
+                },
+                type=atype
+            )
+        )
+
+        lapply(names(windows), function(nm) {
+            if(paste(nm, 'Window') %in% results$get_value('PLOT_TITLE')) {
+                with(windows[[nm]],
+                     window_decorator(
+                         window=window, type=type,
+                         text=ifelse(results$get_value('draw_decorator_labels'), nm, FALSE)
+                     )
+                )
+            }
+        })
+        invisible(plot_data)
+    }
+    
+    if(missing(plot_data)) {
+        return (shd)
+    }
+    
+    shd(plot_data, Xmap, Ymap)
+}
+
+# here we just call the spectrogram decorator with some special setup options
+by_trial_heat_map_decorator <- function(plot_data=NULL, results, Xmap=force, Ymap=force, ...) {
+    args <- list(
+        results=results, Xmap=Xmap, Ymap=Ymap, atype='line', btype='line',
+        title_options = list(allow_sample_size=FALSE),
+        ...
+    )
+    
+    if(is.null(plot_data)) {
+        return(do.call(spectrogram_heatmap_decorator, args = args))
+    }
+    
+    args$plot_data=plot_data
+    do.call(spectrogram_heatmap_decorator, args = args)
+}
+
+
+
+
+
+
 #' @author John Magnotti
-#' @title RAVE custom image plot
+#' @title RAVE custom image plotter
 #' @param zmat z-matrix
 #' @param x,y z and y axis
-#' @param xlab,ylab label for x and y
+#' @param xlab, ylab label for x and y
 #' @param zlim value to trim zmat
 #' @param log which axis will be in log scale
 #' @param useRaster,... passed to image()
-#' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators. We are just plotting image(zmat) Rather Than t(zmat) as you might expect. The Rave_calculators know this so we can save a few transposes along the way.
-draw_img <- function(zmat, x, y, xlab='Time (s)', ylab='Frequency (Hz)',
-                     zlim, log='', useRaster=TRUE, ...) {
-
-    zmat %<>% clip_x(lim=zlim)
-    # zlim <- range(zmat) %>% abs %>% max
-    # zlim <- c(-zlim, zlim)
-    #
-    # .hmd <- results$get_value('heat_map_data')
-    # zmat <- .hmd[[1]]$data
-    # x <- results$get_value('time_points')
-    # y <- results$get_value('frequencies')
-    # log <- 'y'
-
-    # because image plot centers the data on the y-variable, it can introduce 0s which fail when log='y'
-    dy <- 0
-    if(log == 'y') {
-        dy <- (y[2]-y[1])/2 + min(y)
-        plot_clean(x,y+dy,xlab=xlab, ylab=ylab, cex.lab=rave_cex.axis, log='y')
+#' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators.
+#' We are just plotting image(mat) Rather Than t(mat) as you might expect. The Rave_calculators know this so we can save a few transposes along the way.
+make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zlim=TRUE) {
+    #xlab='Time (s)', ylab='Frequency (Hz)', zlim, log='', useRaster=TRUE, PANEL.FIRST=NULL, PANEL.LAST=NULL, ...) {
+    # zmat %<>% clip_x(lim=zlim)
+    
+    if(missing(zlim)) {
+        zlim <- c(-1,1)*max(abs(mat))
+    } else {
+        # if zlim is missing, then the zlim will be set symmetrically based on the range
+        # of the data (in the 'if' block above), so we only have to worry about clipping if the range is passed in
+        if(clip_to_zlim) {
+            mat %<>% clip_x(zlim)
+        }
+    }
+    
+    if(missing(col)) {
+        col = colorRampPalette(c('navy', 'white', 'red'))(101)
     }
 
-    # was there a graph main title passed in?
-    .main <- list(...)[['main']]
-    .main %?<-% ''
-
-    #TODO fix the name of crp here, make it a function
-    image(x=x, y=y+dy, z=zmat, zlim=zlim, col=crp, useRaster = useRaster,
-          log=log, add=(log=='y'), axes=F, xlab='', ylab='', main=.main)
+    image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
+          add=TRUE, axes=F, xlab='', ylab='', main='')
 
     # return the clipped zmat
-    invisible(zmat)
+    invisible(mat)
 }
-
+# for compatibility
+# draw_img <- make_image
 
 # setup so that heatmaps look nice and you have enough space for the color bar
 # ratio: heatmap to color bar width ratio
@@ -118,6 +214,13 @@ layout_heat_maps <- function(k, ratio=4) {
 
 ##RUTABAGA
 median_ticks <- function(k, .floor=1) c(.floor, ceiling(k/2), k)
+
+`conditional_sep<-` <- function(str, value = '', sep=' ') {
+    if(isTRUE(nchar(str) > 0)) {
+        str = paste0(str, sep)
+    }
+    str = paste0(str, value)
+}
 
 ##RUTABAGA
 # helper function to write out plots as PDF
@@ -238,19 +341,16 @@ trial_type_boundaries_hm_decorator <- function(map, ...) {
     invisible(map)
 }
 
-window_highlighter <- function(ylim, draw_labels=TRUE, windows, window_names) {
-
+window_highlighter <- function(ylim, draw_labels=TRUE, window, window_name) {
     do_wh <- function(ylim, draw_labels) {
-        mapply(function(x, y, txt) {
-            clr <- rave_colors[[toupper(txt %&% '_window')]]
+            clr <- rave_colors[[toupper(window_name %&% '_window')]]
             clr %?<-% 'gray50'
-
-            do_poly(x, range(y), col=clr)
-            if(draw_labels)
-                text(min(x), max(y), txt, col=clr, adj=c(0,1))
-        },
-        windows, list(ylim, ylim), window_names)
-        abline(h=0, col='gray70')
+            
+            do_poly(window, range(ylim), col=clr)
+            
+            if(draw_labels) {
+                text(min(window), max(ylim), window_name, col=clr, adj=c(0,1))
+            }
     }
 
     if(missing(ylim)) {
@@ -294,22 +394,155 @@ create_multi_window_shader <- function(TIMES, clrs) {
 }
 
 
-window_lines <- function(ylim, ...) {
-    txts <- c('baseline', 'analysis')
-    mapply(vertical_borders,
-           list(BASELINE, TIME_RANGE),
-           list(ylim, ylim),
-           txts,
-           rave_colors[toupper(txts %&% '_window')]
-    )
-    abline(h=0, col='gray70')
+# window_lines <- function(ylim, ...) {
+#     txts <- c('baseline', 'analysis')
+#     mapply(vertical_borders,
+#            list(BASELINE, TIME_RANGE),
+#            list(ylim, ylim),
+#            txts,
+#            rave_colors[toupper(txts %&% '_window')]
+#     )
+#     abline(h=0, col='gray70')
+# 
+# }
+
+# 
+axis_label_decorator <- function(plot_data) {
+    # here we are assuming that everything in plot_data 
+    # is of the same x/y type
+    
+    # we  need to check if we've been give a list of things to plot (as is common for line plots),
+    # or a single thing (as is common for the case for heatmaps)
+    # test if there are plot variables at the highest level, if so, then we have k=1
+    pd <- plot_data
+    if(is.null(pd[['has_trials']])) {
+        ii = which(get_list_elements(pd, 'has_trials'))[1]
+        pd <- pd[[ii]]
+    } 
+    
+    title(xlab=attr(pd$data, 'xlab'),
+          ylab=attr(pd$data, 'ylab'),
+          cex.lab=rave_cex.lab)
 }
 
-ts_labels_only <- function(plot_data) {
+
+# by default we use PLOT_TITLE variable in results to see what to put in the title string
+# callers can override this behavior by specifically dis-allowing certain options
+# currently you can't force something to be TRUE if a user doesn't allow it, but we can think about 
+# this. If that's the case, all the allow_* would be NULL by default, and setting them to TRUE would override 
+# user preference. This seems rude at best, but for certain plots maybe they really require something to 
+# be put in the title?
+title_decorator <- function(plot_data, results,
+                            allow_sid=TRUE, allow_enum=TRUE, allow_freq=TRUE, allow_cond=TRUE, allow_sample_size=TRUE, ...) {
+    title_string = ''
+    .plot_options <- results$get_value('PLOT_TITLE')
+    
+    # wraps do_on_inclusion to make ths following lines easier to understand
+    add_if_selected <- function(id, expr) {
+        do_on_inclusion(id, expr, .plot_options)
+    }
+    
+    # we could write this as a simply m/sapply if the variable names had a clear relationship to one another
+    if(allow_sid)
+        add_if_selected('Subject ID', {
+            title_string = results$get_value('subject_code')
+        })
+    
+    if(allow_enum)
+        add_if_selected('Electrode #', {
+            conditional_sep(title_string) = 'E' %&% results$get_value('ELECTRODE')
+        })
+    
+    if(allow_freq)
+        add_if_selected('Frequency Range', {
+            conditional_sep(title_string) = 'Freq ' %&% paste0(results$get_value('FREQUENCY'), collapse=':')
+        })
+    
+    if(allow_sample_size) 
+        add_if_selected('Sample Size', {
+            if(!is.null(plot_data[['N']])) 
+                conditional_sep(title_string) = 'N=' %&% plot_data$N
+        })
+    
+    # rave_title is an "additive" instead of replacement call, so rendering an empty string won't hurt anything,
+    # but let's save a few needless function calls
+    if(nchar(title_string) > 0) {
+        rave_title(title_string)
+    }
+    
+    invisible()
+}
+
+# helper to reduce redundancies in searching then evaluating
+do_on_inclusion <- function(needle, expr, haystack) {
+    if(needle %in% haystack) {
+        eval(expr)
+    }
+}
+
+
+#
+# helper that calls out to sub-decorators based on user-selected options
+#
+time_series_decorator <- function(plot_data, results, ...) {
+    .plot_options <- results$get_value('PLOT_TITLE')
+    
+    do_tsd <- function(plot_data) {
+        # plot title
+        title_decorator(plot_data, results, allow_sample_size=FALSE)
+        
+        # axis labels
+        axis_label_decorator(plot_data)
+        
+        sapply(c('Baseline', 'Analysis'), function(nm) {
+            if(paste(nm, 'Window') %in% .plot_options) {
+                full_name <- toupper(nm) %&% '_WINDOW'
+                if(!results$get_value('draw_decorator_labels'))
+                    nm <- FALSE
+                
+                window_decorator(results$get_value(full_name),
+                                 type='shaded', shade.col = rave_colors[[full_name]], text = nm)
+            }
+        })
+        
+        # legend options, translate the names into fields available in each element of plot_data
+        legend_include = c('name', 'N')[c('Condition', 'Sample Size') %in% .plot_options]
+        legend_decorator(plot_data, include = legend_include)
+    }
+
+    if(missing(plot_data)) {
+        return (do_tsd)        
+    } 
+    
+    do_tsd(plot_data)
+}
+
+# this decorator takes care of checking if has_data==TRUE and only shows labels for which there is data
+# I guess this could be an option to include N==0 labels...
+legend_decorator <- function(plot_data, include=c('name', 'N'), location='topleft') {
+
+    valid.names <- c('name', 'N')
+    
+    if(length(include) < 1 || !any(include %in% valid.names)) {
+        return (invisible(plot_data))
+    }
+    
     ii <- which(plot_data %>% get_list_elements('has_trials'))
     nms <- plot_data %>% get_list_elements('name') %>% extract(ii)
+    ns <- plot_data %>% get_list_elements('N') %>% extract(ii)
+    
+    if('name' %in% include) {
+        legend_text = nms
+    } else if ('N' %in% include) {
+        legend_text = paste0('n=',ns)
+    }
+    
+    # handle the case where both are included. a little duplication, but clearer
+    if (all(valid.names %in% include)) {
+        legend_text = paste0(nms, ' (n=', ns, ')')
+    }
 
-    legend('topleft', legend=nms, ncol=ceiling(length(ii)/3),
+    legend(location, legend=legend_text, ncol=ceiling(length(ii)/3),
            inset=c(.025,.075), bty='n',
            text.col=get_color(ii), cex=rave_cex.lab)
 
@@ -317,21 +550,79 @@ ts_labels_only <- function(plot_data) {
 }
 
 
+window_decorator <- function(window, type=c('line', 'box', 'shaded'),
+                             line.col='black', shade.col='gray60',
+                             text=FALSE, text.col, lwd, lty) {
+    type <- match.arg(type)
+    text.x <- window[1]
+    text.y <- par('usr')[4] * .9
+    switch(type, 
+           line = {
+               lwd %?<-% 1
+               lty %?<-% 2
+               text.col %?<-% line.col
+               
+               abline(v=unlist(window), lwd=lwd, lty=lty, col=line.col)
+           },
+           box = {
+               lwd %?<-% 2
+               lty %?<-% 2
+               text.col %?<-% line.col
+               
+               if(any(is.null(window$x), is.null(window$y)) ) {
+                   warning("window must be a list with x and y components to draw a box")
+                   text=FALSE
+               } else {
+                   with(window, rect(x[1], y[1], x[2], y[2], lwd=lwd, lty=lty, border=line.col, col=NA))
+                   
+                   text.x <- window$x[1]
+                   
+                   # the multipler on the box here needs to be based on the size of the plot to reduce
+                   # the likelihood of over-printing. Basically we plot just above the analysis window (2.5% of the plottting range), or else 
+                   # at 90% of the figure region, whichever is lower
+                   yfac <- diff(par('usr')[4] * c(.975,1))
+                   text.y <- min(par('usr')[4]*.9, window$y[2] + yfac)
+               }
+           },
+           shaded = {
+               text.col %?<-% shade.col
+               
+               x = window
+               y = par('usr')[3:4]
+               text.y = par('usr')[4]*0.95
+               if(is.list(window)) {
+                   x = window$x
+                   y = window$y
+                   text.x <- window$x[1]
+                   
+                   yfac <- diff(par('usr')[4] * c(.975,1))
+                   text.y <- min(par('usr')[4]*.95, window$y[2] + yfac)
+               }
+               do_poly(x, y, col=shade.col)
+           })
+    
+    if(!isFALSE(text)) {
+        text(text.x, text.y, labels = text, pos=4, col=text.col, cex=rave_cex.lab)
+    }
+}
+
+#
+# x = sort(rnorm(10))
+# ..get_nearest(pretty(x), x)
 # RUTABAGA
-..get_nearest <- function(x,y) {
-    sapply(x, function(.x) which.min(abs(.x-y)))
+..get_nearest_i <- function(from,to) {
+    sapply(from, function(.x) which.min(abs(.x-to)))
+}
+..get_nearest <- ..get_nearest_i
+
+..get_nearest_val <- function(from,to) {
+    to[..get_nearest_i(from,to)]
 }
 
 # RUTABAGA
 `%near%` <- function(x, y, eps=1e-4) {
     abs(x-y) < eps
 }
-
-
-#
-# x = sort(rnorm(10))
-# ..get_nearest(pretty(x), x)
-
 
 heat_map_axes <- function(x, y, xlab, ylab, xax=TRUE, yax=TRUE, yntick=6) {
     if(xax) {
@@ -379,8 +670,10 @@ trial_hm_decorator <- function(hmap, baseline, x, y, xax=TRUE, yax=TRUE, analysi
 }
 
 # decorate a heatmap
-tf_hm_decorator <- function(hmap, x, y, xlab=x, ylab=y, ..., label.col='black', draw_time_baseline=TRUE, xax=TRUE, yax=TRUE,
-                            TIME_RANGE = NULL, FREQUENCY = NULL, BASELINE = NULL) {
+tf_hm_decorator <- function(hmap, results, ...)
+    # x, y, xlab=x, ylab=y, ..., label.col='black', draw_time_baseline=TRUE, xax=TRUE, yax=TRUE,
+    #                         TIME_RANGE = NULL, FREQUENCY = NULL, BASELINE = NULL)
+{
 
     do_tfhmd <- function(hmap, x, y, ...) {
         list2env(list(...), environment())

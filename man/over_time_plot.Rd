@@ -4,7 +4,7 @@
 \alias{over_time_plot}
 \title{Time Series Plot}
 \usage{
-over_time_plot(results)
+over_time_plot(results, ...)
 }
 \arguments{
 \item{results}{results returned by module}

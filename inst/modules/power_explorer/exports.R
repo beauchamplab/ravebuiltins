@@ -35,30 +35,6 @@ power_3d_fun = function(brain){
   brain$view(value_range = c(-1,1) * max(abs(values)))
 }
 
-observeEvent(input$power_3d__mouse_event, {
-  mouse_event = input$power_3d__mouse_event$event
-  object = input$power_3d__mouse_event$object
-
-  print(input$power_3d__mouse_event)
-
-  # This is dirty, i think we can provide function to get which electrode chosen
-  if(mouse_event$action == 'dblclick' && isTRUE( object$is_electrode )){
-    # Get object chosen, is it an electrode?
-    # Use isTRUE() to validate since object$is_electrode could be NULL
-    e = stringr::str_match(object$name, '^Electrode ([0-9]+)')[2]
-    e = as.integer(e)
-    if(e %in% preload_info$electrodes){
-      updateTextInput(session, 'ELECTRODE_TEXT', value = e)
-      showNotification(p('Switched to electrode ', e), type = 'message', id = ns('power_3d_widget__mouse'))
-    }else{
-      showNotification(p('Electrode ', e, ' is not loaded.'), type = 'warning', id = ns('power_3d_widget__mouse'))
-    }
-  }
-})
-
-
-
-
 # Export functions
 
 get_summary <- function() {
@@ -138,20 +114,61 @@ export_stats = function(conn=NA, lbl='stat_out', dir, ...){
   invisible(out_data)
 }
 
+input <- getDefaultReactiveInput()
+graph_export = function(){
+  actionLink(ns('btn_graph_export'), 'Export Graphs')
+}
+
+
+observeEvent(input$btn_graph_export, {
+  print(123)
+  module = with(globalenv(), {
+    module = rave::get_module('ravebuiltins', 'power_explorer', local = T)
+    module
+    
+  })
+  
+  pdf('~/Desktop/hmp_e' %&% deparse_selections(preload_info$electrodes, max_lag=10) %&% '.pdf', w=6, h=4, useDingbats = FALSE)
+  for(e in preload_info$electrodes){
+    result = module(ELECTRODE=e)
+    result$heat_map_plot()
+  }
+  
+  dev.off()
+  
+})
+
 export_graphs <- function(conn=NA, lbl='png_out', dir, ...) {
+  
+  module = rave::get_module('ravebuiltins', 'power_explorer', local = T)
+  
+  pdf('~/Desktop/hmp_e' %&% deparse_selections(preload_info$electrodes, max_lag=10) %&% '.pdf', w=6, h=4, useDingbats = FALSE)
+  for(e in preload_info$electrodes){
+    result = module(ELECTRODE=e)
+    result$heat_map_plot()
+  }
+  dev.off()
+  # 
+  # pdf('hmp.pdf')
+  # result$heat_map_plot()
+  # dev.off()
+  # 
+  # pdf('otp.pdf')
+  # result$line_plot()
+  # dev.off()
+  
+  
   # .dir <- module_tools$get_subject_dirs()$module_data_dir %&%  '/condition_explorer/png_out/'
   # dir.create(.dir, recursive = TRUE)
-  #
+
   # pow <- module_tools$get_power(force = T, referenced = T)
 
   #TODO check the variable export_per_electrode to see if we need to loop over electrodes and export
   # or if we want use just the current_electrodes and combine them
 
   #TODO need to scale all the fonts etc so things aren't too large for export
-  #
+
   # as_pdf(.dir %&% 'line_plot_el', w = 5, h=3, {
   #   over_time_plot()
   # } )
-
-
 }

@@ -14,8 +14,8 @@ env$mount_demo_subject()
 
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
-  # 'inst/modules/power_explorer/3d_viewer.R',
-  'inst/modules/power_explorer/exports.R'
+  'inst/modules/power_explorer/exports.R',
+  'inst/modules/power_explorer/event_handlers.R'
 )
 
 define_initialization({
@@ -49,7 +49,8 @@ define_input(
   definition = customizedUI(inputId = 'input_customized')
 )
 
-define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT')
+# define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT')
+define_input_single_electrode(inputId = 'ELECTRODE')
 define_input_frequency(inputId = 'FREQUENCY')
 define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis', initial_value = c(0,1))
 define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline', initial_value = c(-1,0))
@@ -85,14 +86,51 @@ define_input(
     definition = checkboxInput('collapse_using_median', 'Collapse w/ Median (NI)')
 )
 
+
+# let people decide how much information to include in the plots. It's up to the individual plot to actually make
+# use of this information, probably through shared decorators
+define_input(
+  definition = selectInput(inputId = 'PLOT_TITLE', label = 'Plot Decorations', multiple=TRUE,
+                           choices =c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range', 'Sample Size', 'Baseline Window', 'Analysis Window'),
+                           selected=c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range', 'Sample Size', 'Baseline Window', 'Analysis Window'))
+)
+
+define_input(
+  definition = selectInput(inputId = 'plots_to_export', label='Plots to Export', multiple=TRUE,
+                           choices = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average'),
+                           selected = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average'))
+)
+
+define_input(
+  definition = selectInput(inputId = 'export_what', label='Which electrodes should be exported?', multiple=FALSE,
+                           choices = c('Current Selection', 'All Loaded'))
+)
+
+define_input(
+  definition = checkboxInput('draw_decorator_labels', "Label Plot Decorations", value=TRUE)
+)
+  
+
+# define_input(
+#   definition = selectInput(inputId = 'color_palette', label='Pick a color palette', multiple=FALSE, 
+#                            choices = c(HTML('<bold>Bold</bold><i>Italic</i>'), HTML("<div style='background-color:red'>hi</div>")))
+# )
+
+
+define_input(
+  definition = customizedUI('graph_export')
+)
+
+
 # Define layouts if exists
 input_layout = list(
   '[#cccccc]Electrodes' = list(
-    c('ELECTRODE_TEXT'),
+    c('ELECTRODE'),
     c('combine_method')#,
     #c('reference_type', 'reference_group')
   ),
-  '[#99ccff]Trial Selector' = list(
+  #[#99ccff]
+  'Trial Selector' = list(
     'GROUPS'
   ),
   'Analysis Settings' = list(
@@ -100,8 +138,19 @@ input_layout = list(
     'BASELINE_WINDOW',
     'ANALYSIS_WINDOW'
   ),
-  '[-][#aaaaaa]Export Options' = list(),
+  #[#aaaaaa]
+  '[-]Export Plots' = list(
+    c('plots_to_export'),
+    c('export_what'),
+    'graph_export'
+  ),
+  '[-]Export Data/Results' = list(
+    
+  ),
   '[-]Plotting' = list(
+    c('PLOT_TITLE'),
+    'draw_decorator_labels',
+    #FIXME collapse_using_median should be in Analysis Settings???
     c('log_scale', 'sort_trials_by_type', 'collapse_using_median'),
     c('max_zlim')
   )
@@ -151,20 +200,15 @@ define_output_3d_viewer(
   surfaces = 'pial',
   multiple_subject = F,
   height = '70vh',
-  order = 0,
+  order = 1e3,
   width = 12,
   additional_ui = tagList(
-    selectInput(ns('viewer_3d_type'), 'Which statistics', choices = c('b', 't', 'p')),
-    p(ns('blah'))
+    selectInput(ns('viewer_3d_type'), 'Which statistics', choices = c('b', 't', 'p'))#,
+    #p(ns('blah'))
   )
 )
 
-# output_layout = list(
-#   # 'Tabset One' = list(
-#   #   'Multiple Output' = 'heat_map_plot'
-#   # )
-#   'Multiple Output' = 'heat_map_plot'
-# )
+
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
 

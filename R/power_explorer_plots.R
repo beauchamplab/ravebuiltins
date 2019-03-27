@@ -2,24 +2,20 @@
 #' @param results results returned by module
 #' @param ... other parameters passed to module output
 #' @export
-over_time_plot <- function(results) {
-
+over_time_plot <- function(results, ...) {
     has_data <- results$get_value('has_data', FALSE)
 
     validate(need(has_data, message="No Condition Specified"))
 
-        time_series_plot(results$get_value('line_plot_data'),
-                         x=results$get_value('time_points'),
-                         frequencies=results$get_value('FREQUENCY'),
-                         SHADER=window_highlighter(windows=list(results$get_value('BASELINE_WINDOW'), results$get_value('ANALYSIS_WINDOW')), window_names = c('baseline', 'analysis'))
-        )
+    time_series_plot(plot_data = results$get_value('line_plot_data'),
+                     PANEL.FIRST = time_series_decorator(results = results))
 }
 
 #' @title By Trial Plot With Statistics
 #' @param results results returned by module
 #' @param ... other parameters passed to module output
 #' @export
-windowed_comparison_plot <- function(results){
+windowed_comparison_plot <- function(results, ...){
     with(results, {
         validate(need((exists('has_data') && (has_data)), "No Condition Specified"))
         trial_scatter_plot(scatter_bar_data)
@@ -43,16 +39,10 @@ heat_map_plot <- function(results, ...){
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
 
-    # here we need to pass in the decorator because dmhm is going to loop over the heatmaps
-    # and take care of drawing a color bar for us
     draw_many_heat_maps(hmaps = results$get_value('heat_map_data'),
-                        x = results$get_value('time_points'),
-                        y = results$get_value('frequencies'),
                         log_scale = results$get_value('log_scale'),
                         max_zlim = results$get_value('max_zlim'),
-                        DECORATOR=tf_hm_decorator(TIME_RANGE = results$get_value('ANALYSIS_WINDOW'),
-                                                  FREQUENCY = results$get_value('FREQUENCY'),
-                                                  BASELINE = results$get_value('BASELINE_WINDOW'))
+                        PANEL.LAST = spectrogram_heatmap_decorator(results=results)
     )
 }
 
@@ -64,51 +54,54 @@ by_trial_heat_map <- function(results) {
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
 
-    # if the user wants the data to be sorted by trial type (rather than trial number) then we
-    # # need to sort the data
-
+    #base decorator
     decorator <- trial_hm_decorator(baseline=results$get_value('BASELINE_WINDOW'))
-    # do we need to sort the trials into trial type ordering? (instead of just ascending by trial #)
+    
     by_trial_heat_map_data <- results$get_value('by_trial_heat_map_data')
     time_points <- results$get_value('time_points')
+    
+    # if the user wants the data to be sorted by trial type (rather than trial number) then we
+    # need to sort the data
+    # do we need to sort the trials into trial type ordering? (instead of just ascending by trial #)
     sort_trials_by_type <- results$get_value('sort_trials_by_type', FALSE)
     if(sort_trials_by_type) {
         for(ii in which(results$get_value('has_trials'))) {
             by_trial_heat_map_data[[ii]] %<>% reorder_trials_by_type
         }
-        # change the y axis and draw label boundaries
-        decorator <- add_decorator(trial_type_boundaries_hm_decorator,
-                                   function(map,x,y,...) trial_hm_decorator(map,x,y,yax=FALSE, baseline=results$get_value('BASELINE_WINDOW')))
-
+        # # change the y axis and draw label boundaries
+        # decorator <- add_decorator(trial_type_boundaries_hm_decorator,
+        #                            function(map,x,y,...) {
+        #                                trial_hm_decorator(map,x,y,yax=FALSE, baseline=results$get_value('BASELINE_WINDOW'))
+        #                            })
     }
 
     # the y variable is changing each time,
     # so we provide a function that will be used to calculate the
     # y variable on a per map basis
-    draw_many_heat_maps(by_trial_heat_map_data, wide = sort_trials_by_type,
-                        x = results$get_value('time_points'), y=function(m) seq_len(dim(m)[2L]),
-                        ylab='Trials', DECORATOR=decorator, allow_log_scale=FALSE, max_zlim = results$get_value('max_zlim'))
+    draw_many_heat_maps(by_trial_heat_map_data,
+                        max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
+                        wide = sort_trials_by_type,
+                        PANEL.LAST=by_trial_heat_map_decorator(results=results))
+    # (trial_labels=sort_trials_by_type)
 }
 
 # show power over time with MSE by condition
-time_series_plot <- function(plot_data, x, xlab='Time (s)', ylab='% Signal Change', DECORATOR=ts_labels_only, SHADER,
-                             title, frequencies, draw_labels=TRUE) {
+time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL) {
+    
+    xlim <- pretty(get_list_elements(plot_data, 'x'))
     ylim <- pretty(get_data_range(plot_data), min.n=2, n=4)
 
+    plot_clean(xlim, ylim)
+    
+    if(isTRUE(is.function(PANEL.FIRST))) PANEL.FIRST(plot_data)
 
-    ### This should be done by a decorator. time_series_plot shouldn't be taking in a variable for frequencies.
-    if(missing(title)) {
-        # the unlist here will strip out the NULLS for us
-        ns <- unlist(lapply(plot_data, getElement, 'N'))
-        title <- 'Freq ' %&% paste0(frequencies, collapse=':') %&% ' || Ns ' %&% paste0(ns, collapse=', ')
-    }
-
-    plot_clean(x, ylim, xlab=xlab, ylab=ylab, main='')
-    rave_title(title)
-
-    # draw polys and labels for baseline and analysis ranges
-    SHADER(ylim, draw_labels)
-
+    # draw the axes AFTER the first paneling, should this go in PANEL.FIRST?
+    # it's weird because the PANEL.FIRST is responsible for labeling the axes, so why not for drawing them?
+    # the counter is that we need the xlim and ylim to make the plot. So it's easy to just draw the labels here
+    rave_axis(1, xlim)
+    rave_axis(2, ylim)
+    abline(h=0, col='gray70')
+    
     # draw each time series
     for(ii in seq_along(plot_data)) {
         with(plot_data[[ii]], {
@@ -118,13 +111,8 @@ time_series_plot <- function(plot_data, x, xlab='Time (s)', ylab='% Signal Chang
         })
     }
 
-    # if someone wants to add decorations, now is the time
-    # we could consider adding this inside the above for loop, not sure which
-    # is preferable
-    if(is.function(DECORATOR)) DECORATOR(plot_data)
-
-    rave_axis(1, pretty(x))
-    rave_axis(2, ylim)
+    # if someone wants to add "top-level" decorations, now is the time
+    if(is.function(PANEL.LAST)) PANEL.LAST(plot_data)
 
     invisible(plot_data)
 }
@@ -178,7 +166,6 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
     if(missing(jitr_x)) jitr_x <- 0.75*lsize
 
     if(missing(cols)) cols <- get_color(seq_along(group_data))
-
 
     # Ensure all parameters are sufficiently long. This feels extravagant, but needed because we're indexing into these variables
     # and we don't want to reach beyond the end
