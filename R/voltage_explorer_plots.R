@@ -3,7 +3,6 @@
 #' @param ... other parameters passed to module output
 #' @export
 erp_over_time_plot <- function(results, ...) {
-
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
 
@@ -12,10 +11,8 @@ erp_over_time_plot <- function(results, ...) {
                      results$get_value('BASELINE_WINDOW'))
     .wnames <- c('analysis', 'baseline')
 
-    time_series_plot(x = .time, ylab='Voltage',
-                     results$get_value('line_plot_data'),
-                     frequencies = '', title='',
-                     SHADER=window_highlighter(windows=.windows, window_names = .wnames)
+    time_series_plot(plot_data = results$get_value('line_plot_data'),
+                     PANEL.FIRST = time_series_decorator(results=results)
     )
 }
 
@@ -37,10 +34,10 @@ by_trial_erp_map <- function(results, ...){
 
     .max_zlim <- results$get_value('max_zlim')
 
-    draw_many_heat_maps(group_data, x = time_points, y=function(m) seq_len(dim(m)[2L]),
-                        xlab = 'Time (s)', ylab = 'Trial', DECORATOR = trial_hm_decorator(baseline = .baseline,
-                                                                                          analysis = .analysis),
-                        max_zlim = .max_zlim,log_scale = '', useRaster=FALSE)
+    draw_many_heat_maps(group_data,
+                        log_scale='',
+                        max_zlim = .max_zlim,
+                        PANEL.LAST = spectrogram_heatmap_decorator(results=results))
 }
 
 

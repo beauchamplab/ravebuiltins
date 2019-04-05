@@ -18,7 +18,7 @@
 #' @seealso draw_img
 draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
                                 show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
-                                PANEL.FIRST=NULL, PANEL.LAST=NULL, ...) {
+                                PANEL.FIRST=NULL, PANEL.LAST=NULL, axes=c(TRUE, TRUE), ...) {
 
     k <- sum(hmaps %>% get_list_elements('has_trials'))
     orig.pars <- layout_heat_maps(k)
@@ -69,13 +69,16 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
             }
             
             # make sure the decorators are aware that we are linearizing the y scale here
-            make_image(map$data,x=x, y=y, log=ifelse(log_scale, 'y', ''), zlim=c(-1,1)*max_zlim)
+            make_image(map$data, x=x, y=y, log=ifelse(log_scale, 'y', ''), zlim=c(-1,1)*max_zlim)
             
             xticks <- ..get_nearest(pretty(map$x), map$x)
             yticks <- ..get_nearest(pretty(map$y), map$y)
 
-            rave_axis(1, at=xticks, labels=map$x[xticks], tcl=0, lwd=0)
-            rave_axis(2, at=yticks, labels=map$y[yticks], tcl=0, lwd=0)
+            axes %<>% rep_len(2)
+            if(axes[1])
+                rave_axis(1, at=xticks, labels=map$x[xticks], tcl=0, lwd=0)
+            if(axes[2])
+                rave_axis(2, at=yticks, labels=map$y[yticks], tcl=0, lwd=0)
 
             if(is.function(PANEL.LAST)) {
                 #PANEL.LAST needs to know about the coordinate transform we made
@@ -94,6 +97,132 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
 
     invisible(hmaps)
 }
+
+# show power over time with MSE by condition
+time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL) {
+    
+    xlim <- pretty(get_list_elements(plot_data, 'x') %>% unlist)
+    ylim <- pretty(get_data_range(plot_data) %>% unlist, min.n=2, n=4)
+    
+    plot_clean(xlim, ylim)
+    
+    if(isTRUE(is.function(PANEL.FIRST))) PANEL.FIRST(plot_data)
+    
+    # draw the axes AFTER the first paneling, should this go in PANEL.FIRST?
+    # it's weird because the PANEL.FIRST is responsible for labeling the axes, so why not for drawing them?
+    # the counter is that we need the xlim and ylim to make the plot. So it's easy to just draw the labels here
+    rave_axis(1, xlim)
+    rave_axis(2, ylim)
+    abline(h=0, col='gray70')
+    
+    # draw each time series
+    for(ii in seq_along(plot_data)) {
+        with(plot_data[[ii]], {
+            if(has_trials) {
+                ebar_polygon(x, data[,1], data[,2], add_line = TRUE, col=ii)
+            }
+        })
+    }
+    
+    # if someone wants to add "top-level" decorations, now is the time
+    if(is.function(PANEL.LAST)) PANEL.LAST(plot_data)
+    
+    invisible(plot_data)
+}
+
+
+#
+# group_data is a list
+# this is a list to allow different N in each group
+# NB: the reason we use barplot here is that it takes care of the width between groups for us, even though by default we don't actually show the bars
+trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, cols, ebar.cols='gray30', ebar.lwds=3, jitr_x,
+                              pchs=19, pt.alpha=175, xlab='Group', ylab='Mean % Signal Change', ebar.lend=2, ...) {
+    
+    nms <- group_data %>% get_list_elements('name')
+    #
+    # #yes, sometimes people use the same name for different groups, or don't give names. Let's create new names
+    gnames <- paste0(LETTERS[seq_along(nms)], nms)
+    
+    #
+    ns <- group_data %>% get_list_elements('N')
+    
+    yax <- do_if(missing(ylim), {
+        pretty(get_data_range(group_data), high.u.bias = 100, n=4, min.n=3)
+    }, ylim)
+    
+    #there are edge cases where length(mses) != length(names), take care of this with `ind` below
+    bp_names <- paste0(nms, ' (N=' %&% ns %&%')')
+    
+    # this creates space for empty groups -- is this expected behavior? It is good to preserve the color
+    # mapping, but I'd rather not have the empty, space... so we need to preserve the colors but not the empty space
+    ind <- which(unlist(lapply(group_data, '[[', 'has_trials')))
+    mses <- sapply(ind, function(ii) group_data[[ii]]$mse)
+    
+    
+    .col <- if(par('bg')=='black') {
+        'white'
+    } else {
+        'black'
+    }
+    
+    x <- rave_barplot(mses[1,],
+                      ylim=.fast_range(yax) %>% stretch(.01), col=bar.cols, border=bar.borders,
+                      names.arg=bp_names[ind], col.axis=.col, axes=F, ...)
+    
+    # putting this here, but move this out to a PANEL.FIRST
+    axis_label_decorator(group_data)
+    
+    rave_axis(2, at=yax)
+    
+    if(min(yax) < 0) abline(h=0, col='lightgray')
+    
+    # grabbing an attribute from the group data
+    if(not_null(attr(group_data, 'stats')))
+        rave_title(as.title(pretty(attr(group_data, 'stats'))))
+    
+    #emphasize the means
+    lsize <- (1/3)*mean(unique(diff(x)))
+    # this means there is only 1 group. If there is one group, the barplot seems to get placed at 0.7, with
+    # the usr range being 0.16 - 1.24.
+    if(is.na(lsize)) lsize <- 1/3
+    
+    if(missing(jitr_x)) jitr_x <- 0.75*lsize
+    
+    # if(missing(cols)) cols <- get_color(seq_along(group_data))
+    if(missing(cols)) cols <- grDevices::palette()
+    
+    # Ensure all parameters are sufficiently long. This feels extravagant, but needed because we're indexing into these variables
+    # and we don't want to reach beyond the end
+    par_rep <- function(y) rep_len(y, length(group_data))
+    
+    cols %<>% par_rep
+    pchs %<>% par_rep
+    bar.cols %<>% par_rep
+    ebar.cols %<>% par_rep
+    bar.borders %<>% par_rep
+    
+    # x may not be the same length as group_data because we're skipping empty groups
+    # we still want everything else to be based on group number
+    xi <- 1
+    for(ii in seq_along(group_data)) {
+        if(group_data[[ii]]$has_trials) {
+            
+            lines(x[xi] + c(-lsize, lsize), rep(mses[1, xi], 2), lwd=3, lend=ebar.lend, col=ebar.cols[ii])
+            
+            add_points(x[xi], group_data[[ii]]$data,
+                       col=getAlphaRGB(cols[ii], pt.alpha), pch=pchs[ii], jitr_x=jitr_x)
+            
+            ebars.y(x[xi], mses[1,xi], mses[2,xi],
+                    lwd=ebar.lwds, col=ebar.cols[ii], code=0, lend=ebar.lend)
+            xi <- xi+1
+        }
+    }
+    
+    # in case people need to further decorate
+    invisible(x)
+}
+
+
 
 
 # the Xmap and Ymap here are functions that allow for transformation of the plot_data $x and $y into
@@ -189,10 +318,12 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
         }
     }
     
-    if(missing(col)) {
-        col = colorRampPalette(c('navy', 'white', 'red'))(101)
+    col %?<-% if (par('bg')=='black') {
+        rave_heat_map_dark_colors
+    } else {
+        rave_heat_map_colors
     }
-
+    
     image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
           add=TRUE, axes=F, xlab='', ylab='', main='')
 
@@ -249,9 +380,16 @@ fix_pdf_name <- function(fname) {
 
 str_rng <- function(rng) sprintf('[%s]', paste0(rng, collapse=':'))
 
-rave_color_bar <- function(zlim, actual_lim, clrs=rave_heat_map_colors, ylab='Mean % Signal Change',
+rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change',
                            mar=c(5.1, 5.1, 2, 2)) {
-    cbar <- matrix(seq(-zlim, zlim, length=length(rave_heat_map_colors))) %>% t
+    
+    clrs %?<-% if(par('bg') == 'black') {
+        rave_heat_map_dark_colors
+    } else {
+        rave_heat_map_colors
+    }
+    
+    cbar <- matrix(seq(-zlim, zlim, length=length(clrs))) %>% t
     par(mar=mar)
     image(cbar,
           col=clrs, axes=F, ylab=ylab, main='',
@@ -276,7 +414,10 @@ reorder_trials_by_type <- function(bthmd) {
     # we want to sort but preserve the order that the conditions were added to the group, but this doesn't do that
     ind <- sapply(bthmd$conditions, function(ttype) which(ttype==bthmd$trials), simplify = FALSE)
 
+    .xlab <- attr(bthmd$data, 'xlab')
     bthmd$data <- bthmd$data[,unlist(ind)]
+    attr(bthmd$data, 'xlab') <- .xlab
+    attr(bthmd$data, 'ylab') <- ''
     bthmd$lines <- cumsum(c(sapply(ind, length)))
     bthmd$ttypes <- names(ind)
     bthmd$trials <-  bthmd$trials[unlist(ind)]
@@ -335,7 +476,7 @@ trial_type_boundaries_hm_decorator <- function(map, ...) {
         } else {
             yat <- median(y)
         }
-        ruta_axis(2, tcl=0, lwd=0, at=yat, labels=map$ttypes)
+        rave_axis(2, tcl=0, lwd=0, at=yat, labels=map$ttypes)
     })
 
     invisible(map)
@@ -407,7 +548,7 @@ create_multi_window_shader <- function(TIMES, clrs) {
 # }
 
 # 
-axis_label_decorator <- function(plot_data) {
+axis_label_decorator <- function(plot_data, col) {
     # here we are assuming that everything in plot_data 
     # is of the same x/y type
     
@@ -420,9 +561,14 @@ axis_label_decorator <- function(plot_data) {
         pd <- pd[[ii]]
     } 
     
+    col %?<-% if(par('bg') == 'black') {
+        'white'
+    } else {
+        'black'
+    }
     title(xlab=attr(pd$data, 'xlab'),
           ylab=attr(pd$data, 'ylab'),
-          cex.lab=rave_cex.lab)
+          cex.lab=rave_cex.lab, col.lab=col)
 }
 
 
@@ -528,8 +674,8 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
     }
     
     ii <- which(plot_data %>% get_list_elements('has_trials'))
-    nms <- plot_data %>% get_list_elements('name') %>% extract(ii)
-    ns <- plot_data %>% get_list_elements('N') %>% extract(ii)
+    nms <- plot_data %>% get_list_elements('name', drop_nulls = FALSE) %>% extract(ii)
+    ns <- plot_data %>% get_list_elements('N', drop_nulls = FALSE) %>% extract(ii)
     
     if('name' %in% include) {
         legend_text = nms
@@ -544,18 +690,26 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
 
     legend(location, legend=legend_text, ncol=ceiling(length(ii)/3),
            inset=c(.025,.075), bty='n',
-           text.col=get_color(ii), cex=rave_cex.lab)
+           text.col=ii, cex=rave_cex.lab)
 
     invisible(plot_data)
 }
 
 
 window_decorator <- function(window, type=c('line', 'box', 'shaded'),
-                             line.col='black', shade.col='gray60',
+                             line.col, shade.col='gray60',
                              text=FALSE, text.col, lwd, lty) {
     type <- match.arg(type)
     text.x <- window[1]
     text.y <- par('usr')[4] * .9
+    
+    
+    line.col %?<-% if(par('bg') == 'black') {
+        'white'
+    } else {
+        'black'
+    }
+    
     switch(type, 
            line = {
                lwd %?<-% 1
@@ -837,3 +991,47 @@ hist.circular <- function(x, ymax, nticks=3, digits=1, breaks=20, col='black', .
 
     invisible(x.hist)
 }
+
+
+
+# # # Colors
+#' @export
+get_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
+    # Some of these are from:
+    # https://colorhunt.co/
+    .palettes <- list(
+        'OrBlGrRdBrPr' = c("orange", "dodgerblue3", "darkgreen", "orangered", "brown", 
+                           "purple3"),
+        'Dark IV' = c('#11144c', '#3a9679', '#fabc60', '#e16262'),
+        'Pastel IV' = c('#7fe7cc', '#dfe38e', '#efca8c', '#f17e7e'),
+        'Twilight IV' = c('#e7eaf6', '#a2a8d3', '#38598b', '#113f67'),
+        'Blues then Orange IV' = c('#070d59', '#1f3c88', '#5893d4', '#f7b633'),
+        'Bright IV' = c('#ff62a5', '#ffe5ae', '#6b76ff', '#dee0d9')
+    )
+    
+    if(missing(pname)) {
+        if(get_palette_names)
+            return (names(.palettes))
+        
+        return (.palettes)
+    }
+    
+    pal <- .palettes[[pname]]
+    if(is.null(pal)) {
+        warning("Invalid palette requested: ", pname, ". Returning random palette")
+        pal <- .palettes[[sample(seq_along(.palettes), 1)]]
+    }
+    
+    return (pal)
+}
+
+set_palette <- function(pname) {
+    if(length(pname) == 1) {
+        pname %<>% get_palette
+    }
+    
+    grDevices::palette(pname)
+}
+
+
+

@@ -15,7 +15,8 @@ env$mount_demo_subject()
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
   'inst/modules/power_explorer/exports.R',
-  'inst/modules/power_explorer/event_handlers.R'
+  'inst/modules/power_explorer/event_handlers.R', 
+  asis = TRUE
 )
 
 define_initialization({
@@ -74,7 +75,7 @@ define_input(
 # )
 
 define_input(
-  definition = numericInput('max_zlim', 'Maximum Plot Value', value = 0, min = 0, step = 1)
+  definition = numericInput('max_zlim', 'Heatmap Max', value = 0, min = 0, step = 1)
 )
 define_input(
   definition = checkboxInput('log_scale', 'Log Freq (NI)')
@@ -102,20 +103,33 @@ define_input(
 )
 
 define_input(
-  definition = selectInput(inputId = 'export_what', label='Which electrodes should be exported?', multiple=FALSE,
-                           choices = c('Current Selection', 'All Loaded'))
+  definition = selectInput(inputId = 'export_what',
+                           label='Which electrodes should be exported?', multiple=FALSE,
+                           choices = c('All Loaded', 'Current Selection'))
 )
 
 define_input(
   definition = checkboxInput('draw_decorator_labels', "Label Plot Decorations", value=TRUE)
 )
-  
 
-# define_input(
-#   definition = selectInput(inputId = 'color_palette', label='Pick a color palette', multiple=FALSE, 
-#                            choices = c(HTML('<bold>Bold</bold><i>Italic</i>'), HTML("<div style='background-color:red'>hi</div>")))
-# )
+define_input(
+  definition = selectInput(inputId = 'color_palette', label='Color palette', multiple=FALSE, 
+                           choices = list(Default=get_palette(get_palette_names = TRUE),Unused=get_palette(get_palette_names = TRUE)),
+                           selected = get_palette(get_palette_names = TRUE)[1])
+)
 
+define_input(
+  definition = selectInput(inputId = 'background_plot_color_hint', label = 'Background color', multiple=FALSE,
+                           choices = c('White', 'Black', 'Gray'))
+)
+
+define_input(
+  definition = checkboxInput('invert_colors_in_palette', "Inverse Palette Colors", value=FALSE)
+)
+
+define_input(
+  definition = checkboxInput('reverse_colors_in_palette', "Reverse Palette Order", value=FALSE)
+)
 
 define_input(
   definition = customizedUI('graph_export')
@@ -138,21 +152,22 @@ input_layout = list(
     'BASELINE_WINDOW',
     'ANALYSIS_WINDOW'
   ),
+  '[-]Plot Options' = list(
+    c('PLOT_TITLE'),
+    'draw_decorator_labels',
+    #FIXME collapse_using_median should be in Analysis Settings???
+    c('color_palette', 'background_plot_color_hint'),
+    c('invert_colors_in_palette', 'reverse_colors_in_palette'),
+    c('max_zlim'),
+    c('log_scale', 'sort_trials_by_type', 'collapse_using_median')
+  ),
   #[#aaaaaa]
   '[-]Export Plots' = list(
     c('plots_to_export'),
     c('export_what'),
-    'graph_export'
+    c('graph_export')
   ),
   '[-]Export Data/Results' = list(
-    
-  ),
-  '[-]Plotting' = list(
-    c('PLOT_TITLE'),
-    'draw_decorator_labels',
-    #FIXME collapse_using_median should be in Analysis Settings???
-    c('log_scale', 'sort_trials_by_type', 'collapse_using_median'),
-    c('max_zlim')
   )
 )
 

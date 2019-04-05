@@ -16,12 +16,12 @@ if(F) {
 
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
-    requested_electrodes = parse_selections(ELECTRODE_TEXT %>% str_replace_all(':', '-'))
-    requested_electrodes %<>% get_by(`%in%`, electrodes)
+    # requested_electrodes = parse_selections(ELECTRODE_TEXT %>% str_replace_all(':', '-'))
+    # requested_electrodes %<>% get_by(`%in%`, electrodes)
 
     # this will be NA if the only requested electrodes are not available
     # electrode <- requested_electrodes[1]
-    assertthat::assert_that(length(requested_electrodes) >= 1 && all(not_NA(requested_electrodes)),msg = 'No electrode selected')
+    # assertthat::assert_that(length(requested_electrodes) >= 1 && all(not_NA(requested_electrodes)),msg = 'No electrode selected')
 
     # downsample as requested
     s = voltage$dimnames$Time[1]
@@ -30,7 +30,7 @@ if(F) {
     eps <- diff(requested_samples)
 
     keepers <- voltage$dimnames$Time[..get_nearest(requested_samples, voltage$dimnames$Time)]
-    voltage_sub <- voltage$subset(Time = Time %in% keepers, Electrode = Electrode %in% requested_electrodes)
+    voltage_sub <- voltage$subset(Time = Time %in% keepers, Electrode = Electrode %in% ELECTRODE)
     # match_baseline_unit <- function(u) {
     #   if(u == 'dB') {
     #     return ('dB')
@@ -91,7 +91,6 @@ if(F) {
     line_plot_data <- lapply(line_plot_data, function(lpd) {
       .d <- lpd$all_data$collapse(keep=1:2)
       lpd$all_data <- NULL
-
       lpd$analysis_data <- NULL
       lpd$baseline_data <- NULL
       lpd$data <- t(apply(.d, 2, .fast_mse))
@@ -106,9 +105,16 @@ if(F) {
       d$baseline_data <- d$baseline_data$collapse(keep=1:2)
       # d$baseline_data_mean <- rowMeans(d$baseline_data)
       d$data <- d$all_data$collapse(keep=1:2) %>% t
-
+      
+      d$x <- d$all_data$dimnames$Time
+      d$y <- d$all_data$dimnames$Trial
+      attr(d, 'xlab') = 'Time'
+      attr(d, 'ylab') = 'Trial'
+      
       return(d)
     })
+    
+    
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 

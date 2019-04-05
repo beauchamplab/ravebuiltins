@@ -121,7 +121,6 @@ for(ii in which(has_trials)){
     attr(by_trial_heat_map_data[[ii]]$data, 'xlab') <- 'Time (s)'
     attr(by_trial_heat_map_data[[ii]]$data, 'ylab') <- 'Trial'
     
-    
     # 3 Time only
     # coll freq and trial for line plot w/ ebar. Because we're doing error bars, we have to know whether we have 1 vs. >1 electrodes
     # if(length(requested_electrodes) == 1){
@@ -152,6 +151,9 @@ for(ii in which(has_trials)){
         data_only = TRUE
       ))
     ))
+    
+    attr(scatter_bar_data[[ii]]$data, 'xlab') <- 'Group'
+    attr(scatter_bar_data[[ii]]$data, 'ylab') <- 'Mean % Signal Change'
 
   } 
   else{
@@ -253,9 +255,12 @@ require(ravebuiltins)
 module = ravebuiltins:::debug_module('power_explorer')
 
 result = module(GROUPS = list(list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
+                              # putting in an empty group to test our coping mechanisms
+                              list(group_name='YY', group_conditions=c()),
                               list(group_name='B', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
-                FREQUENCY = c(75,150), max_zlim = 300)
+                FREQUENCY = c(75,150), max_zlim = 300, sort_trials_by_type = T)
 results = result$results
+# attachDefaultDataRepository()
 
 result$heat_map_plot()
 result$by_trial_heat_map()

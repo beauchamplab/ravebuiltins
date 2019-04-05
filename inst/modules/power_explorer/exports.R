@@ -1,9 +1,16 @@
+input <- getDefaultReactiveInput()
+output = getDefaultReactiveOutput()
+
 power_3d_fun = function(brain){
-  showNotification(p('Generating in progress, need some time...'))
+  showNotification(p('Generating 3d viewer...'))
 
   dat = rave::cache(key = list(
     list(BASELINE_WINDOW, preload_info)
   ), val = get_summary())
+  
+  
+  
+  
   # for each electrode, we want to test the different conditions
   .FUN <- if(length(levels(dat$condition)) > 1) {
 
@@ -36,7 +43,6 @@ power_3d_fun = function(brain){
 }
 
 # Export functions
-
 get_summary <- function() {
   # here we just want an estimate of the power at each trial for each electrode
   # get the labels for each trial
@@ -114,61 +120,86 @@ export_stats = function(conn=NA, lbl='stat_out', dir, ...){
   invisible(out_data)
 }
 
-input <- getDefaultReactiveInput()
 graph_export = function(){
-  actionLink(ns('btn_graph_export'), 'Export Graphs')
+  tagList(
+    # actionLink(ns('btn_graph_export'), 'Export Graphs'),
+    downloadLink(ns('btn_graph_download'), 'Download Graphs')
+  )
 }
 
+# observeEvent(input$btn_graph_export, {
+#   export_graphs(conn = '~/Desktop/hmp_e.pdf')
+# })
 
-observeEvent(input$btn_graph_export, {
-  print(123)
-  module = with(globalenv(), {
-    module = rave::get_module('ravebuiltins', 'power_explorer', local = T)
-    module
+
+output$btn_graph_download <- downloadHandler(
+  filename = 'export.zip',
+  
+  content = function(conn){
+    tmp_dir = tempdir()
     
-  })
+    # map the human names to the function names
+    function_map <- list('Spectrogram' = 'heat_map_plot',
+                         'By Trial Power' = 'by_trial_heat_map',
+                         'Over Time Plot' = 'over_time_plot', 
+                         'Windowed Average' = 'windowed_comparison_plot')
+
+    to_export <- function_map[plots_to_export]
+    prefix <- sprintf('%s_%s_%s_', subject$subject_code, subject$project_name, format(Sys.time(), "%b_%d_%Y_%H_%M_%S"))
+        
+    fnames <- function_map[plots_to_export]
+    
+    tmp_files <- prefix %&% str_replace_all(names(fnames), ' ', '_') %&% '.pdf'
+    
+    mapply(export_graphs, file.path(tmp_dir, tmp_files), fnames)
+    
+    wd = getwd()
+    on.exit({setwd(wd)})
+    
+    setwd(tmp_dir)
+    
+    zip(conn, files = tmp_files, flags='-r2X')
+  }
+)
+
+export_graphs <- function(conn=NA,
+                          which_plot=c('heat_map_plot','by_trial_heat_map','over_time_plot', 'windowed_comparison_plot'), ...) {
   
-  pdf('~/Desktop/hmp_e' %&% deparse_selections(preload_info$electrodes, max_lag=10) %&% '.pdf', w=6, h=4, useDingbats = FALSE)
-  for(e in preload_info$electrodes){
-    result = module(ELECTRODE=e)
-    result$heat_map_plot()
+  which_plot <-  match.arg(which_plot)
+  
+  args = isolate(reactiveValuesToList(input))
+  
+  electrodes_loaded = preload_info$electrodes
+  progress = rave::progress('Rendering graphs for: ' %&% str_replace_all(which_plot, '_', ' '),
+                            max = length(electrodes_loaded))
+  .export_graph = function(){
+    module = rave::get_module('ravebuiltins', 'power_explorer', local = T)
+    
+    formal_names = names(formals(module))
+    args = args[formal_names]
+    names(args) = formal_names
+    
+    pdf(conn, width = 11, height = 8.5, useDingbats = FALSE)
+    
+    on.exit(dev.off())
+    
+    on.exit({progress$close()}, add=TRUE)
+    
+    for(e in electrodes_loaded){
+      progress$inc(message = sprintf('Electrode %d', e))
+      args[['ELECTRODE']] = e
+      result = do.call(module, args)
+      result[[which_plot]]()
+    }
   }
   
-  dev.off()
+  .export_graph()
   
-})
-
-export_graphs <- function(conn=NA, lbl='png_out', dir, ...) {
+  # showNotification(p('Export graph finished.'))
   
-  module = rave::get_module('ravebuiltins', 'power_explorer', local = T)
-  
-  pdf('~/Desktop/hmp_e' %&% deparse_selections(preload_info$electrodes, max_lag=10) %&% '.pdf', w=6, h=4, useDingbats = FALSE)
-  for(e in preload_info$electrodes){
-    result = module(ELECTRODE=e)
-    result$heat_map_plot()
-  }
-  dev.off()
-  # 
-  # pdf('hmp.pdf')
-  # result$heat_map_plot()
-  # dev.off()
-  # 
-  # pdf('otp.pdf')
-  # result$line_plot()
-  # dev.off()
-  
-  
-  # .dir <- module_tools$get_subject_dirs()$module_data_dir %&%  '/condition_explorer/png_out/'
-  # dir.create(.dir, recursive = TRUE)
-
-  # pow <- module_tools$get_power(force = T, referenced = T)
-
   #TODO check the variable export_per_electrode to see if we need to loop over electrodes and export
   # or if we want use just the current_electrodes and combine them
-
+  
   #TODO need to scale all the fonts etc so things aren't too large for export
-
-  # as_pdf(.dir %&% 'line_plot_el', w = 5, h=3, {
-  #   over_time_plot()
-  # } )
+  
 }

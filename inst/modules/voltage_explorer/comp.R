@@ -44,13 +44,12 @@ define_initialization({
 
 # Select from multiple choices,
 
-
 define_input(
     definition = customizedUI(inputId = 'input_customized')
 )
 
 define_input_condition_groups(inputId = 'GROUPS')
-define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT')
+define_input_single_electrode(inputId = 'ELECTRODE')
 define_input_frequency(inputId = 'FREQUENCY')
 define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis', initial_value = c(0,1))
 define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline', initial_value = c(-1,0))
@@ -69,10 +68,59 @@ define_input(
     definition = selectInput(inputId = 'BASELINE_TYPE', label = 'Baseline Method', choices=c('% Change', 'dB'), selected='% Change')
 )
 
+# let people decide how much information to include in the plots. It's up to the individual plot to actually make
+# use of this information, probably through shared decorators
+define_input(
+    definition = selectInput(inputId = 'PLOT_TITLE', label = 'Plot Decorations', multiple=TRUE,
+                             choices =c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range', 'Sample Size', 'Baseline Window', 'Analysis Window'),
+                             selected=c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range', 'Sample Size', 'Baseline Window', 'Analysis Window'))
+)
+
+define_input(
+    definition = selectInput(inputId = 'plots_to_export', label='Plots to Export', multiple=TRUE,
+                             choices = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average'),
+                             selected = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average'))
+)
+
+define_input(
+    definition = selectInput(inputId = 'export_what', label='Which electrodes should be exported?', multiple=FALSE,
+                             choices = c('All Loaded', 'Current Selection'))
+)
+
+define_input(
+    definition = checkboxInput('draw_decorator_labels', "Label Plot Decorations", value=TRUE)
+)
+
+define_input(
+    definition = selectInput(inputId = 'color_palette', label='Color palette', multiple=FALSE, 
+                             choices = get_palette(get_palette_names = TRUE),
+                             selected = get_palette(get_palette_names = TRUE)[1])
+)
+
+define_input(
+    definition = selectInput(inputId = 'background_plot_color_hint', label = 'Background color', multiple=FALSE,
+                             choices = c('White', 'Black', 'Gray'))
+)
+
+define_input(
+    definition = checkboxInput('invert_colors_in_palette', "Inverse Palette Colors", value=FALSE)
+)
+
+define_input(
+    definition = checkboxInput('reverse_colors_in_palette', "Reverse Palette Order", value=FALSE)
+)
+
+define_input(
+    definition = customizedUI('graph_export')
+)
+
+
+
+
 # Define layouts if exists
 input_layout = list(
     '[#cccccc]Electrodes' = list(
-        c('ELECTRODE_TEXT')
+        c('ELECTRODE')
     ),
     #[#99ccff]
     'Trial Selector' = list(
@@ -86,9 +134,15 @@ input_layout = list(
         'BASELINE_WINDOW',
         'ANALYSIS_WINDOW'
     ),
-    #[#aaaaaa]
-    '[-]Export Options' = list(),
-    '[-]Plotting' = list()
+    '[-]Plot Options' = list(
+        c('PLOT_TITLE'),
+        'draw_decorator_labels',
+        c('color_palette', 'background_plot_color_hint'),
+        c('invert_colors_in_palette', 'reverse_colors_in_palette'),
+        c('max_zlim'),
+        c('log_scale', 'sort_trials_by_type', 'collapse_using_median')
+    ),
+    '[-]Export Options' = list()
 )
 
 # End of input

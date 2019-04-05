@@ -4,8 +4,7 @@
 #' @import rave
 #' @import shiny
 #' @importFrom magrittr %>%
-#' @importFrom stringr str_replace_all
-#' @importFrom stringr str_to_lower
+#' @import stringr
 #' @importFrom magrittr %<>%
 #' @importFrom magrittr extract2
 #' @importFrom magrittr extract
@@ -17,6 +16,7 @@
 #' 
 #' @importFrom grDevices dev.off
 #' @importFrom grDevices pdf
+#' @importFrom grDevices palette
 #' 
 #' @import graphics
 #' 
@@ -255,11 +255,21 @@ rave_cex.axis <- 1.3
 # the left margin to compensate
 rave_cex.lab <- 1.4
 
-
-
 rave_color_ramp_palette <- colorRampPalette(c('navy', 'white', 'red'), interpolate='linear', space='Lab')
+rave_color_ramp_dark_palette <- colorRampPalette(c('#13547a', 'black', '#ff758c'), interpolate='linear', space='Lab')
 
+
+..dark_blue_to_red <- rev(c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#ffffff", 
+                        "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061"))
+..light_blue_to_light_red <- c(..dark_blue_to_red[5:1], 'black', ..dark_blue_to_red[11:7])
+
+
+rave_color_ramp_palette <- colorRampPalette(..dark_blue_to_red, interpolate='linear', space='Lab')
 rave_heat_map_colors <- rave_color_ramp_palette(1001)
+
+rave_color_ramp_dark_palette <- colorRampPalette(..light_blue_to_light_red, interpolate='linear', space='Lab')
+
+rave_heat_map_dark_colors <- rave_color_ramp_dark_palette(1001)
 
 # put this hear for legacy, but we need to exterminate these references
 crp <- rave_heat_map_colors
@@ -267,7 +277,19 @@ crp <- rave_heat_map_colors
 group_colors <- c('orange', 'dodgerblue3', 'darkgreen', 'orangered', 'brown', 'purple3')
 
 # Internal use, not exported
-rave_axis <- function(side, at, tcl=-0.3, labels=at, las=1, cex.axis=rave_cex.axis, cex.lab=rave_cex.lab, mgpy=c(3, .6, 0), mgpx=c(3, .75, 0), ...) {
+rave_axis <- function(side, at, tcl=-0.3, labels=at, las=1, cex.axis=rave_cex.axis,
+                      cex.lab=rave_cex.lab, mgpy=c(3, .6, 0), mgpx=c(3, .75, 0), col, col.axis, ...) {
+  
+  # if the color isn't specified, then we are free to set the color to what we want.
+  # let's set it to be black, unless that background color is black, then we'll do white
+  col %?<-% if(par('bg') == 'black') {
+    'white'
+  } else {
+    'black'
+  }
+  
+  col.axis %?<-% col
+  
   ruta_axis(
     side = side,
     at = at,
@@ -278,6 +300,7 @@ rave_axis <- function(side, at, tcl=-0.3, labels=at, las=1, cex.axis=rave_cex.ax
     cex.lab = cex.lab,
     mgpy = mgpy,
     mgpx = mgpx,
+    col=col, col.axis=col.axis,
     ...
   )
 }
@@ -302,10 +325,7 @@ ebars.y = function(x, y, sem, length = 0.05, up = T, down = T, code = 2, ...) {
   }
 }
 
-
-
 plus_minus <- rutabaga::pm
-
 
 
 abs_cdiff <- function(m) {
@@ -358,9 +378,6 @@ as.title.tres <- function(res,...) {
 }
 
 
-
-
-
 # allow color cycling
 get_color <- function(ii) {
   group_colors[(ii - 1) %% length(group_colors) + 1]
@@ -369,6 +386,13 @@ get_color <- function(ii) {
 rave_colors <- list('BASELINE_WINDOW'='gray60', 'ANALYSIS_WINDOW' = 'salmon2', 'GROUP'=group_colors,
                     'TRIAL_TYPE_SEPARATOR'='gray40')
 
-rave_title <- function(main, cex=rave_cex.main, col='black', font=1) {
+rave_title <- function(main, cex=rave_cex.main, col, font=1) {
+  
+  col %?<-% if(par('bg') == 'black') {
+    'white'
+  } else {
+    'black'
+  }
+  
   title(main=list(main, cex=cex, col=col, font=font))
 }

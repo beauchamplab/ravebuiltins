@@ -6,7 +6,7 @@
 \usage{
 draw_many_heat_maps(hmaps, max_zlim = 0, log_scale = FALSE,
   show_color_bar = TRUE, useRaster = TRUE, wide = FALSE,
-  PANEL.FIRST = NULL, PANEL.LAST = NULL, ...)
+  PANEL.FIRST = NULL, PANEL.LAST = NULL, axes = c(TRUE, TRUE), ...)
 }
 \arguments{
 \item{hmaps}{data to draw heatmaps}
