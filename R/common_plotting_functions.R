@@ -266,7 +266,7 @@ spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=f
                 with(windows[[nm]],
                      window_decorator(
                          window=window, type=type,
-                         text=ifelse(results$get_value('draw_decorator_labels'), nm, FALSE)
+                         text=ifelse(results$get_value('draw_decorator_labels'), nm, '')
                      )
                 )
             }

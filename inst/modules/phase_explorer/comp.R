@@ -156,10 +156,6 @@ define_output_3d_viewer(
     )
 )
 
-
-
-
-
 # output_layout = list(
 #   'Tab1' = list(
 #       'ITPC (All Freq)' = c('..itpc_plot_heatmap'),

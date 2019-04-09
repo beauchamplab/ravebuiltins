@@ -88,14 +88,17 @@ define_input(
                              choices = c('All Loaded', 'Current Selection'))
 )
 
-define_input(
-    definition = checkboxInput('draw_decorator_labels', "Label Plot Decorations", value=TRUE)
-)
 
 define_input(
     definition = selectInput(inputId = 'color_palette', label='Color palette', multiple=FALSE, 
-                             choices = get_palette(get_palette_names = TRUE),
-                             selected = get_palette(get_palette_names = TRUE)[1])
+                             choice=get_palette(get_palette_names = TRUE),
+                             selected = get_palette(get_palette_names = TRUE)[1]),
+    
+    # cache the color palette across data reloads. needs init_args and init_expr
+    init_args = c('selected'),
+    init_expr = {
+        selected = cache_input('color_palette', val = get_palette(get_palette_names = TRUE)[1])
+    }
 )
 
 define_input(
@@ -105,6 +108,10 @@ define_input(
 
 define_input(
     definition = checkboxInput('invert_colors_in_palette', "Inverse Palette Colors", value=FALSE)
+)
+
+define_input(
+    definition = checkboxInput('draw_decorator_labels', "Label Plot Decorations", value=TRUE)
 )
 
 define_input(
