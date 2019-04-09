@@ -15,6 +15,7 @@ over_time_plot <- function(results, ...) {
 
 #works by side effect to change the palette used by the current graphics device
 set_palette_helper <- function(results, ...) {
+    
     # setting the background color here triggers a cascade of color changes
     par('bg'=results$get_value('background_plot_color_hint', 'white'))
     

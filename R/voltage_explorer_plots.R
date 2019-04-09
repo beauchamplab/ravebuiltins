@@ -5,6 +5,8 @@
 erp_over_time_plot <- function(results, ...) {
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
+    
+    set_palette_helper(results)
 
     .time <- results$get_value('group_data')[[which.min(results$get_value('has_trials'))]]$all_data$dimnames$Time
     .windows <- list(results$get_value('ANALYSIS_WINDOW'),
@@ -23,6 +25,8 @@ erp_over_time_plot <- function(results, ...) {
 by_trial_erp_map <- function(results, ...){
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
+    
+    set_palette_helper(results)
 
     group_data <- results$get_value('group_data')
     has_trials <- results$get_value('has_trials')
@@ -48,6 +52,8 @@ by_trial_erp_map <- function(results, ...){
 by_condition_welch <- function(results, ...) {
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
+    
+    set_palette_helper(results)
 
     .analysis <- results$get_value('ANALYSIS_WINDOW')
     .frequencies <- results$get_value('frequencies')
@@ -117,11 +123,11 @@ by_condition_welch <- function(results, ...) {
     for(ii in seq_along(.pws)) {
         plot_clean(.xlim, c(0,.ylim), log='', ylab='dB', asp=1)
         legend('topright', bty='n', inset=c(0.1, 0.1),
-               text.col = c(get_color(ii), 'black'), c(.group_data[[ii]]$name, 'baseline'),
+               text.col = c(grDevices::palette()[ii], 'black'), c(.group_data[[ii]]$name, 'baseline'),
                cex = rave_cex.lab)
         with(.pws[[ii]], {
             ebar_polygon(baseline$x, baseline$y[,1], baseline$y[,2], type='o', pch=16)
-            ebar_polygon(analysis$x, analysis$y[,1], analysis$y[,2], type='o', pch=16, col=get_color(ii))
+            ebar_polygon(analysis$x, analysis$y[,1], analysis$y[,2], type='o', pch=16, col=grDevices::palette()[ii])
         })
         rave_axis(2, at=.ylim)
         rave_axis(1, at=.xax)

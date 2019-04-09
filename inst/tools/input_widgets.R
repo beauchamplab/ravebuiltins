@@ -74,6 +74,7 @@ define_input_frequency <- function(inputId, label = 'Frequency', is_range = TRUE
           initial_value %?<-% min
         }
         value = cache_input(!!inputId, initial_value)
+        value = ..get_nearest(value, preload_info$frequencies)
       }
     )
   })

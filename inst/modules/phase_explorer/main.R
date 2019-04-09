@@ -93,6 +93,7 @@ lapply(1:length(GROUPS), function(ii) {
         full_data = full_intc_real,
         all_frequencies = full_data$dimnames$Frequency,
         range = range(intc_real),
+        full_range = range(full_intc_real),
         name =  sprintf('%s %d Trials', g$group_name, n_trials),
         phase = group_phase,
         pow = group_power
@@ -105,7 +106,7 @@ n_groups = sum(0, vapply(calc_results, function(x){x$has_trials}, FUN.VALUE = FA
 actual_lim <- NULL
 if(n_groups > 0){
     actual_lim = lapply(calc_results, function(x){
-        x$range
+        x$full_range
     })
 
     actual_lim = range(unlist(actual_lim))
