@@ -64,7 +64,7 @@ define_input(
 )
 
 define_input(
-  definition = numericInput('max_zlim', 'Heatmap Max', value = 0, min = 0, step = 1)
+  definition = numericInput('max_zlim', 'Heatmap Max (0 means data range)', value = 0, min = 0, step = 1)
 )
 
 define_input(
