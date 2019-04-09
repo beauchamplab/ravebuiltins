@@ -88,11 +88,21 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
             }
         }
     })
-
+    
     if(show_color_bar){
         par(mar=c(5.1, 4.5, 2, 2),
             mai = c(0.6732, 0.5412, 0.5412, 0.2772))
-        rave_color_bar(max_zlim, actual_lim)
+        
+        .ylab = ''
+        ii = 1
+        while(ii <= length(hmaps)) {
+            if(hmaps[[ii]]$has_trials) {
+                .ylab <- attr(hmaps[[ii]]$data, 'zlab')
+                ii <- 1e10
+            }
+            ii = ii + 1
+        }
+        rave_color_bar(max_zlim, actual_lim, ylab=.ylab)
     }
 
     invisible(hmaps)
@@ -222,13 +232,11 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
     invisible(x)
 }
 
-
-
-
 # the Xmap and Ymap here are functions that allow for transformation of the plot_data $x and $y into
 # the coordinate system of the plot
 spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=force, btype='line', atype='box', 
                                           title_options=list(allow_freq=FALSE), ...) {
+    
     shd <- function(plot_data, Xmap=Xmap, Ymap=Ymap) {
         title_options$plot_data = plot_data
         title_options$results=results
@@ -304,7 +312,7 @@ by_trial_heat_map_decorator <- function(plot_data=NULL, results, Xmap=force, Yma
 #' @param useRaster,... passed to image()
 #' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators.
 #' We are just plotting image(mat) Rather Than t(mat) as you might expect. The Rave_calculators know this so we can save a few transposes along the way.
-make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zlim=TRUE) {
+make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zlim=TRUE, add=TRUE) {
     #xlab='Time (s)', ylab='Frequency (Hz)', zlim, log='', useRaster=TRUE, PANEL.FIRST=NULL, PANEL.LAST=NULL, ...) {
     # zmat %<>% clip_x(lim=zlim)
     
@@ -325,7 +333,7 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
     }
     
     image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
-          add=TRUE, axes=F, xlab='', ylab='', main='')
+          add=add, axes=F, xlab='', ylab='', main='')
 
     # return the clipped zmat
     invisible(mat)
@@ -583,15 +591,25 @@ title_decorator <- function(plot_data, results,
     title_string = ''
     .plot_options <- results$get_value('PLOT_TITLE')
     
-    # wraps do_on_inclusion to make ths following lines easier to understand
+        # wraps do_on_inclusion to make ths following lines easier to understand
     add_if_selected <- function(id, expr) {
         do_on_inclusion(id, expr, .plot_options)
     }
     
+    
+    if(allow_cond)
+        add_if_selected('Condition', {
+            .name <- plot_data[['name']]
+            if(nchar(.name) > 0) {
+                .name <- '' %&% .name
+            }
+            title_string = .name
+        })
+    
     # we could write this as a simply m/sapply if the variable names had a clear relationship to one another
     if(allow_sid)
         add_if_selected('Subject ID', {
-            title_string = results$get_value('subject_code')
+            conditional_sep(title_string) = results$get_value('subject_code')
         })
     
     if(allow_enum)
@@ -635,7 +653,7 @@ time_series_decorator <- function(plot_data, results, ...) {
     
     do_tsd <- function(plot_data) {
         # plot title
-        title_decorator(plot_data, results, allow_sample_size=FALSE)
+        title_decorator(plot_data, results, allow_sample_size=FALSE, allow_cond = FALSE)
         
         # axis labels
         axis_label_decorator(plot_data)
@@ -694,7 +712,6 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
 
     invisible(plot_data)
 }
-
 
 window_decorator <- function(window, type=c('line', 'box', 'shaded'),
                              line.col, shade.col='gray60',

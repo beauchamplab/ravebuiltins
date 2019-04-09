@@ -14,7 +14,8 @@ env = dev_ravebuiltins(T)
 
 #  ----------------------  Initializing Global variables -----------------------
 # load_scripts(
-#     'inst/modules/voltage_explorer/exports.R'
+#     'inst/modules/voltage_explorer/exports.R', 
+# asis = TRUE
 # )
 
 define_initialization({

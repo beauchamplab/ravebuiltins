@@ -86,7 +86,6 @@ by_trial_heat_map <- function(results) {
 
     set_palette_helper(results)
     
-    
     by_trial_heat_map_data <- results$get_value('by_trial_heat_map_data')
     
     #base decorator
@@ -102,8 +101,6 @@ by_trial_heat_map <- function(results) {
         # add a decorator that can draw the trial labels
         decorator %<>% add_decorator(trial_type_boundaries_hm_decorator)
     }
-    
-    
 
     # the y variable is changing each time,
     # so we provide a function that will be used to calculate the

@@ -63,26 +63,18 @@ define_input(
                            multiple = F, selected = 'none')
 )
 
-# define_input(
-#   definition = selectInput('reference_type', 'Transform Reference',
-#                            choices = c('Trial', 'Trial type', 'Active trial types', 'All trials'),
-#                            selected='Trial')
-# )
-#
-# define_input(
-#   definition = selectInput('reference_group', 'Reference Group',
-#                            choices = c('Per Electrode', 'All Electrodes'), selected = 'Per Electrode')
-# )
-
 define_input(
   definition = numericInput('max_zlim', 'Heatmap Max', value = 0, min = 0, step = 1)
 )
+
 define_input(
   definition = checkboxInput('log_scale', 'Log Freq (NI)')
 )
+
 define_input(
   definition = checkboxInput('sort_trials_by_type', 'Sort Trials')
 )
+
 define_input(
     definition = checkboxInput('collapse_using_median', 'Collapse w/ Median (NI)')
 )
@@ -112,11 +104,24 @@ define_input(
   definition = checkboxInput('draw_decorator_labels', "Label Plot Decorations", value=TRUE)
 )
 
+# define_input(
+#   definition = selectInput(inputId = 'color_palette', label='Color palette', multiple=FALSE, 
+#                            choices = list('Matlab'=get_palette(get_palette_names = TRUE),
+#                                           'RAVE'=c('redish', 'bluish'),
+#                                           'RColorBrewer'=c('redish', 'bluish'),),
+#                            selected = get_palette(get_palette_names = TRUE)[1])
+# )
+
 define_input(
   definition = selectInput(inputId = 'color_palette', label='Color palette', multiple=FALSE, 
-                           choices = list('Default'=get_palette(get_palette_names = TRUE),
-                                          'Unused'=c('redish', 'bluish')),
-                           selected = get_palette(get_palette_names = TRUE)[1])
+                           choice=get_palette(get_palette_names = TRUE),
+                           selected = get_palette(get_palette_names = TRUE)[1]),
+  
+  # cache the color palette across data reloads. needs init_args and init_expr
+  init_args = c('selected'),
+  init_expr = {
+    selected = cache_input('color_palette', val = get_palette(get_palette_names = TRUE)[1])
+  }
 )
 
 define_input(

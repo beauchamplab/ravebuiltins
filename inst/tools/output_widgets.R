@@ -35,9 +35,7 @@ define_output_3d_viewer <- function(
       input = getDefaultReactiveInput()
       output = getDefaultReactiveOutput()
       session = getDefaultReactiveDomain()
-      local_data %?<-% reactiveValues(
-        
-      )
+      local_data %?<-% reactiveValues()
       
       output[[!!outputId]] <- threeBrain::renderBrain({
         brain = rave::rave_brain2(surfaces = !!surfaces, multiple_subject = !!multiple_subject)

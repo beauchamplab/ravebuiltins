@@ -18,7 +18,8 @@ module_id <- 'channel_reference'
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
     get_path('inst/modules/channel_reference/reactive_main.R'),
-    get_path('inst/modules/channel_reference/common.R')
+    get_path('inst/modules/channel_reference/common.R'),
+    asis = TRUE
 )
 
 define_initialization({

@@ -5,7 +5,7 @@
 \title{RAVE custom image plotter}
 \usage{
 make_image(mat, x, y, zlim, col, log = "", useRaster = TRUE,
-  clip_to_zlim = TRUE)
+  clip_to_zlim = TRUE, add = TRUE)
 }
 \arguments{
 \item{x, y}{z and y axis}

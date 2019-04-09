@@ -18,7 +18,8 @@ module_id <- 'phase_explorer'
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
     'inst/modules/phase_explorer/exports.R',
-    'inst/modules/phase_explorer/event_handlers.R'
+    'inst/modules/phase_explorer/event_handlers.R', 
+    asis = TRUE
 )
 
 define_initialization({

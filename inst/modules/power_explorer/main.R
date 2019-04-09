@@ -12,7 +12,6 @@ if(FALSE) {
                 list(group_name='B', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v')))
 }
 
-
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 # requested_electrodes = rutabaga::parse_svec(ELECTRODE_TEXT, sep = ':-')
 # requested_electrodes %<>% get_by(`%in%`, electrodes)
@@ -76,9 +75,11 @@ if(combine_method != 'none') {
       transformed_power
     }
   )
-  
   bl_power$set_data(transformed_power)
 }
+
+
+
 
 # Collapse data
 
@@ -114,7 +115,8 @@ for(ii in which(has_trials)){
   
   attr(heat_map_data[[ii]]$data, 'xlab') <- 'Time (s)'
   attr(heat_map_data[[ii]]$data, 'ylab') <- 'Frequency'
-  
+  attr(heat_map_data[[ii]]$data, 'zlab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
+                                                            'Mean '  %&% combine_method %&% ' %SC')
   # the x value for the hmd is time
   heat_map_data[[ii]]$x <- .power_all$dimnames$Time
   
@@ -127,13 +129,17 @@ for(ii in which(has_trials)){
     .power_freq$
       collapse(keep = c(3,1), method = collapse_method)
   ))
+
   # the x value for the bthmd is time
   by_trial_heat_map_data[[ii]]$x <- .power_freq$dimnames$Time
+
   #the y value for the bthmd is Trial
   by_trial_heat_map_data[[ii]]$y <- seq_along(.power_freq$dimnames$Trial)
   
   attr(by_trial_heat_map_data[[ii]]$data, 'xlab') <- 'Time (s)'
   attr(by_trial_heat_map_data[[ii]]$data, 'ylab') <- 'Trial'
+  attr(by_trial_heat_map_data[[ii]]$data, 'zlab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
+                                                            'Mean '  %&% combine_method %&% ' %SC')
   
   # 3 Time only
   # coll freq and trial for line plot w/ ebar. Because we're doing error bars, we have to know whether we have 1 vs. >1 electrodes
@@ -146,7 +152,8 @@ for(ii in which(has_trials)){
   )))
   
   attr(line_plot_data[[ii]]$data, 'xlab') <- 'Time (s)'
-  attr(line_plot_data[[ii]]$data, 'ylab') <- 'Mean % Signal Change'
+  attr(line_plot_data[[ii]]$data, 'ylab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
+                                                    'Mean '  %&% combine_method %&% ' %SC')
   
   # scatter bar data
   scatter_bar_data[[ii]] = append(scatter_bar_data[[ii]], wrap_data(
@@ -157,7 +164,8 @@ for(ii in which(has_trials)){
   ))
   
   attr(scatter_bar_data[[ii]]$data, 'xlab') <- 'Group'
-  attr(scatter_bar_data[[ii]]$data, 'ylab') <- 'Mean % Signal Change'
+  attr(scatter_bar_data[[ii]]$data, 'ylab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
+                                                      'Mean '  %&% combine_method %&% ' %SC')
   
   # we want to make a special range for the line plot data that takes into account mean +/- SE
   line_plot_data[[ii]]$range <- .fast_range(plus_minus(line_plot_data[[ii]]$data[,1],
@@ -216,7 +224,7 @@ module = ravebuiltins:::debug_module('power_explorer')
 result = module(GROUPS = list(list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
                               # putting in an empty group to test our coping mechanisms
                               list(group_name='YY', group_conditions=c()),
-                              list(group_name='B', group_conditions=c())),#c('known_v', 'last_v', 'drive_v', 'meant_v'))),
+                              list(group_name='', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
                 FREQUENCY = c(75,150), max_zlim = 0,
                 sort_trials_by_type = T, combine_method = 'z-score')
 results = result$results
@@ -239,7 +247,6 @@ env = reload_this_package(expose = FALSE, clear_env = TRUE)
 
 # Step 2: make sure rave data is attached
 attachDefaultDataRepository()
-
 
 # Step 3: try to run from local session
 module = rave::get_module(package = 'ravebuiltins', module_id = 'power_explorer', local = T)

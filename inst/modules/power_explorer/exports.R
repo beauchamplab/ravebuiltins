@@ -133,8 +133,10 @@ graph_export = function(){
 
 
 output$btn_graph_download <- downloadHandler(
-  filename = 'export.zip',
-  
+  filename = function(...) {
+    paste0('power_explorer_export',
+           format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.zip')
+  },
   content = function(conn){
     tmp_dir = tempdir()
     
@@ -170,23 +172,55 @@ export_graphs <- function(conn=NA,
   args = isolate(reactiveValuesToList(input))
   
   electrodes_loaded = preload_info$electrodes
+  # check to see if we should loop over all electrodes or just the current electrode
+  if(export_what == 'Current Selection') {
+    electrodes_loaded <- ELECTRODE
+  }
+  
   progress = rave::progress('Rendering graphs for: ' %&% str_replace_all(which_plot, '_', ' '),
-                            max = length(electrodes_loaded))
+                            max = length(electrodes_loaded) + 1)
+  
+  on.exit({progress$close()}, add=TRUE)
+  progress$inc(message = 'Initializing')
+  
   .export_graph = function(){
-    module = rave::get_module('ravebuiltins', 'power_explorer', local = T)
+    module = rave::get_module('ravebuiltins', 'power_explorer', local = TRUE)
     
     formal_names = names(formals(module))
     args = args[formal_names]
     names(args) = formal_names
     
-    pdf(conn, width = 11, height = 8.5, useDingbats = FALSE)
+    # having issues here with the size of the plots being too large for the font sizes
+    # we can't (easily) change the cex being used by the plots. So maybe we can 
+    # just change the size of the output PDF. people can the resize
+    
+    # based on the number of groups we should scale the plots
+    ngroups = 0
+    for(ii in seq_along(args$GROUPS)) {
+      if(length(args$GROUPS[[ii]]$group_conditions)>1) {
+        ngroups = ngroups+1
+      }
+    }
+    
+    w_scale = h_scale = 1
+    if(which_plot == 'windowed_comparison_plot') {
+      w_scale = ngroups / 2.25
+    }
+    
+    if(which_plot %in% c('by_trial_heat_map', 'heat_map_plot')) {
+      w_scale = ngroups*1.25
+      h_scale = ngroups*1.05
+    }
+    
+    .w <- round(9.75*w_scale,1)
+    .h <- round(6.03*h_scale,1)
+    
+    pdf(conn, width = .w, height = .h, useDingbats = FALSE)
     
     on.exit(dev.off())
     
-    on.exit({progress$close()}, add=TRUE)
-    
     for(e in electrodes_loaded){
-      progress$inc(message = sprintf('Electrode %d', e))
+      progress$inc(message = sprintf('Electrode %s', e))
       args[['ELECTRODE']] = e
       result = do.call(module, args)
       result[[which_plot]]()
