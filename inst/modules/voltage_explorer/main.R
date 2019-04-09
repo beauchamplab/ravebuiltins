@@ -118,6 +118,8 @@ if(F) {
       attr(d$analysis_data, 'xlab') = 'Time'
       attr(d$analysis_data, 'ylab') = 'Trial'
       
+      attr(d$data, 'zlab') = 'Mean Voltage'
+      
       return(d)
     })
     
