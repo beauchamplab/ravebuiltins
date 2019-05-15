@@ -13,6 +13,7 @@ over_time_plot <- function(results, ...) {
                      PANEL.FIRST = time_series_decorator(results = results))
 }
 
+
 #works by side effect to change the palette used by the current graphics device
 set_palette_helper <- function(results, ...) {
     

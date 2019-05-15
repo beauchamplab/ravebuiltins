@@ -271,7 +271,7 @@ rave_color_ramp_dark_palette <- colorRampPalette(..light_blue_to_light_red, inte
 
 rave_heat_map_dark_colors <- rave_color_ramp_dark_palette(1001)
 
-# put this hear for legacy, but we need to exterminate these references
+# put this here for legacy, but we need to exterminate these references
 crp <- rave_heat_map_colors
 
 group_colors <- c('orange', 'dodgerblue3', 'darkgreen', 'orangered', 'brown', 'purple3')

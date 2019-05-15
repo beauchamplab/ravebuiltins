@@ -18,3 +18,40 @@ observeEvent(input$power_3d__mouse_event, {
         }
     }
 })
+
+
+input = getDefaultReactiveInput()
+output = getDefaultReactiveOutput()
+session = getDefaultReactiveDomain()
+
+local_data = reactiveValues(
+    click_location = NULL
+)
+
+# by_trial_heat_map_click <- function() {
+#     print('click')
+# }
+
+observeEvent(input$by_trial_heat_map_click, {
+    local_data$click_location = input$by_trial_heat_map_click
+})
+
+output$trial_heatmap_click <- renderUI({
+    loc <- local_data$click_location
+
+    print(loc)
+        
+    HTML(
+        'Clicked: ' %&% loc$x %&% ', ' %&% loc$y
+    )
+})
+
+click_output = function() {
+    logger('click out...')
+    # put analysis information in here
+    if(!is.null(local_data$click_location)) {
+        return(htmlOutput(ns('trial_heatmap_click')))
+    }
+    return('no trials clicked yet')
+}
+

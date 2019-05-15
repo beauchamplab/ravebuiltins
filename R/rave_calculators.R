@@ -11,6 +11,7 @@
 ### Methods to aggregate vectors
 electrode_transform <- function(method='none') {
     switch(method,
+           'amplitude' = sqrt,
            'z-score' = .fast_z,
            'max-scale' = function(x) {
                x/max(x)

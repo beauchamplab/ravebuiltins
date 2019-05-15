@@ -69,16 +69,21 @@ if(combine_method != 'none') {
     
     val = {
       transformed_power <- bl_power$get_data()
-      for(ti in seq_len(dim(transformed_power)[1L])) {
-        transformed_power[ti,,,1] <- t(apply(transformed_power[ti,,,1], 1, .transform))
+      
+      # we should be able to apply the sqrt transform directly to the eniter tensor
+      if(combine_method == 'amplitude') {
+        transformed_power %<>% .transform
+      } else {
+        for(ti in seq_len(dim(transformed_power)[1L])) {
+          transformed_power[ti,,,1] <- t(apply(transformed_power[ti,,,1], 1, .transform))
+        }
       }
+      
       transformed_power
     }
   )
   bl_power$set_data(transformed_power)
 }
-
-
 
 
 # Collapse data
@@ -94,6 +99,9 @@ for(ii in which(has_trials)){
   .power_freq = .power_all$subset(Frequency=Frequency %within% FREQUENCY, data_only = FALSE, drop=FALSE)
   
   N = dim(.power_all)[1L]
+  
+  
+  
   trials = epoch_data %>% subset((.)$Trial %in% group_data[[ii]]$Trial_num) %>% extract2('Condition')
   
   # utils functions
@@ -107,27 +115,30 @@ for(ii in which(has_trials)){
     )
   }
   
-  
   # 1 Time x Frequency
-  heat_map_data[[ii]] = append(heat_map_data[[ii]], wrap_data(
-    .power_all$collapse(keep = c(3,2), method = collapse_method)
-  ))
+  .power_all_clean <- .power_all$subset(Trial=! (Trial %in% trial_outliers_list))
+  Nclean <- dim(.power_all_clean)[1L]
+  heat_map_data[[ii]] <- append(heat_map_data[[ii]],
+                                wrap_data(.power_all_clean$collapse(keep = c(3,2), method = collapse_method)))
   
   attr(heat_map_data[[ii]]$data, 'xlab') <- 'Time (s)'
   attr(heat_map_data[[ii]]$data, 'ylab') <- 'Frequency'
   attr(heat_map_data[[ii]]$data, 'zlab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
                                                             'Mean '  %&% combine_method %&% ' %SC')
+  
   # the x value for the hmd is time
   heat_map_data[[ii]]$x <- .power_all$dimnames$Time
   
   #the y value for the hmd is frequency
   heat_map_data[[ii]]$y <- .power_all$dimnames$Frequency
   
+  # hmd is using the clean data
+  heat_map_data[[ii]]$N <- Nclean
+  
   # 2 Time x Trial (.power_freq)
   # by trial data. Set drop to FALSE b/c we want to keep the electrode dim even if #e ==1
   by_trial_heat_map_data[[ii]] <- append( by_trial_heat_map_data[[ii]], wrap_data(
-    .power_freq$
-      collapse(keep = c(3,1), method = collapse_method)
+    .power_freq$collapse(keep = c(3,1), method = collapse_method)
   ))
 
   # the x value for the bthmd is time
@@ -212,8 +223,6 @@ if(length(unique(flat_data$group)) > 1) {
 
 attr(scatter_bar_data, 'stats') <- result_for_suma
 
-###### @async
-print(Sys.getpid())
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
 # Debug
@@ -226,7 +235,7 @@ result = module(GROUPS = list(list(group_name='A', group_conditions=c('known_a',
                               list(group_name='YY', group_conditions=c()),
                               list(group_name='', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
                 FREQUENCY = c(75,150), max_zlim = 0,
-                sort_trials_by_type = T, combine_method = 'z-score')
+                sort_trials_by_type = T, combine_method = 'none')
 results = result$results
 # attachDefaultDataRepository()
 
@@ -257,7 +266,4 @@ res = module()
 # Cmd+Shift+B
 m = rave::detect_modules('ravebuiltins')
 rave::init_app(m)
-
-
-
 

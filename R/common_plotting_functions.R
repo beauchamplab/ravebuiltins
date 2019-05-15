@@ -423,9 +423,15 @@ reorder_trials_by_type <- function(bthmd) {
     ind <- sapply(bthmd$conditions, function(ttype) which(ttype==bthmd$trials), simplify = FALSE)
 
     .xlab <- attr(bthmd$data, 'xlab')
+    .zlab <- attr(bthmd$data, 'zlab')
+    
     bthmd$data <- bthmd$data[,unlist(ind)]
+    
+    # set the axis labels
     attr(bthmd$data, 'xlab') <- .xlab
     attr(bthmd$data, 'ylab') <- ''
+    attr(bthmd$data, 'zlab') <- .zlab
+    
     bthmd$lines <- cumsum(c(sapply(ind, length)))
     bthmd$ttypes <- names(ind)
     bthmd$trials <-  bthmd$trials[unlist(ind)]
@@ -1041,6 +1047,49 @@ get_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
     
     return (pal)
 }
+
+get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
+    # Some of these are from:
+    # https://colorhunt.co/
+    rave_color_ramp_palette <- colorRampPalette(c('navy', 'white', 'red'), interpolate='linear', space='Lab')
+    rave_color_ramp_dark_palette <- colorRampPalette(c('#13547a', 'black', '#ff758c'), interpolate='linear', space='Lab')
+    
+    
+    ..dark_blue_to_red <- rev(c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#ffffff", 
+                                "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061"))
+    ..light_blue_to_light_red <- c(..dark_blue_to_red[5:1], 'black', ..dark_blue_to_red[11:7])
+    
+    
+    rave_color_ramp_palette <- colorRampPalette(..dark_blue_to_red, interpolate='linear', space='Lab')
+    rave_heat_map_colors <- rave_color_ramp_palette(1001)
+    
+    rave_color_ramp_dark_palette <- colorRampPalette(..light_blue_to_light_red, interpolate='linear', space='Lab')
+    
+    rave_heat_map_dark_colors <- rave_color_ramp_dark_palette(1001)
+    
+    # put this here for legacy, but we need to exterminate these references
+    crp <- rave_heat_map_colors
+    
+    if(missing(pname)) {
+        if(get_palette_names)
+            return (names(.palettes))
+        
+        return (.palettes)
+    }
+    
+    pal <- .palettes[[pname]]
+    if(is.null(pal)) {
+        warning("Invalid palette requested: ", pname, ". Returning random palette")
+        pal <- .palettes[[sample(seq_along(.palettes), 1)]]
+    }
+    
+    return (pal)
+}
+
+
+
+
+
 
 set_palette <- function(pname) {
     if(length(pname) == 1) {

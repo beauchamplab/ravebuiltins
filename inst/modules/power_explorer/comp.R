@@ -40,8 +40,6 @@ define_initialization({
 })
 
 
-
-
 #  ---------------------------------  Inputs -----------------------------------
 # Define inputs
 
@@ -59,9 +57,33 @@ define_input_condition_groups(inputId = 'GROUPS')
 
 define_input(
   definition = selectInput('combine_method', 'Electrode Transforms',
-                           choices = c('none', 'z-score', 'max-scale', '0-1 scale', 'rank'),
+                           choices = c('none', 'amplitude', 'z-score', 'max-scale', '0-1 scale', 'rank'),
                            multiple = F, selected = 'none')
 )
+
+define_input(
+  definition = selectInput('trial_outliers_list', 'Trials to Exclude',
+                           choices = NULL,
+                           selected = NULL, multiple = TRUE),
+  init_args = 'choices',
+  init_expr = {
+    choices = c(epoch_data$Trial)
+  }
+)
+
+define_input(
+  definition = actionButton('clear_outliers', 'Trials to Exclude', icon = icon('trash'))
+)
+define_input(
+  definition = actionButton('save_new_epoch_file', 'Save Epoch File', icon =icon('file-export'))
+)
+
+define_input(
+  definition = selectInput('show_outliers_on_plots', 'Show outliers on plots',
+                            choices=c('Yes', 'No'), selected = 'Yes')
+)
+
+
 
 define_input(
   definition = numericInput('max_zlim', 'Heatmap Max (0 means data range)', value = 0, min = 0, step = 1)
@@ -112,6 +134,22 @@ define_input(
 #                            selected = get_palette(get_palette_names = TRUE)[1])
 # )
 
+
+
+# define_input(
+#   definition = selectInput(inputId = 'heatmap_color_palette', label='Heatmap Colors', multiple=FALSE, 
+#                            choice=get_heatmap_palette(get_palette_names = TRUE),
+#                            selected = get_heatmap_palette(get_palette_names = TRUE)[1]),
+#   
+#   # cache the color palette across data reloads. needs init_args and init_expr
+#   init_args = c('selected'),
+#   init_expr = {
+#     selected = cache_input('heatmap_color_palette', val = get_heatmap_palette(get_palette_names = TRUE)[1])
+#   }
+# )
+
+
+
 define_input(
   definition = selectInput(inputId = 'color_palette', label='Color palette', multiple=FALSE, 
                            choice=get_palette(get_palette_names = TRUE),
@@ -161,11 +199,17 @@ input_layout = list(
   '[-]Plot Options' = list(
     c('PLOT_TITLE'),
     'draw_decorator_labels',
-    #FIXME collapse_using_median should be in Analysis Settings???
-    c('color_palette', 'background_plot_color_hint'),
-    c('invert_colors_in_palette', 'reverse_colors_in_palette'),
+    c('color_palette', 'background_plot_color_hint',
+    'invert_colors_in_palette', 'reverse_colors_in_palette'),
     c('max_zlim'),
+    # 'heatmap_color_palette',
+    #FIXME collapse_using_median should be in Analysis Settings???
     c('log_scale', 'sort_trials_by_type', 'collapse_using_median')
+  ),
+  '[-]Trial Outliers' = list(
+    'trial_outliers_list',
+    'show_outliers_on_plots',
+    c('clear_outliers', 'save_new_epoch_file')
   ),
   #[#aaaaaa]
   '[-]Export Plots' = list(
@@ -188,7 +232,7 @@ define_output(
 )
 
 define_output(
-  definition = plotOutput('by_trial_heat_map'),
+  definition = plotOutput('by_trial_heat_map', click = shiny::NS('power_explorer')('by_trial_heat_map_click')),
   title = 'Activity over time by trial (Collapse freq)',
   width = 12,
   order = 2
@@ -207,6 +251,13 @@ define_output(
   width = 4,
   order = 4
 )
+
+define_output(
+  definition = customizedUI('click_output'),
+  title = 'Click Information',
+  width=12, order=2.5
+)
+
 
 # define_output(
 #   definition = customizedUI('viewer_3d'),

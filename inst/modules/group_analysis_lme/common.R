@@ -1,6 +1,7 @@
 input = getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 session = getDefaultReactiveDomain()
+
 local_data = reactiveValues(
     potential_analysis = list(),
     analysis_name = NULL,
