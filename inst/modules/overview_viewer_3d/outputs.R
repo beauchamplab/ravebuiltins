@@ -185,7 +185,7 @@ output$detail_plot <- renderPlot({
         rutabaga::ruta_axis(1, pretty(time))
         rutabaga::ruta_axis(2, value)
     }else{
-        if( length(value) > 20){
+        if( length(value) <= 20){
             tp = 'b'
         }else{
             tp = 'l'
