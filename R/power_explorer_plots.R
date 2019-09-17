@@ -13,12 +13,25 @@ over_time_plot <- function(results, ...) {
                      PANEL.FIRST = time_series_decorator(results = results))
 }
 
+get_foreground_color <- function() {
+    switch(par('bg'),
+           'black' = 'white',
+           'white' = 'black',
+           '#1E1E1E' = 'gray70',
+           'gray' = '#A5A5A5'
+    ) 
+}
 
 #works by side effect to change the palette used by the current graphics device
 set_palette_helper <- function(results, ...) {
+    .bg <- results$get_value('background_plot_color_hint', 'white')
     
     # setting the background color here triggers a cascade of color changes
-    par('bg'=results$get_value('background_plot_color_hint', 'white'))
+    if(.bg == 'Gray') {
+        par('bg'='#1E1E1E')
+    } else {
+        par('bg'=.bg)
+    }
     
     pal <- get_palette(results$get_value('color_palette'))
     
@@ -49,7 +62,10 @@ windowed_comparison_plot <- function(results, ...){
     
     set_palette_helper(results)
     
-    trial_scatter_plot(group_data = results$get_value('scatter_bar_data'))
+    trial_scatter_plot(
+        group_data = results$get_value('scatter_bar_data'),
+        show_outliers = results$get_value('show_outliers_on_plots')
+    )
 }
 
 #' @title Basic Time Frequency Plot
@@ -76,6 +92,21 @@ heat_map_plot <- function(results, ...){
                         max_zlim = results$get_value('max_zlim'),
                         PANEL.LAST = spectrogram_heatmap_decorator(results=results)
     )
+}
+
+
+by_electrode_heat_map <- function(results) {
+    has_data <- results$get_value('has_data', FALSE)
+    validate(need(has_data, message="No Condition Specified"))
+    
+    set_palette_helper(results)
+    
+    by_electrode_heat_map_data <- results$get_value('by_electrode_heat_map_data')
+    
+    draw_many_heat_maps(by_electrode_heat_map_data,
+                        max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
+                        PANEL.LAST=by_electrode_heat_map_decorator(results=results))
+    
 }
 
 # the only difference between this plot and the time x freq heat_map_plot

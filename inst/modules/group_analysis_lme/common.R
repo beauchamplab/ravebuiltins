@@ -314,9 +314,6 @@ build_var <- function(nm) {
 build_val <- function(nm) return ( function() {textInput(ns(nm), 'Val')})
 
 
-
-
-
 # build the filters using assign just so it's more compact if we end up wanting to have >2 filters
 f1var_ui <- build_var('f1var_ui')
 f2var_ui <- build_var('f2var_ui')
@@ -324,8 +321,6 @@ f1op_ui <- build_op('f1op_ui')
 f2op_ui <- build_op('f2op_ui')
 f1val_ui <- build_val('f1val_ui')
 f2val_ui <- build_val('f2val_ui')
-
-
 
 # sapply(1:10, function(ii) {
 #     for(v in c('var', 'op', 'val')) {
