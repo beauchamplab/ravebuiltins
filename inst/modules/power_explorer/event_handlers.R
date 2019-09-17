@@ -1,0 +1,163 @@
+
+observeEvent(input$power_3d_mouse_dblclicked, {
+    # mouse_event = input$power_3d__mouse_dblclicked$event
+    # object = input$power_3d__mouse_dblclicked$object
+    
+    .data <- input$power_3d_mouse_dblclicked
+
+    print(input$power_3d_mouse_dblclicked)
+    
+    if(isTRUE(.data$is_electrode)) {
+        e <- .data$electrode_number
+        if(e %in% preload_info$electrodes){
+            updateTextInput(session, 'ELECTRODE_TEXT', value = e)
+            showNotification(p('Switched to electrode ', e), type = 'message', id = ns('power_3d_widget__mouse'))
+        }else{
+            showNotification(p('Electrode ', e, ' is not loaded.'), type = 'warning', id = ns('power_3d_widget__mouse'))
+        }
+    }
+
+    # # This is dirty, i think we can provide function to get which electrode chosen
+    # if(mouse_event$action == 'dblclick' && isTRUE( object$is_electrode )){
+    #     # Get object chosen, is it an electrode?
+    #     # Use isTRUE() to validate since object$is_electrode could be NULL
+    #     e = stringr::str_match(object$name, '^Electrode ([0-9]+)')[2]
+    #     e = as.character(e)
+    #     if(e %in% preload_info$electrodes){
+    #         updateTextInput(session, 'ELECTRODE_TEXT', value = e)
+    #         showNotification(p('Switched to electrode ', e), type = 'message', id = ns('power_3d_widget__mouse'))
+    #     }else{
+    #         showNotification(p('Electrode ', e, ' is not loaded.'), type = 'warning', id = ns('power_3d_widget__mouse'))
+    #     }
+    # }
+})
+
+observeEvent(input$trial_outliers_list, {
+    enable_save_button()
+})
+
+
+observeEvent(input$analysis_filter_variable, {
+    electrodes_csv %?<-% NULL
+    
+    if(is.data.frame(electrodes_csv)) {
+        col_name <- input$analysis_filter_variable
+        
+        updateSelectInput(session, 'analysis_filter_elec', 
+                          selected=unique(electrodes_csv[[col_name]]),
+                          choices = unique(electrodes_csv[[col_name]]))
+    }
+
+})
+
+
+observeEvent(input$clear_outliers, {
+    updateSelectInput(session, 'trial_outliers_list', selected=character(0))
+    enable_save_button()
+})
+
+# save the outlier information to the current epoch file
+observeEvent(input$save_new_epoch_file, {
+    showNotification(p('Saving outlier data to epoch file: ', preload_info$epoch_name), type = 'message', id = ns('snef'))
+
+    efile <- sprintf('%s/power_outliers_%s.csv', subject$dirs$meta_dir, preload_info$epoch_name)
+
+    epoch_data <- module_tools$get_meta('trials')
+    epoch_data$PowerOutlier <- FALSE
+    epoch_data$PowerOutlier[epoch_data$Trial %in% trial_outliers_list] <- TRUE
+
+    write.csv(epoch_data, file=efile, row.names = FALSE)
+
+    disable_save_button()
+})
+
+enable_save_button <- function() {
+    # Check if current options match the original trial outlier list
+    updateActionButton(session, 'save_new_epoch_file', label=HTML("<b style='color:black'>Save Outliers</b>"))
+}
+
+disable_save_button <- function() {
+    updateActionButton(session, 'save_new_epoch_file', label=HTML("<span style='color:#ddd'>Save Outliers</span>"))
+}
+
+
+input = getDefaultReactiveInput()
+output = getDefaultReactiveOutput()
+session = getDefaultReactiveDomain()
+
+local_data = reactiveValues(
+    instruction_string = "Click on Activity by trial and condition plot for details." %&%
+        "<ul><li>Single-click for trial information</li><li>Double-click for outlier (de)selection</li></ul>",
+    by_trial_heat_map_click_location = NULL,
+    windowed_by_trial_click_location = NULL,
+    click_info = NULL
+)
+
+
+update_click_information <- function() {
+    .loc <- local_data$windowed_by_trial_click_location
+    
+    # first we determine which group is being clicked, then we drill down
+    # to determine the nearest point -- this should be faster than just looking
+    # through all the points across all the groups, n'est-ce pas?
+    .gi <- which.min(abs(.loc$x - sapply(scatter_bar_data, `[[`, 'xp')))
+    
+    # scaling the x-component distance as that should be the more discriminable of the two components?
+    wX <- 10
+    #TODO consider a minimum closeness value here?
+    .ind <- which.min(abs(wX*(scatter_bar_data[[.gi]]$x - .loc$x)) +
+                          abs(scatter_bar_data[[.gi]]$data - .loc$y))
+    
+    .trial <- scatter_bar_data[[.gi]]$Trial_num[.ind]
+    .val <- round(scatter_bar_data[[.gi]]$data[.ind],
+                  digits = abs(min(0, -1+floor(log10(max(abs(scatter_bar_data[[.gi]]$data)))))))
+    
+    .type <- scatter_bar_data[[.gi]]$trials[.ind]
+    
+    
+    local_data$click_info <- list('trial' = .trial, 'value' = .val, 'trial_type' = .type)
+}
+
+update_trial_outlier_list <- function() {
+    last_click <- local_data$click_info
+    
+    if(!is.null(last_click)) {
+        .tol <- input$trial_outliers_list
+        if(any(last_click$trial == .tol)) {
+            .tol <-  .tol[.tol != last_click$trial]
+        } else {
+            .tol <- c(.tol, last_click$trial)
+        }
+        
+        updateSelectInput(session, 'trial_outliers_list', selected = .tol)
+    }
+}
+
+observeEvent(input$windowed_by_trial_click, {
+    local_data$windowed_by_trial_click_location = input$windowed_by_trial_click
+    update_click_information()
+})
+
+observeEvent(input$windowed_by_trial_dbl_click, {
+    local_data$windowed_by_trial_click_location = input$windowed_by_trial_dbl_click
+    update_click_information()
+    update_trial_outlier_list()
+})
+
+output$trial_click <- renderUI({
+    .click <- local_data$click_info
+
+    HTML("<div style='margin-left: 5px'>Nearest Trial: " %&% .click$trial %&% '<br/> Value: ' %&% .click$value %&%
+             '<br/> Trial Type: ' %&% .click$trial_type %&%
+             "<p style='margin-top:20px'>&mdash;<br/>" %&% local_data$instruction_string %&% '</p></div>'
+    )
+})
+
+click_output = function() {
+    if(!is.null(local_data$windowed_by_trial_click_location)) {
+        return(htmlOutput(ns('trial_click')))
+    }
+    
+    return(HTML("<p style='margin-top:10px; margin-left:5px'>" %&% local_data$instruction_string %&% '</p>'))
+}
+

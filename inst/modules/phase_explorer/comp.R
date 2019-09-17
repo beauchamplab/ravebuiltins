@@ -18,22 +18,8 @@ module_id <- 'phase_explorer'
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
     'inst/modules/phase_explorer/exports.R',
-    rlang::quo({
-        observeEvent(input$FREQUENCY, {
-            FREQUENCY = input$FREQUENCY
-            frequencies %?<-% NULL
-            if(length(FREQUENCY) && length(frequencies) && ! (FREQUENCY %in% frequencies)) {
-                new_frequency <- frequencies[..get_nearest(FREQUENCY, frequencies)]
-                
-                showNotification(p('Chosen frequency: ', strong(FREQUENCY),
-                                   "doesn't exist. Switching to: ", strong(new_frequency)), type = 'warning', id='BAD_FREQ')
-                FREQUENCY <- new_frequency
-                
-                updateSliderInput(session, 'FREQUENCY', value = FREQUENCY)
-            }
-        }, priority = 1000)
-        
-    })
+    'inst/modules/phase_explorer/event_handlers.R', 
+    asis = TRUE
 )
 
 define_initialization({
@@ -169,10 +155,6 @@ define_output_3d_viewer(
         p(ns('blah'))
     )
 )
-
-
-
-
 
 # output_layout = list(
 #   'Tab1' = list(

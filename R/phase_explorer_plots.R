@@ -137,8 +137,8 @@ phase_plot <- function(results, ...) {
               main = res$group_name %&% ' Abs Phase ' %&% deparse_selections(res$phase$dimnames$Frequency, max_lag = 10) %&% ' Hz',
               bty='n', las=1, axes=F)
 
-        rave_axis(1, pretty(time), tcl=0)
-        rave_axis(2, seq(1, max(trials), length.out = 4) %>% round, tcl=0)
+        rave_axis(1, pretty(time), tcl=0, lwd=0)
+        rave_axis(2, seq(1, max(trials), length.out = 4) %>% round, tcl=0, lwd=0)
     })
 }
 
@@ -173,8 +173,11 @@ itpc_plot_heatmap = function(results, ...){
     lapply(plot_data, function(x){
         x$has_trials %?<-% FALSE
         if(x$has_trials){
-            draw_img(zmat = x$full_data, x = time, y = frequency, xlab='Time (s)', ylab='Frequency (Hz)', zlim = c(-max_zlim,max_zlim),
-                     main = x$name, useRaster = F)
+            make_image(x$full_data, x = time, y = frequency,
+                       # xlab='Time (s)', ylab='Frequency (Hz)',
+                       zlim = c(-max_zlim,max_zlim),
+                     # main = x$name,
+                     useRaster = F, add=FALSE)
 
             heat_map_axes(time,frequency)
             abline(v = results$get_value('ANALYSIS_WINDOW'), lwd = 3, lty = 2)

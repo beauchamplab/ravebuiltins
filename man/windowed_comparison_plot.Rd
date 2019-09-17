@@ -4,7 +4,7 @@
 \alias{windowed_comparison_plot}
 \title{By Trial Plot With Statistics}
 \usage{
-windowed_comparison_plot(results)
+windowed_comparison_plot(results, ...)
 }
 \arguments{
 \item{results}{results returned by module}
