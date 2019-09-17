@@ -12,6 +12,7 @@
 #' so if you draw within the plotting region it will overwrite the heatmap. To fix this requires editing draw_img(...) to allow for a function to be called after creation but before rendering.
 #' Don't depend on this call order, use PANEL.LAST if you want to draw things on top of the heatmap
 #' @param PANEL.LAST a function that is called after the rendering of each heat map. It is not called after the rendering of the color bar. 
+#' @param axes vector of logicals, whether to draw axis
 #' @description Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar.
 #' By default it is setup for time/freq, but by swapping labels and decorators you can do anything.
 #' @seealso layout_heat_maps
@@ -351,12 +352,14 @@ by_electrode_heat_map_decorator <- function(plot_data=NULL, results, Xmap=force,
 
 #' @author John Magnotti
 #' @title RAVE custom image plotter
-#' @param zmat z-matrix
+#' @param mat z-matrix
 #' @param x,y z and y axis
-#' @param xlab, ylab label for x and y
+#' @param col vector of colors, color palette
 #' @param zlim value to trim zmat
 #' @param log which axis will be in log scale
 #' @param useRaster,... passed to image()
+#' @param clip_to_zlim whether to clip mat
+#' @param add logical, whether to overlay current plot to an existing image
 #' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators.
 #' We are just plotting image(mat) Rather Than t(mat) as you might expect. The Rave_calculators know this so we can save a few transposes along the way.
 make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zlim=TRUE, add=TRUE) {
@@ -403,7 +406,8 @@ layout_heat_maps <- function(k, ratio=4) {
 ##RUTABAGA
 median_ticks <- function(k, .floor=1) c(.floor, ceiling(k/2), k)
 
-`conditional_sep<-` <- function(str, value = '', sep=' ') {
+`conditional_sep<-` <- function(str, value = '') {
+    sep=' '
     if(isTRUE(nchar(str) > 0)) {
         str = paste0(str, sep)
     }
@@ -946,13 +950,16 @@ tf_hm_decorator <- function(hmap, results, ...)
 easy_layout <- function(K, nrows = 1, legend,
                         legend_size = lcm(3), legend_side = 4,
                         s_margin = par('mar'), b_margin = par('oma'),
-                        l_margin = local({
-                            mar = s_margin;
-                            mar[legend_side] = 0;
-                            mar[(legend_side + 2) %% 4] = 0.5;
-                            mar
-                        })){
+                        l_margin){
 #TODO RUTABAGA
+    if(missing( l_margin )){
+        l_margin = local({
+            mar = s_margin;
+            mar[legend_side] = 0;
+            mar[(legend_side + 2) %% 4] = 0.5;
+            mar
+        })
+    }
 
     # calculate nrow and ncols
     ncols = ceiling(K / nrows)
@@ -1065,7 +1072,10 @@ hist.circular <- function(x, ymax, nticks=3, digits=1, breaks=20, col='black', .
     invisible(x.hist)
 }
 
-# # # Colors
+#' Function to get builtin color palettes
+#' @param pname palette name
+#' @param get_palette_names whether to get palette names
+#' @param get_palettes ignored
 #' @export
 get_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
     # Some of these are from:

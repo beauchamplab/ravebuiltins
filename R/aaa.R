@@ -18,6 +18,9 @@
 #' @importFrom grDevices dev.off
 #' @importFrom grDevices pdf
 #' @importFrom grDevices palette
+#' @importFrom grDevices col2rgb
+#' @importFrom grDevices colorRampPalette
+#' @importFrom grDevices rgb
 #' 
 #' @import graphics
 #' 
@@ -26,6 +29,33 @@
 #' @importFrom stats pt
 #' @importFrom stats quantile
 #' 
+NULL
+
+# Add global variables to pass check
+..async_quo = NULL
+..async_var = NULL
+.palettes = NULL
+BASELINE = NULL
+FREQUENCY = NULL
+Frequency = NULL
+TIME_RANGE = NULL
+Time = NULL
+draw_time_baseline = NULL
+is_clean = NULL
+label.col = NULL
+x = NULL
+xax = NULL
+xlab = NULL
+y = NULL
+yax = NULL
+ylab = NULL
+data = NULL
+
+
+
+
+
+
 
 cat2 <- function(..., end = '\n', level = 'DEBUG', print_level = FALSE, pal = list(
     'DEBUG' = 'grey60',
