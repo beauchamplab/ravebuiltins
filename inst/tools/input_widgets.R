@@ -1,3 +1,142 @@
+define_input_3d_viewer_generator <- function(
+  inputId, label = 'Open viewer in a new tab', button_types = c('primary', 'default'), 
+  download_label = 'Download', download_btn = TRUE,
+  download_filename = 'rave_viewer.zip', 
+  reactive = 'input'
+){
+  input_ui = paste0(inputId, '_ui')
+  input_fun = paste0(inputId, '_fun')
+  input_download = paste0(inputId, '_download')
+  outputId = paste0(inputId, '_out')
+  quo = rlang::quo({
+    define_input( definition = actionButtonStyled(
+      inputId = !!inputId, label = !!label, width = '100%', type = !!button_types[[1]]
+    ) )
+    define_input( definition = rave::customizedUI(!!input_ui) )
+    # This is actually an output
+    load_scripts(rlang::quo({
+      
+      assign(!!input_ui, function(){
+        btn_class = c(!!button_types, '')[2]
+        
+        if( btn_class != '' ){
+          btn_class = paste0('btn-', btn_class)
+        }
+        if( !!download_btn ){
+          shiny::downloadButton(outputId = ns(!!input_download), label = !!download_label, 
+                                style='width:100%', class = btn_class)
+        }else{
+          shiny::downloadLink(outputId = ns(!!input_download), label = !!download_label, 
+                              style='width:100%')
+        }
+        
+      })
+      
+      local({
+        input %?<-% getDefaultReactiveInput()
+        if( !!reactive == 'input' ){
+          react = input
+        }else{
+          react = get0(!!reactive, ifnotfound = shiny::reactiveValues())
+        }
+        ...widget_env = new.env(parent = emptyenv())
+        
+        # Generate 3D viewer render function
+        ...fun = function(){
+          re = NULL
+          f = get0(!!input_fun, envir = ..runtime_env, ifnotfound = function(...){
+            rutabaga::cat2('3D Viewer', !!outputId,  'cannot find function', !!input_fun, level = 'INFO')
+          })
+          tryCatch({
+            re = f()
+          }, error = function(e){
+            rave::logger(e, level = 'ERROR')
+          })
+          re
+        }
+        
+        render_func = function(){
+          threeBrain::renderBrain({
+            re = NULL
+            # Render function
+            if(length( react[[!!inputId]] )){
+              re = ...fun()
+            }
+            
+            if('R6' %in% class(re)){
+              re = re$plot()
+            }
+            ...widget_env$widget = re
+            re
+          })
+        }
+        
+        output %?<-% getDefaultReactiveOutput()
+        
+        output[[!!input_download]] = shiny::downloadHandler(
+          filename = !!download_filename, content = function(con){
+            if( !length(...widget_env$widget) ){
+              re = ...fun()
+            }else{
+              re = ...widget_env$widget
+            }
+            showNotification(p('Generating 3D viewer. Please wait...'), duration = NULL,
+                             type = 'default', id = '...save_brain_widget')
+            tmp_dir = tempdir()
+            finfo = threeBrain::save_brain(re, directory = tmp_dir, 
+                                           title = 'RAVE Viewer', as_zip = TRUE)
+            on.exit({ unlink( finfo$zipfile ) })
+            
+            showNotification(p('Done!'), type = 'message', id = '...save_brain_widget')
+            
+            file.copy(finfo$zipfile, to = con, overwrite = TRUE, recursive = FALSE)
+          }
+        )
+        
+        
+        # Register render function
+        
+        # 1. main viewer (if exists)
+        output[[!!outputId]] <- render_func()
+        
+        # 2. side viewers
+        # Register cross-session function so that other sessions can register the same output widget
+        session$userData$cross_session_funcs %?<-% list()
+        # ns must be defined, but in get_module(..., local=T) will raise error
+        # because we are not in shiny environment
+        ns %?<-% function(x){x} 
+        session$userData$cross_session_funcs[[ns(!!outputId)]] = render_func
+        
+        
+        observeEvent(input[[!!inputId]], {
+          
+          rave_id = session$userData$rave_id
+          if(is.null(rave_id)){ rave_id = '' }
+          token = session$userData$token
+          if(is.null(token)){ token = '' }
+          globalId = ns(!!outputId)
+          
+          query_str = list(
+            type = '3dviewer',
+            globalId = htmltools::urlEncodePath(globalId),
+            sessionId = htmltools::urlEncodePath(rave_id),
+            token = token
+          )
+          url = paste(sprintf('%s=%s', names(query_str), as.vector(query_str)), collapse = '&')
+          
+          shinyjs::runjs(sprintf('window.open("/?%s");', url))
+        })
+      })
+      
+    }))
+  })
+  
+  parent_frame = parent.frame()
+  
+  rave::eval_dirty(quo, env = parent_frame)
+}
+
+
 define_input_multiple_electrodes <- function(inputId, label = 'Electrodes'){
   quo = rlang::quo({
     define_input(

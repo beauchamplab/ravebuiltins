@@ -6,8 +6,7 @@
 \usage{
 easy_layout(K, nrows = 1, legend, legend_size = lcm(3),
   legend_side = 4, s_margin = par("mar"), b_margin = par("oma"),
-  l_margin = local({     mar = s_margin     mar[legend_side] = 0    
-  mar[(legend_side + 2)\%\%4] = 0.5     mar }))
+  l_margin)
 }
 \arguments{
 \item{K}{number of plots to be made}
