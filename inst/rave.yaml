@@ -16,19 +16,25 @@ modules:
 - module_id: power_explorer
   module_label: Power Explorer
   group_name: Condition Explorer
+  order: 1
 - module_id: voltage_explorer
   module_label: Voltage Explorer
   group_name: Condition Explorer
+  order: 3
 - module_id: phase_explorer
   module_label: Phase Explorer
   group_name: Condition Explorer
+  order: 2
 - module_id: group_analysis_lme
   module_label: Linear Mixed Effect model
   group_name: Group Analysis
+  order: 6
 - module_id: overview_viewer_3d
   module_label: 3D Viewer
   group_name: Overview
+  order: 4
 - module_id: channel_reference
   module_label: Reference
   group_name: Overview
+  order: 5
 

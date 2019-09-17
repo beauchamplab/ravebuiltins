@@ -18,7 +18,8 @@ module_id <- 'group_analysis_lme'
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
     get_path('inst/modules/group_analysis_lme/reactive_main.R'),
-    get_path('inst/modules/group_analysis_lme/common.R')
+    get_path('inst/modules/group_analysis_lme/common.R'), 
+    asis = TRUE
 )
 
 define_initialization({

@@ -20,7 +20,6 @@ define_input_multiple_electrodes <- function(inputId, label = 'Electrodes'){
   })
 
   parent_frame = parent.frame()
-
   rave::eval_dirty(quo, env = parent_frame)
 }
 
@@ -73,7 +72,16 @@ define_input_frequency <- function(inputId, label = 'Frequency', is_range = TRUE
         }else{
           initial_value %?<-% min
         }
+        
         value = cache_input(!!inputId, initial_value)
+        if(length(value) == 1) {
+          # the problem here is that it doesn't work for ranges...
+          value = ..get_nearest_val(value, preload_info$frequencies)
+        } else {
+          v1 <- ..get_nearest_val(value[1], preload_info$frequencies)
+          v2 <- ..get_nearest_val(value[2], preload_info$frequencies)
+          value = c(v1,v2)
+        }
       }
     )
   })

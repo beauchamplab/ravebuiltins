@@ -108,7 +108,6 @@ output$viewer <- threeBrain::renderBrain({
     re$brain$view(value_range = re$value_range, time_range = re$time_range)
     # local_env$brain$view( value_range = value_range, time_range = time_range )
     
-    
   }, error = function(e){
     msg = 'Please click button "generate 3D viewer" to start'
     cond = structure(list(message = msg), 
@@ -116,8 +115,6 @@ output$viewer <- threeBrain::renderBrain({
     local_data$last_brain = re$brain
     stop(cond)
   })
-  
-  
   
 })
 

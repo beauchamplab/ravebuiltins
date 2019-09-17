@@ -102,11 +102,11 @@ observeEvent(input[[('bipolar_table_cell_edit')]], {
 
 output[['elec_loc']] <- threeBrain::renderBrain({
     local_data$refresh
-    group_info = current_group()
+    group_info = current_group() 
     group_info %?<-% list(electrodes = NULL)
     name = group_info$rg_name
     ref_tbl = get_ref_table()
-    if(is.blank(name)){ name = 'Current Group' }
+    if(!length(name) || is.blank(name)){ name = 'Current Group' }
 
     # join electrodes.csv with ref table
     tbl = merge(ref_tbl, subject$electrodes[,c('Electrode', 'Coord_x','Coord_y','Coord_z', 'Label')], id = 'Electrode', suffixes = c('.x', ''))
@@ -131,7 +131,7 @@ output[['elec_loc']] <- threeBrain::renderBrain({
     brain$load_electrodes(subject)
     
     if(local_data$load_mesh){
-        brain$load_surfaces(subject)
+        brain$load_surfaces(subject, quiet = TRUE)
     }
     
     for(ii in seq_along(electrodes)){
@@ -269,11 +269,11 @@ cur_group_ui = function(){
     )
 }
 
-observeEvent(input[['elec_loc_callback']], {
-    dat = input[['elec_loc_callback']]
-    print(dat)
-    do.call(switch_to, dat)
-})
+# observeEvent(input[['elec_loc_callback']], {
+#     dat = input[['elec_loc_callback']]
+#     print(dat)
+#     do.call(switch_to, dat)
+# })
 
 output[[('bad_electrodes_out')]] = renderText({
     bad_electrodes = rave:::parse_selections(input[[('ref_bad')]])
@@ -670,7 +670,7 @@ observe({
     updateTextInput(session, 'ref_export_name', label = val)
 })
 
-export_ref_table = function(){
+write_ref_table = function(){
     # get ref_table
     ref_tbl = get_ref_table()
     dirs = subject$dirs
@@ -725,7 +725,7 @@ load_refchan = function(r, subject_channel_dir, blocks, ram = T){
 }
 
 observeEvent(input$do_export_cache, {
-    fname = export_ref_table()
+    fname = write_ref_table()
     showNotification(p('Reference table [', fname, '] exported. Creating cache referenced data.'), type = 'message', id = ns('ref_export_cache_notification'))
     # Start cache
     ref_tbl = get_ref_table()
@@ -854,7 +854,7 @@ observeEvent(input$do_export_cache, {
 })
 
 observeEvent(input[[('do_export')]], {
-    fname = export_ref_table()
+    fname = write_ref_table()
     showNotification(p('Reference table [', fname, '] exported. Reloading subject.'), type = 'message', id = ns('ref_export_cache_notification'))
     removeModal()
 
@@ -862,6 +862,7 @@ observeEvent(input[[('do_export')]], {
     fname %?<-% 'default'
     fname = str_replace_all(fname, '\\W', '')
     fname = str_to_lower(fname)
+    # showNotification(p("New reference table is created. It's time to reload the subject with the new reference."), type = 'message')
     module_tools$reload(reference = fname)
     reloadUI()
 })

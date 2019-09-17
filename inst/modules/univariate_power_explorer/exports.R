@@ -4,12 +4,15 @@ output = getDefaultReactiveOutput()
 power_3d_fun = function(brain){
   showNotification(p('Generating 3d viewer...'))
   
-  # brain = rave::rave_brain2(subject = subject); 
-  # brain$load_surfaces(subject = subject, surfaces = c('pial', 'white', 'smoothwm'))
+  # brain = rave::rave_brain2(); 
+  brain$load_surfaces(subject = subject, surfaces = c('pial', 'white', 'smoothwm'))
   
   dat = rave::cache(key = list(
     list(BASELINE_WINDOW, preload_info)
   ), val = get_summary())
+  
+  
+  
   
   # for each electrode, we want to test the different conditions
   .FUN <- if(length(levels(dat$condition)) > 1) {
@@ -30,36 +33,17 @@ power_3d_fun = function(brain){
       get_t(x$power) %>% set_names(c('b', 't', 'p'))
     }
   }
-  
-  # names(dat) = c('Subject', 'Electrode', 'trial', 
-  #                'condition', 'power')
 
-  values = lapply(unique(dat$elec), function(e){
+  values = sapply(unique(dat$elec), function(e){
     sub = dat[dat$elec == e, ]
     re = .FUN(sub)
-    # v = re[input$viewer_3d_type]
-    # brain$set_electrode_value(subject, e, v)
-    return(re)
-  }) %>% rbind_list
+    v = re[input$viewer_3d_type]
+    brain$set_electrode_value(subject, e, v)
+    return(v)
+  })
   
-  values = as.data.frame(values)
-  values$Subject = as.factor(subject$subject_code)
-  values$Electrode = unique(dat$elec)
-  
-  
-  #           b        t            p   Subject Electrode Time
-  # 1 120.36184 13.83425 7.733204e-22 sub_large        14  0
-  # 2  45.21445  8.11932 1.004675e-11 sub_large        15  0
-  
-  brain$set_electrode_values(values)
-  
-  brain$plot(symmetric = 0, palettes = list(
-    b = rave_heat_map_colors,
-    p = c('red', 'red', 'grey')
-  ), side_shift = c(-265, 0))
-  
-  # brain$view(value_range = c(-1,1) * max(abs(values)),
-  #            color_ramp = rave_heat_map_colors, side_shift = c(-265, 0))
+  brain$view(value_range = c(-1,1) * max(abs(values)),
+             color_ramp = rave_heat_map_colors)
 }
 
 # Export functions
@@ -117,7 +101,7 @@ get_summary <- function() {
 }
 
 export_stats = function(conn=NA, lbl='stat_out', dir, ...){
-  out_dir <- dir #module_tools$get_subject_dirs()$module_data_dir %&% '/power_explorer/'
+  out_dir <- dir #module_tools$get_subject_dirs()$module_data_dir %&% '/condition_explorer/'
 
   if(!dir.exists(out_dir))    {
     dir.create(out_dir, recursive = TRUE)
@@ -151,12 +135,13 @@ graph_export = function(){
 #   export_graphs(conn = '~/Desktop/hmp_e.pdf')
 # })
 
+
 output$btn_graph_download <- downloadHandler(
   filename = function(...) {
     paste0('power_explorer_export',
            format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.zip')
   },
-  content = function(conn) {
+  content = function(conn){
     tmp_dir = tempdir()
     
     # map the human names to the function names
@@ -172,12 +157,10 @@ output$btn_graph_download <- downloadHandler(
     
     tmp_files <- prefix %&% str_replace_all(names(fnames), ' ', '_') %&% '.pdf'
     
-    # to speed this up, we'll open all the files and write an electrodes contents into each, then iterate
-    # mapply(
-    export_graphs(conns=file.path(tmp_dir, tmp_files), plot_functions=fnames)
+    mapply(export_graphs, file.path(tmp_dir, tmp_files), fnames)
     
     wd = getwd()
-    on.exit({setwd(wd)}, add = TRUE)
+    on.exit({setwd(wd)})
     
     setwd(tmp_dir)
     
@@ -185,49 +168,50 @@ output$btn_graph_download <- downloadHandler(
   }
 )
 
-export_graphs <- function(conns=NA, plot_functions, ...) {
+export_graphs <- function(conn=NA,
+                          which_plot=c('heat_map_plot','by_trial_heat_map','over_time_plot', 'windowed_comparison_plot'), ...) {
   
-  # which_plot <-  match.arg(which_plot)
+  which_plot <-  match.arg(which_plot)
   
   args = isolate(reactiveValuesToList(input))
   
   electrodes_loaded = preload_info$electrodes
-  # check to see if we should loop over all electrodes or just the currently selected electrode(s)
+  # check to see if we should loop over all electrodes or just the current electrode
   if(export_what == 'Current Selection') {
-    electrodes_loaded <- requested_electrodes
+    electrodes_loaded <- ELECTRODE
   }
   
-  progress = rave::progress('Rendering graphs...',
-                            max = length(electrodes_loaded) + 2)
+  progress = rave::progress('Rendering graphs for: ' %&% str_replace_all(which_plot, '_', ' '),
+                            max = length(electrodes_loaded) + 1)
   
   on.exit({progress$close()}, add=TRUE)
   progress$inc(message = 'Initializing')
   
+  .export_graph = function(){
     module = rave::get_module('ravebuiltins', 'power_explorer', local = TRUE)
+    
     formal_names = names(formals(module))
-    # args = sapply(formal_names, get)
     args = args[formal_names]
     names(args) = formal_names
-  
-  # so we want to open all the PDFs initially
-  # based on the number of groups we should scale the plots
-  ngroups = 0
-  for(ii in seq_along(args$GROUPS)) {
-    if(length(args$GROUPS[[ii]]$group_conditions)>1) {
-      ngroups = ngroups+1
+    
+    # having issues here with the size of the plots being too large for the font sizes
+    # we can't (easily) change the cex being used by the plots. So maybe we can 
+    # just change the size of the output PDF. people can the resize
+    
+    # based on the number of groups we should scale the plots
+    ngroups = 0
+    for(ii in seq_along(args$GROUPS)) {
+      if(length(args$GROUPS[[ii]]$group_conditions)>1) {
+        ngroups = ngroups+1
+      }
     }
-  }
-  # having issues here with the size of the plots being too large for the font sizes
-  # we can't (easily) change the cex being used by the plots. So maybe we can 
-  # just change the size of the output PDF. people can then resize but keep the relative sizes correct
-  #TODO get the names of the open devices, iterate only on the newly opened graphcsi devices
-  fin = mapply(function(conn, pf) {
+    
     w_scale = h_scale = 1
-    if(pf == 'windowed_comparison_plot') {
+    if(which_plot == 'windowed_comparison_plot') {
       w_scale = ngroups / 2.25
     }
     
-    if(pf %in% c('by_trial_heat_map', 'heat_map_plot')) {
+    if(which_plot %in% c('by_trial_heat_map', 'heat_map_plot')) {
       w_scale = ngroups*1.25
       h_scale = ngroups*1.05
     }
@@ -236,45 +220,24 @@ export_graphs <- function(conns=NA, plot_functions, ...) {
     .h <- round(6.03*h_scale,1)
     
     pdf(conn, width = .w, height = .h, useDingbats = FALSE)
-  }, conns, plot_functions)
-  
-  
-  on.exit({
-    replicate(length(conns), dev.off())
-  }, add = TRUE)
-  
-  plot_for_el <- function(etext) {
     
-    if(length(etext) > 1) {
-      etext %<>% deparse_svec
-    }
+    on.exit(dev.off())
     
-    progress$inc(message = sprintf('Rendering graphs for %s', etext))
-    args[['ELECTRODE_TEXT']] = etext
-    result = do.call(module, args)
-    for(g in plot_functions) {
-      dev.set()
-      result[[g]]()
+    for(e in electrodes_loaded){
+      progress$inc(message = sprintf('Electrode %s', e))
+      args[['ELECTRODE']] = e
+      result = do.call(module, args)
+      result[[which_plot]]()
     }
   }
   
-  # first write into the graphs the aggregate functions
-  plot_for_el(electrodes_loaded)
+  .export_graph()
   
-  # now for the individual electrodes
-  lapply(electrodes_loaded, plot_for_el)
+  # showNotification(p('Export graph finished.'))
   
-  # progress$close()
-  showNotification(p('Exports finished!'))
-
+  #TODO check the variable export_per_electrode to see if we need to loop over electrodes and export
+  # or if we want use just the current_electrodes and combine them
+  
+  #TODO need to scale all the fonts etc so things aren't too large for export
+  
 }
-
-
-
-
-
-# Export data options
-
-
-
-

@@ -16,12 +16,12 @@ if(F) {
 
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
-    requested_electrodes = parse_selections(ELECTRODE_TEXT %>% str_replace_all(':', '-'))
-    requested_electrodes %<>% get_by(`%in%`, electrodes)
+    # requested_electrodes = parse_selections(ELECTRODE_TEXT %>% str_replace_all(':', '-'))
+    # requested_electrodes %<>% get_by(`%in%`, electrodes)
 
     # this will be NA if the only requested electrodes are not available
     # electrode <- requested_electrodes[1]
-    assertthat::assert_that(length(requested_electrodes) >= 1 && all(not_NA(requested_electrodes)),msg = 'No electrode selected')
+    # assertthat::assert_that(length(requested_electrodes) >= 1 && all(not_NA(requested_electrodes)),msg = 'No electrode selected')
 
     # downsample as requested
     s = voltage$dimnames$Time[1]
@@ -30,7 +30,7 @@ if(F) {
     eps <- diff(requested_samples)
 
     keepers <- voltage$dimnames$Time[..get_nearest(requested_samples, voltage$dimnames$Time)]
-    voltage_sub <- voltage$subset(Time = Time %in% keepers, Electrode = Electrode %in% requested_electrodes)
+    voltage_sub <- voltage$subset(Time = Time %in% keepers, Electrode = Electrode %in% ELECTRODE)
     # match_baseline_unit <- function(u) {
     #   if(u == 'dB') {
     #     return ('dB')
@@ -59,7 +59,6 @@ if(F) {
     #   )
     # }
 
-
     analysis_voltage <- voltage_sub$subset(Time = Time %within% ANALYSIS_WINDOW)
     baseline_voltage <- voltage_sub$subset(Time = Time %within% BASELINE_WINDOW)
 
@@ -70,6 +69,7 @@ if(F) {
         .all_data <- voltage_sub$subset(Trial = Trial %in% Trial_num)
         .analysis_data <- analysis_voltage$subset(Trial = Trial %in% Trial_num)
         .baseline_data <- baseline_voltage$subset(Trial = Trial %in% Trial_num)
+        
         list(
             name = g$group_name,
             Trial_num = Trial_num,
@@ -80,18 +80,19 @@ if(F) {
             analysis_data = .analysis_data,
             baseline_data = .baseline_data,
             range = range(.all_data$get_data()),
-            N=nrow(.data)
+            N=nrow(.all_data$get_data())
         )
     })
 
     has_trials <- vapply(group_data, function(g){g$has_trials}, FALSE)
     has_data <- any(has_trials)
-
     line_plot_data <- group_data
+    # lpd <- line_plot_data[[1]]
     line_plot_data <- lapply(line_plot_data, function(lpd) {
       .d <- lpd$all_data$collapse(keep=1:2)
+      lpd$x <- lpd$all_data$dimnames$Time
+      
       lpd$all_data <- NULL
-
       lpd$analysis_data <- NULL
       lpd$baseline_data <- NULL
       lpd$data <- t(apply(.d, 2, .fast_mse))
@@ -106,10 +107,22 @@ if(F) {
       d$baseline_data <- d$baseline_data$collapse(keep=1:2)
       # d$baseline_data_mean <- rowMeans(d$baseline_data)
       d$data <- d$all_data$collapse(keep=1:2) %>% t
-
+      
+      d$x <- d$all_data$dimnames$Time
+      d$y <- d$all_data$dimnames$Trial
+      attr(d$data, 'xlab') = 'Time'
+      attr(d$data, 'ylab') = 'Trial'
+      
+      attr(d$baseline_data, 'xlab') = 'Time'
+      attr(d$baseline_data, 'ylab') = 'Trial'
+      attr(d$analysis_data, 'xlab') = 'Time'
+      attr(d$analysis_data, 'ylab') = 'Trial'
+      
+      attr(d$data, 'zlab') = 'Mean Voltage'
+      
       return(d)
     })
-
+    
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
 # Debug
@@ -122,9 +135,7 @@ module_id = 'voltage_explorer'
 
 module = ravebuiltins:::debug_module(module_id)
 result = module(GROUPS=list(
-  list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
-  list(group_name='B', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v')),
-  list(group_name='C', group_conditions=c('known_av', 'last_av', 'drive_av', 'meant_av')))
+  list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')))
 )
 
 results = result$results
@@ -149,5 +160,4 @@ attachDefaultDataRepository()
 module = rave::get_module(package = 'ravebuiltins', module_id = 'voltage_explorer', local = T)
 
 res = module()
-
 

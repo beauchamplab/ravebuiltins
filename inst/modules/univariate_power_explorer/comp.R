@@ -8,6 +8,7 @@ env = dev_ravebuiltins(T)
 ## Load subject for debugging
 env$mount_demo_subject()
 
+
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
 
@@ -36,19 +37,6 @@ define_initialization({
   time_points = preload_info$time_points
   electrodes = preload_info$electrodes
   epoch_data = module_tools$get_meta('trials')
-  electrodes_csv = module_tools$get_meta('electrodes')
-  elec_labels <- unique(electrodes_csv$Label)
-  
-  # figure out if there are any outliers to prepopulate the outlier list
-  outlier_list <- character(0)
-  efile <- sprintf('%s/power_outliers_%s.csv', subject$dirs$meta_dir, preload_info$epoch_name)
-  if(file.exists(efile)) {
-    outlier_data <- read.csv(efile)
-    if(any(outlier_data$PowerOutlier)) {
-        outlier_list = epoch_data$Trial[outlier_data$PowerOutlier]
-    }
-  }
-  
 })
 
 
@@ -60,9 +48,9 @@ define_input(
   definition = customizedUI(inputId = 'input_customized')
 )
 
-define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT')
-# define_input_single_electrode(inputId = 'ELECTRODE')
-define_input_frequency(inputId = 'FREQUENCY', initial_value = c(70,150))
+# define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT')
+define_input_single_electrode(inputId = 'ELECTRODE')
+define_input_frequency(inputId = 'FREQUENCY')
 define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis', initial_value = c(0,1))
 define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline', initial_value = c(-1,0))
 define_input_condition_groups(inputId = 'GROUPS')
@@ -77,30 +65,25 @@ define_input(
   definition = selectInput('trial_outliers_list', 'Trials to Exclude',
                            choices = NULL,
                            selected = NULL, multiple = TRUE),
-  init_args = c('choices', 'selected'),
+  init_args = 'choices',
   init_expr = {
     choices = c(epoch_data$Trial)
-    selected = outlier_list
   }
 )
 
 define_input(
-  definition = actionButton('clear_outliers', 'Clear Outliers', icon = icon('trash'))
+  definition = actionButton('clear_outliers', 'Trials to Exclude', icon = icon('trash'))
+)
+define_input(
+  definition = actionButton('save_new_epoch_file', 'Save Epoch File', icon =icon('file-export'))
 )
 
 define_input(
-  definition = actionButton('save_new_epoch_file',
-                            label=HTML("Save Outliers"),
-                            icon =icon('file-export')),
-  init_args = 'label',
-  init_expr = {
-    label = "<span style='color:#ddd'>Save Outliers</span>"
-  }
+  definition = selectInput('show_outliers_on_plots', 'Show outliers on plots',
+                            choices=c('Yes', 'No'), selected = 'Yes')
 )
 
-define_input(
-  definition = checkboxInput('show_outliers_on_plots', 'Show outliers on plots', value = TRUE)
-)
+
 
 define_input(
   definition = numericInput('max_zlim', 'Heatmap Max (0 means data range)', value = 0, min = 0, step = 1)
@@ -143,77 +126,6 @@ define_input(
   definition = checkboxInput('draw_decorator_labels', "Label Plot Decorations", value=TRUE)
 )
 
-
-#
-# Analysis Export options
-#
-{
-  define_input(
-    definition = textInput('analysis_prefix', value = 'power_by_condition',
-                           label = 'Analysis Prefix (no spaces, should match across subjects)')
-  )
-  define_input(
-    definition = checkboxInput('analysis_mask_export',value = FALSE,
-                               label = 'Export Electrode Mask')
-  )
-
-  define_input(
-    definition = selectInput('analysis_filter_variable', label='Electrode Filter', choices=NULL, selected=NULL)
-    , init_args = c('choices', 'selected'),
-    init_expr = {
-      choices = names(electrodes_csv)
-      selected = 'Label'
-    }
-  )
-    
-  define_input(
-    definition = selectInput('analysis_filter_elec', label = 'Electrodes to include',
-                             choices=NULL, selected = NULL, multiple = TRUE
-    ),
-    init_args = c('choices', 'selected'),
-    init_expr = {
-      choices =  unique(elec_labels)
-      selected = unique(elec_labels)
-    }
-  )
-  
-  # export based on stats
-  define_input(
-    definition = selectInput('analysis_filter_1', label = 'Statistic',
-                             choices=c('none', 'b', 't|F', 'p', 'FDR(p)', 'Bonf(p)'), selected = 'FDR(p)', multiple = FALSE)
-  )
-  define_input(
-    definition = selectInput('analysis_filter_operator_1', label = '',
-                             choices=c('<', '>', '<=', '>='), selected = '<', multiple = FALSE
-    )
-  )
-  define_input(
-    definition = textInput('analysis_filter_operand_1', label = '', placeholder='e.g., 0.05')
-  )
-  
-  # stat filter #2
-  define_input(
-    definition = selectInput('analysis_filter_2', label = '',
-                             choices=c('none', 'b', 't|F', 'p', 'FDR(p)', 'Bonf(p)'), selected = 'none', multiple = FALSE)
-  )
-  define_input(
-    definition = selectInput('analysis_filter_operator_2', label = ' ',
-                             choices=c('<', '>', '<=', '>='), selected = '>', multiple = FALSE)
-  )
-  define_input(
-    definition = textInput('analysis_filter_operand_2', label = ' ', placeholder='0')
-  )
-  
-  define_input(
-    definition = actionButtonStyled('export_data', label='Export Data', icon=shiny::icon('download'),
-                                    type = 'primary', width = '50%', style='margin-left: 25%; margin-right:25%')
-  )
-  
-}
-
-
-### COLOR PALETTE
-{
 # define_input(
 #   definition = selectInput(inputId = 'color_palette', label='Color palette', multiple=FALSE, 
 #                            choices = list('Matlab'=get_palette(get_palette_names = TRUE),
@@ -235,7 +147,9 @@ define_input(
 #     selected = cache_input('heatmap_color_palette', val = get_heatmap_palette(get_palette_names = TRUE)[1])
 #   }
 # )
-  
+
+
+
 define_input(
   definition = selectInput(inputId = 'color_palette', label='Color palette', multiple=FALSE, 
                            choice=get_palette(get_palette_names = TRUE),
@@ -250,7 +164,7 @@ define_input(
 
 define_input(
   definition = selectInput(inputId = 'background_plot_color_hint', label = 'Background color', multiple=FALSE,
-                           choices = c('White', 'Black', 'Gray'), selected = 'White')
+                           choices = c('White', 'Black', 'Gray'))
 )
 
 define_input(
@@ -265,29 +179,11 @@ define_input(
   definition = customizedUI('graph_export')
 )
 
-}
-
-#
-# deterime which varibles only need to trigger a render, not an exectute
-render_inputs <- c(
-  'sort_trials_by_type', 'draw_decorator_labels', 'PLOT_TITLE', 'plots_to_export', 'show_outliers_on_plots', 'background_plot_color_hint',
-  'invert_colors_in_palette', 'reverse_colors_in_palette', 'color_palette', 'max_zlim'
-)
-
-#
-# determine which variables only need to be set, not triggering rendering nor executing
-manual_inputs <- c(
-  'graph_export', 'export_what', 'analysis_filter_variable', 'analysis_filter_elec',
-  'analysis_filter_1', 'analysis_filter_2', 'analysis_filter_operator_1', 'analysis_filter_operator_2',
-  'analysis_filter_operand_1', 'analysis_filter_operand_2',
-  'analysis_prefix', 'analysis_mask_export', 'export_data'
-)
-
 
 # Define layouts if exists
 input_layout = list(
   '[#cccccc]Electrodes' = list(
-    c('ELECTRODE_TEXT'),
+    c('ELECTRODE'),
     c('combine_method')#,
     #c('reference_type', 'reference_group')
   ),
@@ -311,9 +207,9 @@ input_layout = list(
     c('log_scale', 'sort_trials_by_type', 'collapse_using_median')
   ),
   '[-]Trial Outliers' = list(
-    'show_outliers_on_plots',
     'trial_outliers_list',
-    'clear_outliers', 'save_new_epoch_file'
+    'show_outliers_on_plots',
+    c('clear_outliers', 'save_new_epoch_file')
   ),
   #[#aaaaaa]
   '[-]Export Plots' = list(
@@ -322,12 +218,6 @@ input_layout = list(
     c('graph_export')
   ),
   '[-]Export Data/Results' = list(
-    'analysis_prefix',
-    'analysis_mask_export',
-    'analysis_filter_variable', 'analysis_filter_elec',
-    c('analysis_filter_1', 'analysis_filter_operator_1', 'analysis_filter_operand_1'),
-    c('analysis_filter_2', 'analysis_filter_operator_2', 'analysis_filter_operand_2'),
-    'export_data'
   )
 )
 
@@ -336,7 +226,7 @@ input_layout = list(
 # Define Outputs
 define_output(
   definition = plotOutput(outputId = 'heat_map_plot'),
-  title = 'Activity over time by frequency',
+  title = 'Heat Map (Collapse trial)',
   width = 12,
   order = 1
 )
@@ -344,38 +234,30 @@ define_output(
 define_output(
   definition = plotOutput('by_trial_heat_map'),
                           # click = clickOpts(shiny::NS('power_explorer')('by_trial_heat_map_click'), clip = FALSE)),
-  title = 'Activity over time by trial',
+  title = 'Activity over time by trial (Collapse freq)',
   width = 12,
   order = 2
 )
 
 define_output(
-  definition = plotOutput('by_electrode_heat_map'),
-  title = 'Activity over time by electrode',
-  width = 12,
-  order = 2.5
-)
-
-define_output(
   definition = plotOutput('over_time_plot'),
-  title = 'Activty over time by condition',
-  width = 7,
+  title = 'Collapse freq+trial',
+  width = 8,
   order = 3
 )
 
 define_output(
   definition = plotOutput('windowed_comparison_plot',
-                          click = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_click'), clip = FALSE),
-                          dblclick = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_dbl_click'), clip = FALSE)),
-  title = 'Activity by trial and condition',
-  width = 3,
+                          click = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_click'), clip = FALSE)),
+  title = 'Collapse freq+time',
+  width = 4,
   order = 4
 )
 
 define_output(
   definition = customizedUI('click_output'),
-  title = 'Last Click',
-  width=2, order=4.1
+  title = 'Click Information',
+  width=12, order=2.5
 )
 
 
@@ -385,13 +267,19 @@ define_output(
 #   width = 12,
 #   order = 5
 # )
-# 
+
 define_output_3d_viewer(
   outputId = 'power_3d',
-  message = 'Click here to reload viewer',
-  title = 'Statistical results by electrode',
+  title = '3D Viewer for Power',
+  surfaces = 'pial',
+  multiple_subject = F,
   height = '70vh',
-  order = 1e4
+  order = 1e3,
+  width = 12,
+  additional_ui = tagList(
+    selectInput(ns('viewer_3d_type'), 'Which statistics', choices = c('b', 't', 'p'))#,
+    #p(ns('blah'))
+  )
 )
 
 
