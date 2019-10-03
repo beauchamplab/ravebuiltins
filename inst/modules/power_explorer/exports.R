@@ -13,7 +13,6 @@ power_3d_fun = function(brain){
   
   # for each electrode, we want to test the different conditions
   .FUN <- if(length(levels(dat$condition)) > 1) {
-
     if (length(levels(dat$condition)) == 2) {
       function(x) {
         res = get_t(power ~ condition, data=x)
@@ -140,10 +139,21 @@ export_stats = function(conn=NA, lbl='stat_out', dir, ...){
   invisible(out_data)
 }
 
+
+## modified from downloadButton
+fix_font_color_button <- function (outputId, label = "Download", class = NULL, ...)  {
+  aTag <- tags$a(id = outputId, class = paste("btn shiny-download-link", 
+                                              class), href = "", target = "_blank", download = NA, 
+                 icon("download"), label, ...)
+}
+
 graph_export = function(){
   tagList(
     # actionLink(ns('btn_graph_export'), 'Export Graphs'),
-    downloadLink(ns('btn_graph_download'), 'Download Graphs')
+    fix_font_color_button(ns('btn_graph_download'), 'Download graphs and their data', icon=shiny::icon('download'),
+                   class = 'btn-primary text-white')
+    # actionLink(ns('btn_graph_export'), 'Export Graphs'),
+    
   )
 }
 

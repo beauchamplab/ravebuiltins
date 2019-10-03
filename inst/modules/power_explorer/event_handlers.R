@@ -1,3 +1,14 @@
+input = getDefaultReactiveInput()
+output = getDefaultReactiveOutput()
+session = getDefaultReactiveDomain()
+
+local_data = reactiveValues(
+    instruction_string = "Click on Activity by trial and condition plot for details." %&%
+        "<ul><li>Single-click for trial information</li><li>Double-click for outlier (de)selection</li></ul>",
+    by_trial_heat_map_click_location = NULL,
+    windowed_by_trial_click_location = NULL,
+    click_info = NULL
+)
 
 observeEvent(input$power_3d_mouse_dblclicked, {
     # mouse_event = input$power_3d__mouse_dblclicked$event
@@ -37,19 +48,60 @@ observeEvent(input$trial_outliers_list, {
 })
 
 
+observeEvent(input$synch_with_trial_selector, {
+    GROUPS %?<-% NULL
+    
+    if(!is.null(GROUPS)) {
+        # the lapply and then unlist handles the case
+        # of empty group(s)
+        updateSelectInput(session, 'trial_type_filter',
+                          selected = unique(lapply(GROUPS, `[[`, 'group_conditions') %>% unlist)
+        )
+    }
+})
+
 observeEvent(input$analysis_filter_variable, {
     electrodes_csv %?<-% NULL
     
     if(is.data.frame(electrodes_csv)) {
         col_name <- input$analysis_filter_variable
-        
-        updateSelectInput(session, 'analysis_filter_elec', 
-                          selected=unique(electrodes_csv[[col_name]]),
-                          choices = unique(electrodes_csv[[col_name]]))
+        if(col_name == 'none') {
+            updateSelectInput(session, 'analysis_filter_elec', 
+                              selected=character(0),
+                              choices = character(0))
+        } else {
+            updateSelectInput(session, 'analysis_filter_elec', 
+                              selected=unique(electrodes_csv[[col_name]]),
+                              choices = unique(electrodes_csv[[col_name]]))
+        }
     }
-
 })
 
+observeEvent(input$analysis_filter_variable_2, {
+    electrodes_csv %?<-% NULL
+    
+    if(is.data.frame(electrodes_csv)) {
+        col_name <- input$analysis_filter_variable_2
+        
+        if(col_name == 'none') {
+            updateSelectInput(session, 'analysis_filter_elec_2', 
+                              selected=character(0),
+                              choices = character(0))
+        } else {
+            updateSelectInput(session, 'analysis_filter_elec_2', 
+                              selected=unique(electrodes_csv[[col_name]]),
+                              choices = unique(electrodes_csv[[col_name]]))
+        }
+        
+    }
+})
+
+
+observeEvent(input$select_good_electrodes, {
+    if(!is.null(input$current_active_set)) {
+        updateTextInput(session, 'ELECTRODE_TEXT', value = parse_svec(input$current_active_set))
+    }
+})
 
 observeEvent(input$clear_outliers, {
     updateSelectInput(session, 'trial_outliers_list', selected=character(0))
@@ -79,19 +131,6 @@ enable_save_button <- function() {
 disable_save_button <- function() {
     updateActionButton(session, 'save_new_epoch_file', label=HTML("<span style='color:#ddd'>Save Outliers</span>"))
 }
-
-
-input = getDefaultReactiveInput()
-output = getDefaultReactiveOutput()
-session = getDefaultReactiveDomain()
-
-local_data = reactiveValues(
-    instruction_string = "Click on Activity by trial and condition plot for details." %&%
-        "<ul><li>Single-click for trial information</li><li>Double-click for outlier (de)selection</li></ul>",
-    by_trial_heat_map_click_location = NULL,
-    windowed_by_trial_click_location = NULL,
-    click_info = NULL
-)
 
 
 update_click_information <- function() {
@@ -146,8 +185,18 @@ observeEvent(input$windowed_by_trial_dbl_click, {
 
 output$trial_click <- renderUI({
     .click <- local_data$click_info
-
-    HTML("<div style='margin-left: 5px'>Nearest Trial: " %&% .click$trial %&% '<br/> Value: ' %&% .click$value %&%
+    # div(
+    #     style='margin-left: 5px; min-height: 400px',
+    #     'Nearest Trial: ', .click$trial, br(),
+    #     'Value: ', .click$value, br(),
+    #     'Trial Type: ', .click$trial_type,
+    #     p(
+    #         style='margin-top:20px',
+    #         HTML('&mdash;'), br(),
+    #         local_data$instruction_string
+    #     )
+    # )
+    HTML("<div style='margin-left: 5px; min-height:375px'>Nearest Trial: " %&% .click$trial %&% '<br/> Value: ' %&% .click$value %&%
              '<br/> Trial Type: ' %&% .click$trial_type %&%
              "<p style='margin-top:20px'>&mdash;<br/>" %&% local_data$instruction_string %&% '</p></div>'
     )
@@ -158,6 +207,7 @@ click_output = function() {
         return(htmlOutput(ns('trial_click')))
     }
     
-    return(HTML("<p style='margin-top:10px; margin-left:5px'>" %&% local_data$instruction_string %&% '</p>'))
+    return(HTML("<div style='margin-left: 5px; min-height:360px'>" %&%
+    "<p style='margin-top:20px'>" %&% local_data$instruction_string %&% '</p></div>'))
 }
 

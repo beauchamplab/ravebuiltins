@@ -4,14 +4,16 @@
 # rm(list = ls(all.names=T)); rstudioapi::restartSession()
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
-mount_demo_subject(force_reload_subject = T)
+mount_demo_subject(force_reload_subject = T,
+                   subject_code = 'YAB',project_name = 'congruency', electrodes=13:20, epoch='YABa')
+
 init_module(module_id = 'power_explorer', debug = TRUE)
 # attachDefaultDataRepository()
 if(FALSE) {
   GROUPS = list(list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
                 list(group_name='B', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v')))
   FREQUENCY = c(75,150)
-  ELECTRODE_TEXT = '14-15'
+  ELECTRODE_TEXT = '14-19'
 }
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
@@ -232,10 +234,12 @@ for(ii in which(has_trials)){
        mean(unique(diff(.xp)))*0.25  
      } else {
       0.75*(1/3)
-    }
-  scatter_bar_data[[ii]]$xp <- .xp[ii]
+     }
+  
+  xpi <- which(ii == which(has_trials))
+  scatter_bar_data[[ii]]$xp <- .xp[xpi]
   set.seed(jitter_seed)
-  scatter_bar_data[[ii]]$x <- .xp[ii] + runif(length(scatter_bar_data[[ii]]$data), -.r, .r)
+  scatter_bar_data[[ii]]$x <- .xp[xpi] + runif(length(scatter_bar_data[[ii]]$data), -.r, .r)
   
   attr(scatter_bar_data[[ii]]$data, 'xlab') <- 'Group'
   attr(scatter_bar_data[[ii]]$data, 'ylab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
@@ -271,6 +275,41 @@ has_data = sum(has_trials)
 
 # calculate some statistics
 
+# because we're eventually going to be doing second-level stats, we're not too worried about
+# gratuitous NHST
+
+# the first thing we want is an omnibus F statistic. Because the data are baseline corrected, we're here
+# just comparing with zero. That is, a no-intercept model.
+
+# we need the omnibus result per-electrode, do for all electrodes, not just selected
+
+all_trial_types <- GROUPS %>% lapply(`[[`, 'group_conditions') %>% unlist %>% unique
+
+get_data_per_electrode <- function()  {
+  bl <- baseline(power$subset(Trial=Trial %in% epoch_data$Trial[epoch_data$Condition %in% all_trial_types],
+                              Frequency=Frequency %within% FREQUENCY,
+                              Time=Time %within% range(BASELINE_WINDOW, ANALYSIS_WINDOW) ),
+                 from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
+                 hybrid = FALSE, mem_optimize = FALSE)
+  bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
+  pow <- bl$collapse(keep = c(1,4))
+  m = colMeans(pow)
+  t = m / .fast_column_se(pow)
+  p = 2*pt(abs(t), df = nrow(pow)-1, lower=F)
+  
+  res <- rbind(m,t,p)
+  colnames(res) <- dimnames(power)$Electrode
+  
+  return(res)
+}
+
+omnibus_results <- cache(
+  key = list(subject$id, BASELINE_WINDOW, FREQUENCY,all_trial_types,
+             ANALYSIS_WINDOW, combine_method, preload_info$epoch_name,
+             preload_info$reference_name, trial_outliers_list),
+  val = get_data_per_electrode()
+)
+
 # calculate the statistics here so that we can add them to the niml_out
 # if there are > 1 groups in the data, then do linear model, otherwise one-sample t-test
 if(length(unique(flat_data$group)) > 1) {
@@ -299,30 +338,47 @@ attr(scatter_bar_data, 'stats') <- result_for_suma
 # rm(list = ls(all.names=T)); rstudioapi::restartSession()
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
-mount_demo_subject()
+mount_demo_subject(force_reload_subject = T)
 module = ravebuiltins:::debug_module('power_explorer')
 
-result = module(ELECTRODE_TEXT = '1-20',
-  # GROUPS = list(list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
-  #                             # putting in an empty group to test our coping mechanisms
-  #                             list(group_name='YY', group_conditions=c()),
-  #                             list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
-                background_plot_color_hint='white', BASELINE_WINDOW = c(-1,-.1),
-                FREQUENCY = c(75,150), max_zlim = 0, show_outliers_on_plots = TRUE,
+result = module(ELECTRODE_TEXT = '14',
+  GROUPS = list(list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
+                              # putting in an empty group to test our coping mechanisms
+                              list(group_name='YY', group_conditions=c()),
+                              list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
+                background_plot_color_hint='white', BASELINE_WINDOW = c(-1,-.1), plot_time_range = c(-1,1.5),
+                FREQUENCY = c(70,150), max_zlim = 0, show_outliers_on_plots = TRUE,
                 sort_trials_by_type = T, combine_method = 'none')
 results = result$results
-# attachDefaultDataRepository()
+# results$get_value('omnibus_results')
+result$across_electrodes_corrected_pvalue()
 
-result$windowed_comparison_plot()
+# attachDefaultDataRepository()
+# get_summary()
+
 result$heat_map_plot()
+result$windowed_comparison_plot()
 result$by_trial_heat_map()
 result$over_time_plot()
+result$by_electrode_heat_map()
 
 ravebuiltins::dev_ravebuiltins(expose_functions = TRUE)
-view_layout('power_explorer', sidebar_width = 3, launch.browser = T)
 
-m = to_module(module_id)
-init_app(m)
+
+# dev layout has red theme
+dev_layout <- function(module_id, sidebar_width = 5, launch.browser = rstudio_viewer){
+  # Always reload the package to the newest status and preview
+  env = reload_this_package()
+  
+  m = env$to_module(module_id = module_id, sidebar_width = sidebar_width)
+  rave::init_app(m, launch.browser = launch.browser, disable_sidebar = T, simplify_header = T, theme='red')
+}
+
+# view_layout('power_explorer', sidebar_width = 3, launch.browser = T)
+dev_layout('power_explorer', sidebar_width = 3, launch.browser = T)
+
+# m = to_module(module_id)
+# init_app(m)
 
 mount_demo_subject()
 

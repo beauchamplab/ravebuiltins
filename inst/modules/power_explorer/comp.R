@@ -36,7 +36,9 @@ define_initialization({
   time_points = preload_info$time_points
   electrodes = preload_info$electrodes
   epoch_data = module_tools$get_meta('trials')
-  electrodes_csv = module_tools$get_meta('electrodes')
+  # here we're limiting the meta data to the electrodes that are currently loaded
+  # we can't export unloaded electrodes
+  electrodes_csv = module_tools$get_meta('electrodes') %>% subset((.)$Electrode %in% electrodes)
   elec_labels <- unique(electrodes_csv$Label)
   
   # figure out if there are any outliers to prepopulate the outlier list
@@ -95,28 +97,22 @@ define_input(
   init_args = 'label',
   init_expr = {
     label = "<span style='color:#ddd'>Save Outliers</span>"
-  }
-)
+  })
 
 define_input(
-  definition = checkboxInput('show_outliers_on_plots', 'Show outliers on plots', value = TRUE)
-)
+  definition = checkboxInput('show_outliers_on_plots', 'Show outliers on plots', value = TRUE))
 
 define_input(
-  definition = numericInput('max_zlim', 'Heatmap Max (0 means data range)', value = 0, min = 0, step = 1)
-)
+  definition = numericInput('max_zlim', 'Heatmap Max (0 means data range)', value = 0, min = 0, step = 1))
 
 define_input(
-  definition = checkboxInput('log_scale', 'Log Freq (NI)')
-)
+  definition = checkboxInput('log_scale', 'Log Freq (NI)'))
 
 define_input(
-  definition = checkboxInput('sort_trials_by_type', 'Sort Trials')
-)
+  definition = checkboxInput('sort_trials_by_type', 'Sort Trials'))
 
 define_input(
-    definition = checkboxInput('collapse_using_median', 'Collapse w/ Median (NI)')
-)
+    definition = checkboxInput('collapse_using_median', 'Collapse w/ Median (NI)'))
 
 
 # let people decide how much information to include in the plots. It's up to the individual plot to actually make
@@ -127,21 +123,20 @@ define_input(
                            selected=c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range', 'Sample Size', 'Baseline Window', 'Analysis Window'))
 )
 
+define_input_time('plot_time_range', label='Plot Time Range', initial_value = c(-1e5,1e5))
+
 define_input(
-  definition = selectInput(inputId = 'plots_to_export', label='Plots to Export', multiple=TRUE,
+  definition = selectInput(inputId = 'plots_to_export', label='Plots to download', multiple=TRUE,
                            choices = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average'),
-                           selected = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average'))
-)
+                           selected = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average')))
 
 define_input(
   definition = selectInput(inputId = 'export_what',
-                           label='Which electrodes should be exported?', multiple=FALSE,
-                           choices = c('All Loaded', 'Current Selection'))
-)
+                           label='Which electrodes should be included?', multiple=FALSE,
+                           choices = c('All Loaded', 'Current Selection')))
 
 define_input(
-  definition = checkboxInput('draw_decorator_labels', "Label Plot Decorations", value=TRUE)
-)
+  definition = checkboxInput('draw_decorator_labels', "Label Plot Decorations", value=TRUE))
 
 
 #
@@ -150,24 +145,46 @@ define_input(
 {
   define_input(
     definition = textInput('analysis_prefix', value = 'power_by_condition',
-                           label = 'Analysis Prefix (no spaces, should match across subjects)')
-  )
+                           label = HTML('<br/>Export filename (no spaces)')))
   define_input(
     definition = checkboxInput('analysis_mask_export',value = FALSE,
-                               label = 'Export Electrode Mask')
-  )
+                               label = 'Export Electrode Mask'))
+  
+  define_input(
+    definition = checkboxInput('filter_3d_viewer', "Filter 3D Viewer Results (requires viewer reload)", value=FALSE))
+  
+  define_input(
+    definition = selectInput('trial_type_filter', label=HTML('<br/>Trials to include in export file'), choices=NULL, selected=NULL, multiple =TRUE),
+    init_args = c('choices', 'selected'),
+    init_expr = {
+      choices = unique(preload_info$condition)
+      selected = unique(preload_info$condition)
+    })
+  
+  define_input(
+    definition = actionButtonStyled(inputId = 'synch_with_trial_selector',
+                                    label='Synch with trial selector', icon = shiny::icon('refresh')))
 
   define_input(
-    definition = selectInput('analysis_filter_variable', label='Electrode Filter', choices=NULL, selected=NULL)
+    definition = selectInput('analysis_filter_variable', label='Anatomical Filter 1', choices=NULL, selected=NULL)
     , init_args = c('choices', 'selected'),
     init_expr = {
-      choices = names(electrodes_csv)
-      selected = 'Label'
+      choices = c('none', names(electrodes_csv))
+      selected = ifelse('FreeSurferLabel' %in% names(electrodes_csv), 'FreeSurferLabel', 'Label')
+    })
+  
+  define_input(
+    definition = selectInput('analysis_filter_variable_2', label='Anatomical Filter 2', choices=NULL, selected=NULL)
+    , init_args = c('choices', 'selected'),
+    init_expr = {
+      choices = c('none', names(electrodes_csv))
+      selected = ifelse('Hemisphere' %in% names(electrodes_csv), 'Hemisphere', 'none')
     }
   )
+  
     
   define_input(
-    definition = selectInput('analysis_filter_elec', label = 'Electrodes to include',
+    definition = selectInput('analysis_filter_elec', label = 'Values to include',
                              choices=NULL, selected = NULL, multiple = TRUE
     ),
     init_args = c('choices', 'selected'),
@@ -176,38 +193,60 @@ define_input(
       selected = unique(elec_labels)
     }
   )
+  define_input(
+    definition = selectInput('analysis_filter_elec_2', label = 'Values to include',
+                             choices=NULL, selected = NULL, multiple = TRUE))
   
   # export based on stats
-  define_input(
-    definition = selectInput('analysis_filter_1', label = 'Statistic',
-                             choices=c('none', 'b', 't|F', 'p', 'FDR(p)', 'Bonf(p)'), selected = 'FDR(p)', multiple = FALSE)
-  )
-  define_input(
-    definition = selectInput('analysis_filter_operator_1', label = '',
-                             choices=c('<', '>', '<=', '>='), selected = '<', multiple = FALSE
-    )
-  )
-  define_input(
-    definition = textInput('analysis_filter_operand_1', label = '', placeholder='e.g., 0.05')
-  )
   
-  # stat filter #2
+  # filter 1: p-value filter
   define_input(
-    definition = selectInput('analysis_filter_2', label = '',
-                             choices=c('none', 'b', 't|F', 'p', 'FDR(p)', 'Bonf(p)'), selected = 'none', multiple = FALSE)
-  )
+    definition = selectInput('pval_filter', label = HTML('Functional Filters<br/>p-value'),
+                             choices=c('p', 'FDR(p)', 'Bonf(p)'),
+                             selected = 'FDR(p)', multiple = FALSE))
   define_input(
-    definition = selectInput('analysis_filter_operator_2', label = ' ',
-                             choices=c('<', '>', '<=', '>='), selected = '>', multiple = FALSE)
-  )
+    definition = selectInput('pval_operator', label = '',
+                             choices=c('<', '>', '<=', '>='), selected = '<', multiple = FALSE))
   define_input(
-    definition = textInput('analysis_filter_operand_2', label = ' ', placeholder='0')
-  )
+    definition = textInput('pval_operand', label = '', value = 0.01))
+  
+  # stat filter for t-value
+  define_input(
+    definition = selectInput('tval_filter', label = 't-value',
+                             choices=c('t', '|t|'), selected = 't', multiple = FALSE))
+  define_input(
+    definition = selectInput('tval_operator', label = ' ',
+                             choices=c('<', '>', '<=', '>='), selected = '>', multiple = FALSE))
+  define_input(
+    definition = textInput('tval_operand', label= ' '))
+  
+  # stat filter for mean
+  # this filter should be dynamic based on the contents of the statistical output
+  define_input(
+    definition = selectInput('mean_filter', label = 'mean response',
+                             choices=c('b0', 'abs(b0)'), selected = 'b0', multiple = FALSE))
+  define_input(
+    definition = selectInput('mean_operator', label = ' ',
+                             choices=c('<', '>', '<=', '>='), selected = '>', multiple = FALSE))
+  define_input(
+    definition = textInput('mean_operand', label= ' '))
   
   define_input(
-    definition = actionButtonStyled('export_data', label='Export Data', icon=shiny::icon('download'),
-                                    type = 'primary', width = '50%', style='margin-left: 25%; margin-right:25%')
-  )
+    definition = actionButtonStyled('export_data', label='Export data for group analysis', icon=shiny::icon('download'),
+                                    type = 'primary'))
+  
+  define_input(
+    definition = actionButtonStyled('select_good_electrodes',label='Visualize Active Electrodes',
+                                    icon=shiny::icon('magic'), type = 'default'))
+  
+  define_input(
+    definition = textInput('current_active_set', label='Electrodes passing all functional and anatomical filters (read-only)', value=''))
+  
+  
+  # define_input(
+  #   definition = actionButtonStyled('export_plots_and_data', label='Export Plots and Data', icon=shiny::icon('download'),
+  #                                   type = 'primary', width = '50%', style='margin-left: 25%; margin-right:25%')
+  # )
   
 }
 
@@ -271,62 +310,73 @@ define_input(
 # deterime which varibles only need to trigger a render, not an exectute
 render_inputs <- c(
   'sort_trials_by_type', 'draw_decorator_labels', 'PLOT_TITLE', 'plots_to_export', 'show_outliers_on_plots', 'background_plot_color_hint',
-  'invert_colors_in_palette', 'reverse_colors_in_palette', 'color_palette', 'max_zlim'
+  'invert_colors_in_palette', 'reverse_colors_in_palette', 'color_palette', 'max_zlim','plot_time_range',
+  'tval_filter', 'pval_filter', 'mean_filter',
+  'tval_operator', 'pval_operator', 'mean_operator', 
+  'tval_operand', 'pval_operand', 'mean_operand', 'analysis_filter_elec_2', 'analysis_filter_elec',
+  'analysis_filter_variable', 'analysis_filter_variable_2'
 )
 
 #
 # determine which variables only need to be set, not triggering rendering nor executing
 manual_inputs <- c(
-  'graph_export', 'export_what', 'analysis_filter_variable', 'analysis_filter_elec',
-  'analysis_filter_1', 'analysis_filter_2', 'analysis_filter_operator_1', 'analysis_filter_operator_2',
-  'analysis_filter_operand_1', 'analysis_filter_operand_2',
-  'analysis_prefix', 'analysis_mask_export', 'export_data'
+  'graph_export', 'filter_3d_viewer', 'trial_type_filter', 'synch_with_trial_selector',
+  'export_what', 'analysis_prefix', 'analysis_mask_export', 'export_data', 'current_active_set'
 )
-
 
 # Define layouts if exists
 input_layout = list(
-  '[#cccccc]Electrodes' = list(
-    c('ELECTRODE_TEXT'),
-    c('combine_method')#,
+  #'[#cccccc]
+  'Select electrodes for analysis' = list(
+    c('ELECTRODE_TEXT')
+    #, c('combine_method'),
     #c('reference_type', 'reference_group')
   ),
   #[#99ccff]
-  'Trial Selector' = list(
+  'Select trials for analysis' = list(
     'GROUPS'
   ),
-  'Analysis Settings' = list(
+  'Set analysis options' = list(
     'FREQUENCY',
     'BASELINE_WINDOW',
     'ANALYSIS_WINDOW'
   ),
-  '[-]Plot Options' = list(
+  '[-]Set plot options' = list(
+    'plot_time_range',
     c('PLOT_TITLE'),
     'draw_decorator_labels',
     c('color_palette', 'background_plot_color_hint',
     'invert_colors_in_palette', 'reverse_colors_in_palette'),
     c('max_zlim'),
     # 'heatmap_color_palette',
+    c('sort_trials_by_type')
     #FIXME collapse_using_median should be in Analysis Settings???
-    c('log_scale', 'sort_trials_by_type', 'collapse_using_median')
+    # c('log_scale', , 'collapse_using_median')
   ),
-  '[-]Trial Outliers' = list(
+  '[-]Manage trial outliers' = list(
     'show_outliers_on_plots',
     'trial_outliers_list',
     'clear_outliers', 'save_new_epoch_file'
   ),
   #[#aaaaaa]
-  '[-]Export Plots' = list(
+  '[-]Download plots and underlying data' = list(
     c('plots_to_export'),
     c('export_what'),
+    # 'export_plots_and_data'#
     c('graph_export')
   ),
-  '[-]Export Data/Results' = list(
+    # 'filter_3d_viewer',
+    # 'analysis_mask_export',
+  '[-]Export data from all electrodes for group analysis' = list(
+    c('pval_filter', 'pval_operator', 'pval_operand'),
+    c('tval_filter', 'tval_operator', 'tval_operand'),
+    c('mean_filter', 'mean_operator', 'mean_operand'),
+    c('analysis_filter_variable', 'analysis_filter_elec'),
+    c('analysis_filter_variable_2', 'analysis_filter_elec_2'),
+    'current_active_set',
+    'select_good_electrodes',
+    'trial_type_filter', 'synch_with_trial_selector',
     'analysis_prefix',
-    'analysis_mask_export',
-    'analysis_filter_variable', 'analysis_filter_elec',
-    c('analysis_filter_1', 'analysis_filter_operator_1', 'analysis_filter_operand_1'),
-    c('analysis_filter_2', 'analysis_filter_operator_2', 'analysis_filter_operand_2'),
     'export_data'
   )
 )
@@ -367,7 +417,7 @@ define_output(
   definition = plotOutput('windowed_comparison_plot',
                           click = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_click'), clip = FALSE),
                           dblclick = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_dbl_click'), clip = FALSE)),
-  title = 'Activity by trial and condition',
+  title = 'By-trial windowed response (across electrodes)',
   width = 3,
   order = 4
 )
@@ -377,6 +427,29 @@ define_output(
   title = 'Last Click',
   width=2, order=4.1
 )
+
+define_output(
+  definition = plotOutput('across_electrodes_f_histogram'),
+  title = 't-value across all loaded electrodes',
+  width = 4,
+  order = 5.1
+)
+
+define_output(
+  definition = plotOutput('across_electrodes_beta_histogram'),
+  title = 'mean response across all loaded electrodes',
+  width = 4,
+  order = 5.2
+)
+
+define_output(
+  definition = plotOutput('across_electrodes_corrected_pvalue'),
+  title = 'p-value across all loaded electrodes',
+  width = 4,
+  order = 5
+)
+
+
 
 
 # define_output(

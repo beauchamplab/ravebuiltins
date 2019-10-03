@@ -19,7 +19,7 @@
 #' @seealso draw_img
 draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
                                 show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
-                                PANEL.FIRST=NULL, PANEL.LAST=NULL, axes=c(TRUE, TRUE), ...) {
+                                PANEL.FIRST=NULL, PANEL.LAST=NULL, axes=c(TRUE, TRUE), xrange=NULL, ...) {
 
     k <- sum(hmaps %>% get_list_elements('has_trials'))
     orig.pars <- layout_heat_maps(k)
@@ -32,7 +32,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
     if(wide) {
         #NB: B, L, T, R
         # trying to be smart about the size of the margin to accomodate the angular text. R doesn't auto adjust :(
-        max_char_count = max(sapply(hmaps, function(h) ifelse(h$has_trials, max(nchar(h$conditions)), 'a')))
+        max_char_count = max(sapply(hmaps, function(h) ifelse(h$has_trials, max(nchar(h$conditions)), 1)))
         
         par(mar = c(5.1, 5.1 + max(0,(max_char_count - 5)*0.75),
                     2, 2))
@@ -50,9 +50,18 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
     } else {
         ''
     }
-    
     lapply(hmaps, function(map){
         if(map$has_trials){
+            
+            # check the plottable range, to make sure we're only plotting what the user has requested
+            xrange %?<-% range(map$x)
+
+            if (! all(map$x %within% xrange) ) {
+                ind <- map$x %within% xrange
+                map$x <- map$x[ind]
+                map$data <- map$data[ind,,drop=FALSE]
+            }
+            
             # we are linearizing the x and y spaces so that we can use the fast raster
             x <- seq_along(map$x)
             y <- seq_along(map$y)
@@ -115,9 +124,20 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
 }
 
 # show power over time with MSE by condition
-time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL) {
+time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, xrange=NULL) {
     
-    xlim <- pretty(get_list_elements(plot_data, 'x') %>% unlist)
+    # check the plottable range, to make sure we're only plotting what the user has requested
+    xrange %?<-% get_data_range(plot_data, 'x')
+    
+    for(ii in seq_along(plot_data)) {
+        if (! all(plot_data[[ii]]$x %within% xrange) ) {
+            ind <- plot_data[[ii]]$x %within% xrange
+            plot_data[[ii]]$x <- plot_data[[ii]]$x[ind]
+            plot_data[[ii]]$data <- plot_data[[ii]]$data[ind,,drop=FALSE]
+        }
+    }
+    
+    xlim <- pretty(xrange)#get_list_elements(plot_data, 'x') %>% unlist)
     ylim <- pretty(get_data_range(plot_data) %>% unlist, min.n=2, n=4)
     
     plot_clean(xlim, ylim)
@@ -640,6 +660,12 @@ axis_label_decorator <- function(plot_data, col) {
 }
 
 
+round_to_nearest <- function(x, val=10) {
+    val*round(x/val)
+}
+
+
+
 # by default we use PLOT_TITLE variable in results to see what to put in the title string
 # callers can override this behavior by specifically dis-allowing certain options
 # currently you can't force something to be TRUE if a user doesn't allow it, but we can think about 
@@ -842,7 +868,7 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded'),
 #
 # x = sort(rnorm(10))
 # ..get_nearest(pretty(x), x)
-# RUTABAGA
+# move to RUTABAGA
 ..get_nearest_i <- function(from,to) {
     sapply(from, function(.x) which.min(abs(.x-to)))
 }
