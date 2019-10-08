@@ -157,6 +157,21 @@ graph_export = function(){
   )
 }
 
+download_electrodes_csv <- function() {
+  tagList(downloadLink(ns('btn_electrodes_meta_download'), 'Download copy of meta data for all electrodes'),
+          tags$p('   ', style='margin-bottom:20px'))
+}
+
+output$btn_electrodes_meta_download <- downloadHandler(
+  filename=function(...) {
+    paste0('electrodes_meta_data_copy_',
+           format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.csv')
+  },
+  content = function(conn) {
+    write.csv(module_tools$get_meta('electrodes'), file=conn)
+  }
+)
+
 # observeEvent(input$btn_graph_export, {
 #   export_graphs(conn = '~/Desktop/hmp_e.pdf')
 # })

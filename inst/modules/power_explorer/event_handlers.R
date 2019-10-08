@@ -7,7 +7,8 @@ local_data = reactiveValues(
         "<ul><li>Single-click for trial information</li><li>Double-click for outlier (de)selection</li></ul>",
     by_trial_heat_map_click_location = NULL,
     windowed_by_trial_click_location = NULL,
-    click_info = NULL
+    click_info = NULL,
+    calculate_flag = 0
 )
 
 observeEvent(input$power_3d_mouse_dblclicked, {
@@ -60,6 +61,73 @@ observeEvent(input$synch_with_trial_selector, {
     }
 })
 
+
+observeEvent(input$ELECTRODE_TEXT, {
+    # be careful here so we don't trigger loops!
+    electrodes_csv %?<-% NULL
+    if(is.data.frame(electrodes_csv)) {
+        
+        # check if the electrode text matches the current electrode values
+        current_etext_els <- as.numeric(parse_svec(input$ELECTRODE_TEXT)  ) %>% sort
+        all_vals <- electrodes_csv[[input$electrode_category_selector]]
+        vals <- input$electrode_category_selector_choices
+        current_category_els <- as.numeric(electrodes_csv$Electrode[vals == all_vals]) %>% sort
+        
+        if(!all(current_etext_els == current_category_els)) {
+            .selected <- unique(all_vals[as.numeric(electrodes_csv$Electrode) %in%
+                                         current_etext_els])
+            
+            updateSelectInput(session, 'electrode_category_selector_choices',
+                              selected = .selected)
+        } else {
+            # no change
+        }
+        
+        
+    }
+})
+
+
+observeEvent(input$electrode_category_selector, {
+    # be careful here so we don't trigger loops!
+    
+    electrodes_csv %?<-% NULL
+    
+    if(is.data.frame(electrodes_csv)) {
+        col_name <- input$electrode_category_selector
+        vals <- electrodes_csv[[col_name]]
+        
+        # to get the selected choices, we need to match with what ELECTRODE_TEXT currently provides
+        .selected <- unique(vals[as.numeric(electrodes_csv$Electrode) %in%
+                                     as.numeric(parse_svec(input$ELECTRODE_TEXT))])
+        
+        updateSelectInput(session, 'electrode_category_selector_choices',
+                          selected = .selected,
+                          choices = unique(vals))
+    }
+})
+
+observeEvent(input$electrode_category_selector_choices, {
+    # be careful here so we don't trigger loops!
+    
+    
+    electrodes_csv %?<-% NULL
+    if(is.data.frame(electrodes_csv)) {
+        current_els <- as.numeric(parse_svec(input$ELECTRODE_TEXT)  ) %>% sort
+        all_vals <- electrodes_csv[[input$electrode_category_selector]]
+        vals <- input$electrode_category_selector_choices
+        new_els <- as.numeric(electrodes_csv$Electrode[all_vals %in% vals]) %>% sort
+        
+        if(!all(new_els == current_els)) {
+            updateTextInput(session, 'ELECTRODE_TEXT',
+                            value = deparse_svec(new_els))
+        } else {
+            # no change
+        }
+    }
+})
+
+
 observeEvent(input$analysis_filter_variable, {
     electrodes_csv %?<-% NULL
     
@@ -96,10 +164,16 @@ observeEvent(input$analysis_filter_variable_2, {
     }
 })
 
-
 observeEvent(input$select_good_electrodes, {
     if(!is.null(input$current_active_set)) {
         updateTextInput(session, 'ELECTRODE_TEXT', value = parse_svec(input$current_active_set))
+        
+        if(! input$auto_calculate) {
+            print('a calc is off, auto click')
+            shinyjs::click('do_calculate_btn')
+        } else {
+            print('a calc is on, no click')
+        }
     }
 })
 

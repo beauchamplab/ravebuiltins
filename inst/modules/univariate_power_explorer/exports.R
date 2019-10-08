@@ -131,11 +131,6 @@ graph_export = function(){
   )
 }
 
-# observeEvent(input$btn_graph_export, {
-#   export_graphs(conn = '~/Desktop/hmp_e.pdf')
-# })
-
-
 output$btn_graph_download <- downloadHandler(
   filename = function(...) {
     paste0('power_explorer_export',

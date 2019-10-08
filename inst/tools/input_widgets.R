@@ -146,14 +146,14 @@ define_input_multiple_electrodes <- function(inputId, label = 'Electrodes'){
 
         electrodes = preload_info$electrodes
 
-        last_input = cache_input(!!inputId, val = as.character(electrodes[1]))
+        last_input = cache_input(!!inputId, val = as.character(electrodes))
         e = rave::parse_selections(last_input)
         e = e[e %in% electrodes]
         if(!length(e)){
           e = electrodes[1]
         }
         value = rave::deparse_selections(e)
-        label = 'Electrodes (' %&% rave::deparse_selections(electrodes) %&% ')'
+        label = paste0(!!label, ' (currently loaded: ', rave::deparse_selections(electrodes), ')')
       }
     )
   })
@@ -303,12 +303,16 @@ define_input_condition_groups <- function(inputId, label = 'Group', initial_grou
             choices = cond
           )
         )
-        value = cache_input(!!inputId, list(
+        default_val = list(
           list(
             group_name = 'All Conditions',
             group_conditions = list(cond)
           )
-        ))
+        )
+        value = cache_input(!!inputId, default_val)
+        if( !length(value) || !length(value[[1]]$group_conditions) || !any(value[[1]]$group_conditions %in% cond)){
+          value = default_val
+        }
       }
     )
   })

@@ -22,6 +22,20 @@ if(FALSE) {
 #   return (val)
 # }
 
+# these are only needed when shiny is running (e.g., module debug mode)
+if(shiny_is_running()) {
+  calc_flag = shiny::isolate(local_data$calculate_flag)
+
+  if( !auto_calculate && calc_flag >= do_calculate_btn ){
+    # Not auto calculation
+    session$sendCustomMessage(type = 'rave_enable_button', message = list( element_id = ns('do_calculate_btn') ))
+    local_data$calculate_flag = do_calculate_btn
+    return()
+  }else{
+      session$sendCustomMessage(type = 'rave_disable_button', message = list( element_id = ns('do_calculate_btn') ))
+      local_data$calculate_flag = do_calculate_btn
+  }
+}
 requested_electrodes = rutabaga::parse_svec(ELECTRODE_TEXT, sep=',|;', connect  = ':-')
 requested_electrodes %<>% get_by(`%in%`, electrodes)
 
@@ -81,7 +95,6 @@ flat_data <- data.frame()
 
 # for transforms, the idea is to apply at each trial for each frequency
 # then when things get it will already be done
-
 #relies on .transform as defined above
 if(combine_method != 'none') {
   transformed_power <- cache(
@@ -111,7 +124,6 @@ if(combine_method != 'none') {
 ## Leave it here in case you want to change it later
 # (make it user specific)
 collapse_method = 'mean'
-
 # we likely want to do it at the trial level, not on the back end before combining across electrodes
 
 # to help with caching, we need to only recalculate here if the GROUPs have changed. 
@@ -120,7 +132,8 @@ collapse_method = 'mean'
 # }
 
 for(ii in which(has_trials)){
-.time_stamp <- proc.time()
+  .time_stamp <- proc.time()
+
   ### 17ms  
   .power_all = bl_power$subset(Trial = Trial %in% group_data[[ii]]$Trial_num)
   .power_all_clean <- .power_all$subset(Trial=! (Trial %in% trial_outliers_list))
@@ -130,102 +143,99 @@ for(ii in which(has_trials)){
   N = dim(.power_all)[1L]
   Nclean <- dim(.power_all_clean)[1L]
   
-  trials <- epoch_data %>% subset((.)$Trial %in% group_data[[ii]]$Trial_num) %>% extract2('Condition')
-  tnums <- epoch_data %>% subset((.)$Trial %in% group_data[[ii]]$Trial_num) %>% extract2('Trial')
+  epoch_data_subset <- epoch_data %>% subset((.)$Trial %in% group_data[[ii]]$Trial_num)
   
   # This copies over some information from group_data that is needed by particular plots
   # as well as populating data/range 
-  wrap_data = function(value){
-    list(
+  wrap_data = function(value, ...){
+    ll = list(
       data = value,
       range = .fast_range(value),
       N = N,
-      trials = trials,
+      trials = epoch_data_subset$Condition,
       Trial_num = group_data[[ii]]$Trial_num,
-      is_clean = !(tnums %in% trial_outliers_list),
+      is_clean = !(epoch_data_subset$Trial %in% trial_outliers_list),
       name = group_data[[ii]]$name,
       has_trials = group_data[[ii]]$has_trials,
-      conditions = group_data[[ii]]$conditions
+      conditions = group_data[[ii]]$conditions,
+      baseline_window = BASELINE_WINDOW,
+      analysis_window = ANALYSIS_WINDOW,
+      frequency_window = FREQUENCY
       )
+    
+    vals = list(...)
+    
+    for (k in c('ylab', 'zlab')) {
+      if (isTRUE(vals[[k]] == 'auto')) {
+        vals[[k]] = ifelse(combine_method == 'none',
+                           'Mean % Signal Change',
+                           'Mean '  %&% combine_method %&% ' %SC')
+      }
+    }
+    
+    for(k in names(vals)) {
+      # check for attribute labels
+      if (k %in% c('xlab', 'ylab', 'zlab')) {
+          attr(ll$data, k) = vals[[k]]
+      }
+      # all other values just add into the data list
+      else {
+        ll[[k]] = vals[[k]]
+      }
+    }
+    
+    return (ll)
   }
   
-  # 1 Time x Frequency
-  heat_map_data[[ii]] <- wrap_data(.power_all_clean$collapse(keep = c(3,2), method = collapse_method))
+  # 1. power @ frequency over time
+  heat_map_data[[ii]] <- wrap_data(
+    .power_all_clean$collapse(keep = c(3,2), method = collapse_method),
+    xlab='Time (s)', ylab='Frequency', zlab='auto',
+    x = .power_all$dimnames$Time,
+    y = .power_all$dimnames$Frequency,
+    # hmd is using the clean data
+    N = Nclean
+  )
   
-  attr(heat_map_data[[ii]]$data, 'xlab') <- 'Time (s)'
-  attr(heat_map_data[[ii]]$data, 'ylab') <- 'Frequency'
-  attr(heat_map_data[[ii]]$data, 'zlab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
-                                                            'Mean '  %&% combine_method %&% ' %SC')
-  
-  # the x value for the hmd is time
-  heat_map_data[[ii]]$x <- .power_all$dimnames$Time
-  
-  #the y value for the hmd is frequency
-  heat_map_data[[ii]]$y <- .power_all$dimnames$Frequency
-  
-  # hmd is using the clean data
-  heat_map_data[[ii]]$N <- Nclean
-  
-  # 2 Time x Trial (.power_freq)
-  # by trial data.
-  by_trial_heat_map_data[[ii]] <- wrap_data(.power_freq$collapse(keep = c(3,1), method = collapse_method))
-
-  # the x value for the bthmd is time
-  by_trial_heat_map_data[[ii]]$x <- .power_freq$dimnames$Time
-
-  #the y value for the bthmd is Trial
-  by_trial_heat_map_data[[ii]]$y <- seq_along(.power_freq$dimnames$Trial)
-  
-  attr(by_trial_heat_map_data[[ii]]$data, 'xlab') <- 'Time (s)'
-  attr(by_trial_heat_map_data[[ii]]$data, 'ylab') <- 'Trial'
-  attr(by_trial_heat_map_data[[ii]]$data, 'zlab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
-                                                            'Mean '  %&% combine_method %&% ' %SC')
+  # 2. power @ trial over time
+  by_trial_heat_map_data[[ii]] <- wrap_data(
+    .power_freq$collapse(keep = c(3,1), method = collapse_method),
+    x = .power_freq$dimnames$Time,
+    y = seq_along(.power_freq$dimnames$Trial),
+    xlab='Time (s)', ylab='Trial', zlab='auto'
+  )
   
   # 2.5 by electrode over time
-  by_electrode_heat_map_data[[ii]] <- wrap_data(.power_freq$collapse(keep = c(3,4), method = collapse_method))
+  by_electrode_heat_map_data[[ii]] <- wrap_data(
+    .power_freq$collapse(keep = c(3,4), method = collapse_method),
+    x=.power_freq$dimnames$Time,
+    y=.power_freq$dimnames$Electrode,
+    xlab='Time (s)', ylab='Electrode', zlab='auto'
+  )
   
-  # the x value for the bthmd is time
-  by_electrode_heat_map_data[[ii]]$x <- .power_freq$dimnames$Time
-  
-  #the y value for the bthmd is Trial
-  by_electrode_heat_map_data[[ii]]$y <- .power_freq$dimnames$Electrode
-  
-  attr(by_electrode_heat_map_data[[ii]]$data, 'xlab') <- 'Time (s)'
-  attr(by_electrode_heat_map_data[[ii]]$data, 'ylab') <- 'Electrode'
-  attr(by_electrode_heat_map_data[[ii]]$data, 'zlab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
-                                                            'Mean '  %&% combine_method %&% ' %SC')
-  
-  # 3 Time only
+  # 3. Time only
   # coll freq and trial for line plot w/ ebar. Because we're doing error bars, we have to know whether we have 1 vs. >1 electrodes
-  # if(length(requested_electrodes) == 1){
   # Single electrode, mean and mse for each time points
   line_plot_data[[ii]] = wrap_data(t(
-    apply(.power_freq_clean$collapse(keep = 3:4, method = 'mean'), 1, .fast_mse)
-  ))
+    apply(.power_freq_clean$collapse(keep = 3:4, method = 'mean'), 1, .fast_mse)),
+    xlab='Time (s)', ylab='auto', N=dim(.power_freq_clean)[4L], x=.power_freq_clean$dimnames$Time
+  )
   
-  attr(line_plot_data[[ii]]$data, 'xlab') <- 'Time (s)'
-  attr(line_plot_data[[ii]]$data, 'ylab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
-                                                    'Mean '  %&% combine_method %&% ' %SC')
+  # set NA (divide by zero) error bars to 0  
+  line_plot_data[[ii]]$data[is.na(line_plot_data[[ii]]$data[,2]),2] <- 0
   
-  # N for the line plot is the number of electrodes
-  line_plot_data[[ii]]$N <- dim(.power_freq_clean)[4L]
+  
+  # we want to make a special range for the line plot data that takes into account mean +/- SE
+  line_plot_data[[ii]]$range <- .fast_range(plus_minus(line_plot_data[[ii]]$data[,1],
+                                                       line_plot_data[[ii]]$data[,2]))
   
   # scatter bar data -- here we want all of the data because we are going to highlight (or not) the outliers -- same for by-trial heatmap
   # if(show_outliers_on_plots) {
   scatter_bar_data[[ii]] <- wrap_data(
-            rowMeans(.power_freq$subset(Time = (Time %within% ANALYSIS_WINDOW),data_only = TRUE))
-          )
-  # } else {
-  #   scatter_bar_data[[ii]] = append(scatter_bar_data[[ii]], wrap_data(
-  #     rowMeans(.power_freq_clean$subset(
-  #       Time = (Time %within% ANALYSIS_WINDOW),
-  #       data_only = TRUE
-  #     ))
-  #   ))
-  # }
-    # the N should reflect only those clean points, as the (summary) stats are based on the clean data only
-    scatter_bar_data[[ii]]$N <- Nclean
-    
+    rowMeans(.power_freq$subset(Time = (Time %within% ANALYSIS_WINDOW),data_only = TRUE)),
+    N=Nclean, xlab='Group', ylab='auto', x=.power_freq$dimnames$Time
+  )
+  
   # Although this seems to be the wrong place to do this, not sure where else we can do it
   # to enable point identification later, we need to know the x-location of each point. So the jittering
   # needs to be done here.
@@ -240,20 +250,7 @@ for(ii in which(has_trials)){
   scatter_bar_data[[ii]]$xp <- .xp[xpi]
   set.seed(jitter_seed)
   scatter_bar_data[[ii]]$x <- .xp[xpi] + runif(length(scatter_bar_data[[ii]]$data), -.r, .r)
-  
-  attr(scatter_bar_data[[ii]]$data, 'xlab') <- 'Group'
-  attr(scatter_bar_data[[ii]]$data, 'ylab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
-                                                      'Mean '  %&% combine_method %&% ' %SC')
-  
-  line_plot_data[[ii]]$data[is.na(line_plot_data[[ii]]$data[,2]),2] <- 0
-  
-  
-  # we want to make a special range for the line plot data that takes into account mean +/- SE
-  line_plot_data[[ii]]$range <- .fast_range(plus_minus(line_plot_data[[ii]]$data[,1],
-                                                       line_plot_data[[ii]]$data[,2]))
-  
-  # also add in the x variable for the time series
-  line_plot_data[[ii]]$x <- .power_freq$dimnames$Time
+
   
   # for the scatter_bar_data we also need to get m_se within condition w/o the outliers
   scatter_bar_data[[ii]]$mse <- .fast_mse(scatter_bar_data[[ii]]$data[scatter_bar_data[[ii]]$is_clean])
@@ -261,11 +258,10 @@ for(ii in which(has_trials)){
   flat_data %<>% rbind(data.frame('group'=ii,
                                   'y' = with(scatter_bar_data[[ii]], data[is_clean])))
   
-  print('loop ' %&% ii) 
-  print(proc.time() - .time_stamp)
+  # print('loop ' %&% ii) 
+  # print(proc.time() - .time_stamp)
 }
 
-# .power_freq[,, preload_info$time_points %within% ANALYSIS_WINDOW, ]$data
 
 # for baseline you want to have only the baseline times
 flat_data$group %<>% factor
@@ -273,7 +269,7 @@ flat_data$group %<>% factor
 # this can be used elsewhere
 has_data = sum(has_trials)
 
-# calculate some statistics
+# calculate some statistics across electrodes
 
 # because we're eventually going to be doing second-level stats, we're not too worried about
 # gratuitous NHST
@@ -294,6 +290,7 @@ get_data_per_electrode <- function()  {
   bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
   pow <- bl$collapse(keep = c(1,4))
   m = colMeans(pow)
+  
   t = m / .fast_column_se(pow)
   p = 2*pt(abs(t), df = nrow(pow)-1, lower=F)
   
@@ -310,7 +307,7 @@ omnibus_results <- cache(
   val = get_data_per_electrode()
 )
 
-# calculate the statistics here so that we can add them to the niml_out
+# calculate the statistics here so that we can add them to plot output -- eventually this goes away?
 # if there are > 1 groups in the data, then do linear model, otherwise one-sample t-test
 if(length(unique(flat_data$group)) > 1) {
   # we need to check if they have supplied all identical data sets
@@ -327,10 +324,11 @@ if(length(unique(flat_data$group)) > 1) {
     result_for_suma <- get_f(y ~ group, flat_data)
   }
 } else {
-  result_for_suma <- flat_data$y %>% get_t
+  result_for_suma <- get_t(flat_data$y)
 }
 
 attr(scatter_bar_data, 'stats') <- result_for_suma
+
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 

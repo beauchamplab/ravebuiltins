@@ -39,7 +39,16 @@ define_initialization({
   # here we're limiting the meta data to the electrodes that are currently loaded
   # we can't export unloaded electrodes
   electrodes_csv = module_tools$get_meta('electrodes') %>% subset((.)$Electrode %in% electrodes)
+  
+  elec_filter <- 'Label'
   elec_labels <- unique(electrodes_csv$Label)
+  
+  # if there is a FreeSurferLabel column let's go with that, otherwise we'll fall back to the Label column
+  column <- which(names(electrodes_csv) %>% tolower %>% equals('freesurferlabel'))
+  if(length(column) > 0) {
+    elec_filter <- names(electrodes_csv)[column]
+    elec_labels <- unique(electrodes_csv[[column]])
+  }
   
   # figure out if there are any outliers to prepopulate the outlier list
   outlier_list <- character(0)
@@ -62,8 +71,33 @@ define_input(
   definition = customizedUI(inputId = 'input_customized')
 )
 
-define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT')
+# , label='Download copy of electrode meta data')
+# )
+
+
+define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT', label = 'Select electrodes by number')
 # define_input_single_electrode(inputId = 'ELECTRODE')
+
+# we also want to be able to select electrodes categorically
+define_input(
+  definition = selectInput('electrode_category_selector', label='Select electrodes by category', choices=NULL, selected=NULL)
+  , init_args = c('choices', 'selected'),
+  init_expr = {
+    choices = names(electrodes_csv)
+    selected = elec_filter
+  })
+define_input(
+  definition = selectInput('electrode_category_selector_choices', label = 'Electrodes to display',
+                           choices=NULL, selected = NULL, multiple = TRUE
+  ),
+  init_args = c('choices', 'selected'),
+  init_expr = {
+    choices =  unique(elec_labels)
+    selected = unique(elec_labels)
+  }
+)
+
+
 define_input_frequency(inputId = 'FREQUENCY', initial_value = c(70,150))
 define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis', initial_value = c(0,1))
 define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline', initial_value = c(-1,0))
@@ -170,7 +204,7 @@ define_input(
     , init_args = c('choices', 'selected'),
     init_expr = {
       choices = c('none', names(electrodes_csv))
-      selected = ifelse('FreeSurferLabel' %in% names(electrodes_csv), 'FreeSurferLabel', 'Label')
+      selected = elec_filter
     })
   
   define_input(
@@ -181,7 +215,6 @@ define_input(
       selected = ifelse('Hemisphere' %in% names(electrodes_csv), 'Hemisphere', 'none')
     }
   )
-  
     
   define_input(
     definition = selectInput('analysis_filter_elec', label = 'Values to include',
@@ -306,6 +339,14 @@ define_input(
 
 }
 
+
+
+define_input(
+  definition = customizedUI('download_electrodes_csv')
+)
+
+
+
 #
 # deterime which varibles only need to trigger a render, not an exectute
 render_inputs <- c(
@@ -317,30 +358,45 @@ render_inputs <- c(
   'analysis_filter_variable', 'analysis_filter_variable_2'
 )
 
+define_input(
+  definition = checkboxInput('auto_calculate', label = 'Automatically recalculate analysis', value = FALSE)
+)
+
+define_input(
+  definition = actionButtonStyled('do_calculate_btn', 'Recalculate analysis for all selected electrodes', width = '100%', type = 'primary')
+)
+
 #
 # determine which variables only need to be set, not triggering rendering nor executing
 manual_inputs <- c(
-  'graph_export', 'filter_3d_viewer', 'trial_type_filter', 'synch_with_trial_selector',
+  'graph_export', 'filter_3d_viewer', 'trial_type_filter', 'synch_with_trial_selector', 'download_electrodes_csv',
   'export_what', 'analysis_prefix', 'analysis_mask_export', 'export_data', 'current_active_set'
 )
 
 # Define layouts if exists
 input_layout = list(
   #'[#cccccc]
-  'Select electrodes for analysis' = list(
-    c('ELECTRODE_TEXT')
+  'Configure analysis settings' = list(
+    c('electrode_category_selector', 'electrode_category_selector_choices'),
+    'ELECTRODE_TEXT',
+    'download_electrodes_csv',
     #, c('combine_method'),
-    #c('reference_type', 'reference_group')
-  ),
-  #[#99ccff]
-  'Select trials for analysis' = list(
-    'GROUPS'
-  ),
-  'Set analysis options' = list(
+    #c('reference_type', 'reference_group'),
     'FREQUENCY',
     'BASELINE_WINDOW',
-    'ANALYSIS_WINDOW'
+    'ANALYSIS_WINDOW',
+    'do_calculate_btn', 'auto_calculate'
   ),
+  #[#99ccff]
+  'Compare trial types' = list(
+    'GROUPS'
+  ),
+  # 'Set analysis options' = list(
+    # 'FREQUENCY',
+    # 'BASELINE_WINDOW',
+    # 'ANALYSIS_WINDOW',
+    # 'do_calculate_btn', 'auto_calculate'
+  # ),
   '[-]Set plot options' = list(
     'plot_time_range',
     c('PLOT_TITLE'),

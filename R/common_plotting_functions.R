@@ -301,15 +301,15 @@ spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=f
         
         windows <- list(
             'Baseline'=list(
-                window = Xmap(results$get_value('BASELINE_WINDOW')),
+                window = Xmap(plot_data$baseline_window),#results$get_value('BASELINE_WINDOW')),
                 type=btype
             ),
             'Analysis'=list(
                 window = if(atype=='box') {
-                    list(x=Xmap(results$get_value('ANALYSIS_WINDOW')),
-                         y=Ymap(results$get_value('FREQUENCY')))
+                    list(x=Xmap(plot_data$analysis_window),#results$get_value('ANALYSIS_WINDOW')),
+                         y=Ymap(plot_data$frequency_window))#results$get_value('FREQUENCY')))
                 } else {
-                    Xmap(results$get_value('ANALYSIS_WINDOW'))
+                    Xmap(plot_data$analysis_window)#results$get_value('ANALYSIS_WINDOW'))
                 },
                 type=atype
             )
@@ -774,7 +774,7 @@ time_series_decorator <- function(plot_data, results, ...) {
 }
 
 # this decorator takes care of checking if has_data==TRUE and only shows labels for which there is data
-# I guess this could be an option to include N==0 labels...
+# I guess there could be an option to include N==0 labels...
 legend_decorator <- function(plot_data, include=c('name', 'N'), location='topleft') {
 
     valid.names <- c('name', 'N')
