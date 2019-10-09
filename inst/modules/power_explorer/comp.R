@@ -184,6 +184,7 @@ define_input(
     definition = checkboxInput('analysis_mask_export',value = FALSE,
                                label = 'Export Electrode Mask'))
   
+  define_input_time(inputId = 'export_time_window', label='Export time window', initial_value = c(0,1))
   define_input(
     definition = checkboxInput('filter_3d_viewer', "Filter 3D Viewer Results (requires viewer reload)", value=FALSE))
   
@@ -204,7 +205,7 @@ define_input(
     , init_args = c('choices', 'selected'),
     init_expr = {
       choices = c('none', names(electrodes_csv))
-      selected = elec_filter
+      selected = 'none'
     })
   
   define_input(
@@ -265,8 +266,14 @@ define_input(
     definition = textInput('mean_operand', label= ' '))
   
   define_input(
-    definition = actionButtonStyled('export_data', label='Export data for group analysis', icon=shiny::icon('download'),
-                                    type = 'primary'))
+    definition = customizedUI('export_data_ui')
+  )
+  define_input(
+    definition = checkboxInput('export_also_download', 'Also download data', value = FALSE)
+  )
+  # define_input(
+  #   definition = actionButtonStyled('export_data', label='Export data for group analysis', icon=shiny::icon('download'),
+  #                                   type = 'primary'))
   
   define_input(
     definition = actionButtonStyled('select_good_electrodes',label='Visualize Active Electrodes',
@@ -370,7 +377,7 @@ define_input(
 # determine which variables only need to be set, not triggering rendering nor executing
 manual_inputs <- c(
   'graph_export', 'filter_3d_viewer', 'trial_type_filter', 'synch_with_trial_selector', 'download_electrodes_csv',
-  'export_what', 'analysis_prefix', 'analysis_mask_export', 'export_data', 'current_active_set'
+  'export_what', 'analysis_prefix', 'analysis_mask_export', 'export_data', 'current_active_set', 'export_also_download', 'export_time_window'
 )
 
 # Define layouts if exists
@@ -432,8 +439,11 @@ input_layout = list(
     'current_active_set',
     'select_good_electrodes',
     'trial_type_filter', 'synch_with_trial_selector',
+    'export_time_window',
     'analysis_prefix',
-    'export_data'
+    # 'export_data'
+    'export_data_ui',
+    'export_also_download'
   )
 )
 

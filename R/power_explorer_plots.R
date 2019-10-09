@@ -108,9 +108,9 @@ determine_passing_electrodes <- function(results, ...) {
         }
     }
     
+    
     # now we do the check on the anatomical filters
     emeta <- results$get_value('electrodes_csv')
-    
     afilt <- sapply('analysis_filter_variable' %&% c('', '_2'), function(e) results$get_value(e))
     aval <- lapply('analysis_filter_elec' %&% c('', '_2'), function(e) results$get_value(e))
     
@@ -134,9 +134,11 @@ determine_passing_electrodes <- function(results, ...) {
     # no. instead let's put this value in a textInput??
     
     if(shiny_is_running()){
-        updateTextInput(getDefaultReactiveDomain(), 'current_active_set', value=deparse_svec(
-            as.numeric(names(which(pass_the_test)))
-        ))
+        # updateTextInput(getDefaultReactiveDomain(), 'current_active_set', value=deparse_svec(
+        #     as.numeric(names(which(pass_the_test)))
+        # ))
+        updateTextInput(getDefaultReactiveDomain(), 'current_active_set', 
+                        value=deparse_svec(emeta$Electrode[pass_the_test]))
     }
     return(pass_the_test)
 }
@@ -164,7 +166,6 @@ across_electrodes_corrected_pvalue <- function(results, ...) {
     # we want to determine the cut point based on the currently selected filters
     # we need to check all the filters, in case they have multiple filters 
     passing_els <- determine_passing_electrodes(results)    
-    # print(names(passing_els))
     
     .col <- get_foreground_color()
     cut <- as.numeric(results$get_value('pval_operand'))

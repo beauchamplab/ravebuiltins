@@ -301,5 +301,120 @@ export_graphs <- function(conns=NA, plot_functions, ...) {
 # Export data options
 
 
+export_data_ui <- function(){
+  download = isTRUE(input$export_also_download)
+  if( download ){
+    tags$a(id = ns('export_data_and_download'), class = 'btn btn-primary shiny-download-link',
+           href = '', target='_blank', download='',
+           shiny::icon('download'), 'Export data for group analysis')
+  }else{
+    actionButtonStyled(ns('export_data_only'), 
+                       label = 'Export data for group analysis', 
+                       icon=shiny::icon('save'),
+                       type = 'primary')
+  }
+}
 
+output$export_data_and_download <- downloadHandler(
+  filename = function(){
+    analysis_prefix = stringr::str_replace_all(analysis_prefix, '[^\\w]+', '_')
+    paste0(analysis_prefix, '.csv.gz')
+  },
+  content = function(con){
+    res_path = export_data_function()
+    R.utils::gzip(res_path, destname = con)
+  }
+)
+observeEvent(input$export_data_only, {
+  export_data_function()
+  showNotification(p('Done saving'), duration = 3, type = 'message')
+})
+
+# export data for group analysis
+export_data_function <- function(){
+  
+  project_name = subject$project_name
+  subject_code = subject$subject_code
+  
+  # et electrodes to be exported
+  electrodes = parse_selections(current_active_set)
+  electrodes = electrodes[electrodes %in% preload_info$electrodes]
+  
+  progress = progress('Exporting baselined data...', max = 3 + length(electrodes))
+  on.exit({ progress$close() })
+  progress$inc('Collecting data')
+  
+  # Get trial conditions
+  conditions = trial_type_filter
+  conditions = conditions[conditions %in% preload_info$condition]
+  trials = module_tools$get_meta('trials')
+  trial_number = trials$Trial[trials$Condition %in% conditions]
+  
+  # Get timepoints,frequency range
+  time_points = preload_info$time_points
+  time_points = time_points[time_points %within% export_time_window]
+  freq_range = preload_info$frequencies
+  freq_range = freq_range[freq_range %within% FREQUENCY]
+  
+  # get baseline
+  baseline_range = BASELINE_WINDOW
+  
+  # Do some checks
+  
+  # Check 1: if no electrode is chosen
+  # Check 2: if no condition is chosen
+  # Check 3: if no time is chosen
+  # Check 4: if no frequency is found
+  check_fails = !c(length(electrodes), length(trial_number), length(time_points), length(time_points))
+  err_msg = c('None of the electrodes to be exported is loaded', 'No trial found matching selected condition', 
+              'Time range is too narrow for any data points to be found', 'Frequency range is too narrow for any data points to be found')
+  if(any(check_fails)){
+    err_msg = err_msg[check_fails]
+    showNotification(p('The following error(s) found:',br(),tags$ul(tagList(
+      lapply(err_msg, tags$li)
+    ))), type = 'error', id = ns('export_csv'))
+    return()
+  }
+  
+  # Baseline
+  progress$inc('Generating results... (might take a while)')
+  
+  # Memory-friendly baseline but might be more time consuming
+  power = module_tools$get_power(referenced = TRUE)
+  
+  # condition list
+  cond_list = list(); cond_list[trials$Trial] = trials$Condition
+  
+  # Use async lapply to speed up the calculation as it's really per electrode analysis
+  res = rave::lapply_async(electrodes, function(e){
+    bl = baseline(power$subset(Trial = Trial %in% trial_number,
+                          Time = Time %within% time_points,
+                          Frequency = Frequency %within% freq_range,
+                          Electrode = Electrode %in% e), 
+             from = baseline_range[1], to = baseline_range[2], hybrid = FALSE, mem_optimize = FALSE)
+    flat = bl$collapse(keep = c(1,3))
+    dimnames(flat) = dimnames(bl)[c(1,3)]
+    flat = reshape2::melt(flat, value.name = 'Power') # trial time, value
+    flat$Condition = unlist(cond_list[flat$Trial])
+    flat$Electrode = e
+    flat
+  }, .call_back = function(ii){
+    progress$inc(sprintf('Electrode %d', electrodes[[ii]]))
+  # specify all variables in .globals, in this way we can avoid the whole memory mappings
+  }, .globals = c('power', 'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list'))
+  res = do.call('rbind', res)
+  res$Project = project_name
+  res$Subject = subject_code
+  # Write out results
+  progress$inc('Writing out on server, preparing...')
+  # write to server _project_data/power_explorer/file
+  analysis_prefix = stringr::str_replace_all(analysis_prefix, '[^\\w]+', '_')
+  now = strftime(Sys.time(), '-%Y%m%d-%H%M%S')
+  
+  fname = paste0(analysis_prefix, now, '.csv')
+  dirname = file.path(subject$dirs$subject_dir, '..', '_project_data', 'power_explorer')
+  dir.create(dirname, showWarnings = FALSE, recursive = TRUE)
+  data.table::fwrite(res, file.path(dirname, fname), append = FALSE)
+  return(normalizePath(file.path(dirname, fname)))
+}
 

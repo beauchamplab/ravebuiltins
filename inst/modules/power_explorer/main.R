@@ -299,12 +299,38 @@ get_data_per_electrode <- function()  {
   
   return(res)
 }
+get_data_per_electrode_alt <- function(){
+  trial_numbers = epoch_data$Trial[epoch_data$Condition %in% all_trial_types]
+  
+  # Do not baseline them all, otherwise memory will explode
+  res = rave::lapply_async(electrodes, function(e){
+    # Subset on electrode is memory optimized, and is fast
+    bl = power$subset(Electrode = Electrode == e)
+    bl = baseline(bl$subset(Trial=Trial %in% trial_numbers,
+                             Frequency=Frequency %within% FREQUENCY,
+                             Time=Time %within% range(BASELINE_WINDOW, ANALYSIS_WINDOW) ),
+                   from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
+                   hybrid = FALSE, mem_optimize = FALSE)
+    bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
+    pow <- bl$collapse(keep = c(1,4))
+    m = colMeans(pow)
+    
+    t = m / .fast_column_se(pow)
+    p = 2*pt(abs(t), df = nrow(pow)-1, lower=F)
+    
+    res <- rbind(m,t,p)
+    colnames(res) <- e
+    res
+  }, .globals = c('electrodes', 'e', 'trial_numbers', 'FREQUENCY', 'ANALYSIS_WINDOW', 'BASELINE_WINDOW',
+                  '.fast_column_se'), .gc = FALSE)
+  do.call('cbind', res)
+}
 
 omnibus_results <- cache(
   key = list(subject$id, BASELINE_WINDOW, FREQUENCY,all_trial_types,
              ANALYSIS_WINDOW, combine_method, preload_info$epoch_name,
              preload_info$reference_name, trial_outliers_list),
-  val = get_data_per_electrode()
+  val = get_data_per_electrode_alt()
 )
 
 # calculate the statistics here so that we can add them to plot output -- eventually this goes away?

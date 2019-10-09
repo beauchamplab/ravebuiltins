@@ -17,7 +17,7 @@ observeEvent(input$power_3d_mouse_dblclicked, {
     
     .data <- input$power_3d_mouse_dblclicked
 
-    print(input$power_3d_mouse_dblclicked)
+    # print(input$power_3d_mouse_dblclicked)
     
     if(isTRUE(.data$is_electrode)) {
         e <- .data$electrode_number
@@ -62,30 +62,67 @@ observeEvent(input$synch_with_trial_selector, {
 })
 
 
-observeEvent(input$ELECTRODE_TEXT, {
-    # be careful here so we don't trigger loops!
-    electrodes_csv %?<-% NULL
-    if(is.data.frame(electrodes_csv)) {
-        
-        # check if the electrode text matches the current electrode values
-        current_etext_els <- as.numeric(parse_svec(input$ELECTRODE_TEXT)  ) %>% sort
-        all_vals <- electrodes_csv[[input$electrode_category_selector]]
-        vals <- input$electrode_category_selector_choices
-        current_category_els <- as.numeric(electrodes_csv$Electrode[vals == all_vals]) %>% sort
-        
-        if(!all(current_etext_els == current_category_els)) {
-            .selected <- unique(all_vals[as.numeric(electrodes_csv$Electrode) %in%
-                                         current_etext_els])
+rave::sync_shiny_inputs(
+    input = input, session = session, inputIds = c(
+        'ELECTRODE_TEXT', 'electrode_category_selector_choices'
+    ), uniform = list(
+        # ELECTRODE_TEXT to electrodes
+        function(ELECTRODE_TEXT){
+            return(parse_svec(ELECTRODE_TEXT, sort = TRUE))
+        },
+        # electrode_category_selector_choices to electrodes
+        function(electrode_category_selector_choices){
+            electrodes_csv %?<-% NULL
+            if(!is.data.frame(electrodes_csv)) { return(NULL) }
+            current_els <- parse_svec(input$ELECTRODE_TEXT, sort = TRUE)
+            all_vals <- electrodes_csv[[input$electrode_category_selector]]
+            vals <- electrode_category_selector_choices
+            new_els <- as.numeric(electrodes_csv$Electrode[all_vals %in% vals]) %>% sort
+            return(new_els)
+        }
+    ), updates = list(
+        # update ELECTRODE_TEXT
+        function(els){
+            if(!is.null(els)) {updateTextInput(session, 'ELECTRODE_TEXT', value = deparse_svec(els))}
+        },
+        # update electrode_category_selector_choices
+        function(els){
+            electrodes_csv %?<-% NULL
+            if(!is.data.frame(electrodes_csv)) { return(NULL) }
+
+            all_vals <- electrodes_csv[[input$electrode_category_selector]]
+            selected <- unique(all_vals[as.numeric(electrodes_csv$Electrode) %in% els])
             
             updateSelectInput(session, 'electrode_category_selector_choices',
-                              selected = .selected)
-        } else {
-            # no change
+                              selected = selected)
         }
-        
-        
-    }
-})
+    )
+)
+
+# observeEvent(input$ELECTRODE_TEXT, {
+#     # be careful here so we don't trigger loops!
+#     electrodes_csv %?<-% NULL
+#     if(is.data.frame(electrodes_csv)) {
+#         
+#         # check if the electrode text matches the current electrode values
+#         current_etext_els <- as.numeric(parse_svec(input$ELECTRODE_TEXT)  ) %>% sort
+#         all_vals <- electrodes_csv[[input$electrode_category_selector]]
+#         vals <- input$electrode_category_selector_choices
+#         current_category_els <- as.numeric(electrodes_csv$Electrode[vals == all_vals]) %>% sort
+#         
+#         if(!all(current_etext_els == current_category_els)) {
+#             .selected <- unique(all_vals[as.numeric(electrodes_csv$Electrode) %in%
+#                                          current_etext_els])
+#             
+#             updateSelectInput(session, 'electrode_category_selector_choices',
+#                               selected = .selected)
+#         } else {
+#             # no change
+#         }
+#         
+#         
+#     }
+# })
 
 
 observeEvent(input$electrode_category_selector, {
@@ -107,25 +144,26 @@ observeEvent(input$electrode_category_selector, {
     }
 })
 
-observeEvent(input$electrode_category_selector_choices, {
-    # be careful here so we don't trigger loops!
-    
-    
-    electrodes_csv %?<-% NULL
-    if(is.data.frame(electrodes_csv)) {
-        current_els <- as.numeric(parse_svec(input$ELECTRODE_TEXT)  ) %>% sort
-        all_vals <- electrodes_csv[[input$electrode_category_selector]]
-        vals <- input$electrode_category_selector_choices
-        new_els <- as.numeric(electrodes_csv$Electrode[all_vals %in% vals]) %>% sort
-        
-        if(!all(new_els == current_els)) {
-            updateTextInput(session, 'ELECTRODE_TEXT',
-                            value = deparse_svec(new_els))
-        } else {
-            # no change
-        }
-    }
-})
+# observeEvent(input$electrode_category_selector_choices, {
+#     # be careful here so we don't trigger loops!
+#     
+#     
+#     electrodes_csv %?<-% NULL
+#     if(is.data.frame(electrodes_csv)) {
+#         current_els <- as.numeric(parse_svec(input$ELECTRODE_TEXT)  ) %>% sort
+#         all_vals <- electrodes_csv[[input$electrode_category_selector]]
+#         vals <- input$electrode_category_selector_choices
+#         new_els <- as.numeric(electrodes_csv$Electrode[all_vals %in% vals]) %>% sort
+#         
+#         if(!all(new_els == current_els)) {
+#             updateTextInput(session, 'ELECTRODE_TEXT',
+#                             value = deparse_svec(new_els))
+#         } else {
+#             # no change
+#         }
+#     }
+# })
+
 
 
 observeEvent(input$analysis_filter_variable, {
