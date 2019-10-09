@@ -318,11 +318,12 @@ export_data_ui <- function(){
 output$export_data_and_download <- downloadHandler(
   filename = function(){
     analysis_prefix = stringr::str_replace_all(analysis_prefix, '[^\\w]+', '_')
-    paste0(analysis_prefix, '.csv.gz')
+    paste0(analysis_prefix, '.csv')
   },
   content = function(con){
     res_path = export_data_function()
-    R.utils::gzip(res_path, destname = con)
+    # R.utils::gzip(res_path, destname = con)
+    file.copy(res_path, to=con)
   }
 )
 observeEvent(input$export_data_only, {
