@@ -14,11 +14,11 @@ module_id <- 'group_analysis_lme'
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
-
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
-    get_path('inst/modules/group_analysis_lme/reactive_main.R'),
+    get_path('inst/modules/group_analysis_lme/reactives.R'),
     get_path('inst/modules/group_analysis_lme/common.R'), 
+    get_path('inst/modules/group_analysis_lme/outputs.R'), 
     asis = TRUE
 )
 
@@ -26,11 +26,90 @@ define_initialization({
     project_name = subject$project_name
     project_dir = dirname(subject$dirs$subject_dir)
     subjects = get_subjects(project_name)
+    
+    power_explorer_dir = file.path(project_dir, '_project_data', 'power_explorer')
+    group_analysis_src = file.path(project_dir, '_project_data', 'group_analysis_lme', 'source')
+    
+    rescan_source = function(update = TRUE, new_selected = NULL){
+        choices = c(
+            list.files(power_explorer_dir, pattern = '\\.[cC][sS][vV]$'),
+            list.files(group_analysis_src, pattern = '\\.[cC][sS][vV]$')
+        )
+        # Order file names by date-time (descending order)
+        dt = stringr::str_extract(choices, '[0-9]{8}-[0-9]{6}')
+        od = order(strptime(dt, '%Y%m%d-%H%M%S'), decreasing = TRUE)
+        choices = choices[od]
+        if(update && is_reactive_context()){
+            selected = c(source_files, new_selected)
+            updateSelectInput(session, 'source_files', choices = choices, selected = selected)
+        }
+        return(choices)
+    }
+    
 })
 
 
 #  ---------------------------------  Inputs -----------------------------------
 # Define inputs
+
+# Part 1: data selector:
+
+# define_input(
+#     selectInput('source_files', 'Data files', choices = '', selected = NULL, multiple = TRUE),
+#     init_args = c('choices', 'selected'),
+#     init_expr = {
+#         # Check csv files in project/_project_data/power_explorer and project/_project_data/group_analysis_lme/source
+#         choices = rescan_source(update = FALSE)
+#         selected = cache_input('source_files', val = character(0))
+#     }
+# )
+# define_input(
+#     definition = shiny::fileInput('csv_file', label = 'Upload a csv Data File', accept = 'text/csv', multiple = FALSE)
+# )
+# # define_input(definition = customizedUI('file_check', width = '100%'))
+# define_input(
+#     definition = actionButtonStyled('load_csvs', 'Load analysis tables', type = 'primary')
+# )
+
+define_input_analysis_data_csv(
+    inputId= 'analysis_data', label = 'Data files', paths = c('_project_data/group_analysis_lme/source', '_project_data/power_explorer'),
+    reactive_target = 'local_data$analysis_data'
+)
+
+# define_input(
+#     customizedUI('var_sel')
+# )
+define_input_table_filters('var_sel', label = 'Filter', watch_target = 'local_data$analysis_data',
+                           reactive_target = 'local_data[["analysis_data_filtered"]]')
+
+
+
+#### Define model
+
+define_input(
+    selectInput('model_dependent', 'Dependent', choices = '', selected = character(0))
+)
+define_input(
+    selectInput('model_fixed_effects', 'Fixed effects', choices = '', selected = character(0), multiple = TRUE)
+)
+define_input(
+    selectInput('model_random_effects', 'Random effects', choices = '', selected = character(0), multiple = TRUE)
+)
+define_input(
+    textInput('model_formula', 'Formula', value = '')
+)
+define_input(
+    checkboxInput('model_embedsubject', HTML('Embed subject into electrode <small style="color:#a1a1a1">(only if both Subject and Electrode are selected as random effect)</small>'), value = TRUE)
+)
+
+define_input(
+    actionButtonStyled('run_analysis', 'Run Analysis', type = 'primary', width = '100%')
+)
+
+manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'model_dependent', 
+                  'model_fixed_effects', 'model_random_effects',
+                  'model_formula', 'model_embedsubject', 'run_analysis')
+
 
 define_input(
     selectInput('participants', 'Participants', choices = '', selected = NULL, multiple = T),
@@ -77,9 +156,7 @@ define_input(
 # customizedUI('f1var_ui'),customizedUI('f1op_ui'),customizedUI('f1val_ui'),
 # customizedUI('f2var_ui'),customizedUI('f2op_ui'),customizedUI('f2val_ui'),
 
-define_input(
-    customizedUI('var_sel')
-)
+
 
 
 # # selectInput('electrode', 'Electrode', choices = '', multiple = F),
@@ -90,21 +167,27 @@ define_input(
 #
 input_layout = list(
     '[#cccccc]Dataset' = list(
-        c('participants'),
-        c('analysis_name_ui')
+        # c('participants'),
+        # c('analysis_name_ui')
+        # 'source_files', 'csv_file', 'load_csvs'
+        'analysis_data',
+        'var_sel'
     ),
-    'Feature Selection' = list(
-        c('omnibus_f', 'fcutoff'),
-        # c('f1var_ui', 'f1op_ui', 'f1val_ui', ''),
-        # c('f2var_ui', 'f2op_ui', 'f2val_ui', '')
-        c('var_sel')
-    ),
+    # 'Feature Selection' = list(
+    #     c('omnibus_f', 'fcutoff')
+    # ),
     'Model Building' = list(
-        'var_dependent_ui',
-        'var_fixed_effects_ui',
-        'var_rand_effects_ui',
-        'var_formula_ui',
-        'nested_electrode'
+        c('model_dependent'),
+        c('model_fixed_effects', 'model_random_effects'),
+        'model_embedsubject',
+        'model_formula',
+        'run_analysis'
+        
+        # 'var_dependent_ui',
+        # 'var_fixed_effects_ui',
+        # 'var_rand_effects_ui',
+        # 'var_formula_ui',
+        # 'nested_electrode'
     ),
     'Model Running' = list(
         'do_btn_ui'
@@ -116,10 +199,17 @@ input_layout = list(
 # End of input
 # ----------------------------------  Outputs ----------------------------------
 # Define Outputs
+
 define_output(
-    definition = customizedUI('lme_out', width = 12),
+    definition = customizedUI('src_data_snapshot', style='min-height:500px'),
+    title = 'Data Snapshot',
+    width = 4,
+    order = 1
+)
+define_output(
+    definition = customizedUI('lme_out', width = 12, style='min-height:500px'),
     title = 'LME Output',
-    width=12,
+    width = 8,
     order = 1
 )
 # rave_outputs(
@@ -143,4 +233,4 @@ define_output(
 module_id <- 'group_analysis_lme'
 quos = env$parse_components(module_id)
 
-view_layout(module_id, launch.browser = T)
+view_layout(module_id, launch.browser = T, sidebar_width = 3)

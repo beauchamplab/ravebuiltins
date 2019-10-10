@@ -322,3 +322,461 @@ define_input_condition_groups <- function(inputId, label = 'Group', initial_grou
   rave::eval_dirty(quo, env = parent_frame)
 
 }
+
+
+
+define_input_analysis_data_csv <- function(
+  inputId, label, paths, reactive_target = sprintf('local_data[[%s]]', inputId),
+  multiple = TRUE, label_uploader = 'Upload'){
+  
+  input_ui = inputId
+  input_selector = paste0(inputId, '_source_files')
+  input_uploader = paste0(inputId, '_uploader')
+  input_btn = paste0(inputId, '_btn')
+  input_evt = paste0(inputId, '__register_events')
+  reactive_target = substitute(reactive_target)
+  
+  quo = rlang::quo({
+    define_input(definition = customizedUI(!!input_ui))
+    
+    load_scripts(rlang::quo({
+      ...ravemodule_environment_reserved %?<-% new.env(parent = emptyenv())
+      ...ravemodule_environment_reserved[[!!input_ui]] = new.env(parent = emptyenv())
+      
+      assign(!!input_ui, function(){
+        project_dir = dirname(subject$dirs$subject_dir)
+        search_paths = file.path(project_dir, !!paths)
+        choices = unlist(lapply(search_paths, list.files, pattern = '\\.[cC][sS][vV]$'))
+        # Order file names by date-time (descending order)
+        dt = stringr::str_extract(choices, '[0-9]{8}-[0-9]{6}')
+        od = order(strptime(dt, '%Y%m%d-%H%M%S'), decreasing = TRUE)
+        choices = choices[od]
+        
+        # function to render UI
+        htmltools::div(
+          class = 'rave-grid-inputs',
+          htmltools::div(
+            style = 'flex-basis: 80%; min-height: 80px;',
+            selectInput(inputId = ns(!!input_selector), label = !!label, choices = choices, selected = character(0), multiple = !!multiple)
+          ),
+          htmltools::div(
+            style = 'flex-basis: 20%; min-height: 80px;',
+            htmltools::tags$label('Additional'),
+            fileInputMinimal(inputId = ns(!!input_uploader), label = !!label_uploader, multiple = FALSE, width = '100%', type = 'default')
+          ),
+          htmltools::div(
+            style = 'flex-basis: 100%',
+            actionButtonStyled(inputId = ns(!!input_btn), label = 'Load analysis data', width = '100%', type = 'primary')
+          )
+        )
+      })
+      ...ravemodule_environment_reserved[[!!input_ui]][[!!input_evt]] = function(){
+        .env = environment()
+        .local_data = reactiveValues()
+        
+        is_reactive_context = function(){
+          session = getDefaultReactiveDomain()
+          any(c('ShinySession', 'session_proxy') %in% class(session))
+        }
+        
+        # 1. function to scan source files
+        rescan_source = function(search_paths, update = TRUE, new_selected = NULL){
+          if(!length(search_paths)){
+            return(NULL)
+          }
+          choices = unlist(lapply(search_paths, list.files, pattern = '\\.[cC][sS][vV]$'))
+          # Order file names by date-time (descending order)
+          dt = stringr::str_extract(choices, '[0-9]{8}-[0-9]{6}')
+          od = order(strptime(dt, '%Y%m%d-%H%M%S'), decreasing = TRUE)
+          choices = choices[od]
+          
+          if(update && is_reactive_context()){
+            session = getDefaultReactiveDomain()
+            selected = c(shiny::isolate(input[[!!input_selector]]), new_selected)
+            updateSelectInput(session, inputId = !!input_selector, choices = choices, selected = selected)
+          }
+          return(choices)
+        }
+        
+        # 2. Find csv file within directory
+        find_source = function(search_paths, fname){
+          fpaths = file.path(search_paths, fname)
+          fexists = file.exists(fpaths)
+          if(!any(fexists)){ return(NULL) }
+          return(fpaths[which(fexists)[1]])
+        }
+        # 3. Monitor subject change
+        local_reactives = get_execenv_local_reactive()
+        observe({
+          if(monitor_subject_change()){
+            project_dir = dirname(subject$dirs$subject_dir)
+            .local_data$search_paths = search_paths = file.path(project_dir, !!paths)
+            .local_data$group_analysis_src = search_paths[[1]]
+            # Do not change it here because renderui will override update inputs
+            # rescan_source(search_paths, update = TRUE)
+          }
+        }, env = .env, priority = -1)
+        
+        
+        # 3 listen to event to upload file
+        observeEvent(input[[!!input_uploader]], {
+          csv_headers = c('Project', 'Subject', 'Electrode')
+          path = input[[!!input_uploader]]$datapath
+          group_analysis_src = .local_data$group_analysis_src
+          tryCatch({
+            # try to load as csv, check column names
+            dat = read.csv(path, header = TRUE, nrows = 10)
+            if(all(csv_headers %in% names(dat))){
+              now = strftime(Sys.time(), '-%Y%m%d-%H%M%S(manual).csv')
+              # pass, write to group_analysis_src with name
+              fname = input[[!!input_uploader]]$name
+              fname = stringr::str_replace_all(fname, '[\\W]+', '_')
+              fname = stringr::str_to_lower(fname)
+              fname = stringr::str_replace(fname, '_csv$', now)
+              if(!dir.exists(group_analysis_src)){
+                dir.create(group_analysis_src, recursive = TRUE, showWarnings = FALSE)
+              }
+              file.copy(path, file.path(group_analysis_src, fname), overwrite = TRUE)
+              rescan_source(.local_data$search_paths, new_selected = fname)
+              return()
+            }
+            showNotification(p('The file uploaded does not have enough columns.'), type = 'error')
+          }, error = function(e){
+            showNotification(p('Upload error: ', e), type = 'error')
+          })
+        }, event.env = .env, handler.env = .env)
+        
+        observeEvent(input[[!!input_btn]], {
+          source_files = input[[!!input_selector]]
+          search_paths = .local_data$search_paths
+          progress = rave::progress('Loading analysis', max = length(source_files) + 1)
+          on.exit({ progress$close() })
+          
+          progress$inc('Checking files...')
+          # find all the source files and get headers
+          metas = lapply(source_files, function(fpath){
+            fpath = find_source(search_paths, fpath)
+            if( is.null(fpath) ){ return(NULL) }
+            dat = read.csv( fpath , header = TRUE, nrows = 1)
+            list(
+              fpath = fpath,
+              header = names(dat)
+            )
+          })
+          metas = rave::dropNulls(metas)
+          headers = unique(unlist(lapply(metas, '[[', 'header')))
+          
+          # Read all data
+          project_name = subject$project_name
+          res = rave::dropNulls(lapply(metas, function(x){
+            progress$inc('Loading...')
+            tbl = data.table::fread(file = x$fpath, stringsAsFactors = FALSE, header = TRUE)
+            tbl = tbl[tbl$Project %in% project_name, ]
+            if(!nrow(tbl)){
+              return(NULL)
+            }
+            mish = headers[!headers %in% names(tbl)]
+            for(m in mish){
+              tbl[[m]] = NA
+            }
+            return( tbl )
+          }))
+          res = do.call('rbind', res)
+          if(!is.data.frame(res) || !nrow(res)){
+            res = NULL
+          }
+          if(is.character(!!reactive_target)){
+            eval(parse(text = sprintf('%s <- res', !!reactive_target)))
+          }else{
+            do.call('<-', list(!!reactive_target, res))
+          }
+        }, event.env = .env, handler.env = .env)
+      }
+      
+      eval_when_ready(function(){
+        ...ravemodule_environment_reserved[[!!input_ui]][[!!input_evt]]()
+      })
+    }))
+  })
+  
+  parent_frame = parent.frame()
+  rave::eval_dirty(quo, env = parent_frame)
+}
+
+
+
+
+define_input_table_filters <- function(inputId, label = 'Filter', watch_target = 'local_data[["analysis_data"]]', reactive_target = 'local_data[["analysis_data_filtered"]]',table_not_present = p('Analysis table not loaded')){
+  input_ui = inputId
+  watch_target = substitute(watch_target)
+  reactive_target = substitute(reactive_target)
+  input_add = paste0(inputId, '_add_btn')
+  input_remove = paste0(inputId, '_remove_btn')
+  input_preview = paste0(inputId, '_preview_btn')
+  input_preview_table = paste0(inputId, '_preview_btn_table')
+  input_filter_prefix = paste0(inputId, '_filter')
+  
+  quo = rlang::quo({
+    define_input(definition = customizedUI(!!input_ui))
+    
+    load_scripts(rlang::quo({
+      input %?<-% getDefaultReactiveInput()
+      ...ravemodule_environment_reserved %?<-% new.env(parent = emptyenv())
+      ...ravemodule_environment_reserved[[!!input_ui]] = new.env(parent = emptyenv())
+      ...ravemodule_environment_reserved[[!!input_ui]]$local_filters = reactiveValues(
+        filter_count = 0,
+        filter_observers = 0
+      )
+      
+      # Function to generate UI for iith filter
+      ...ravemodule_environment_reserved[[!!input_ui]]$get_ui  = function(ii, vars = ''){
+        filter = shiny::isolate(...ravemodule_environment_reserved[[!!input_ui]]$local_filters[[paste0('filter', ii)]])
+        if(!is.list(filter)){ filter = list() }
+        tagList(
+          tagList(
+            tags$label(sprintf('%s %d', !!label, ii), style = ifelse(ii == 1, '', 'margin-top: 15px;')),
+            div(
+              # To make a box to wrap group inputs
+              class = 'rave-grid-inputs',
+              div(
+                style = 'flex-basis: 25%; min-height: 80px;',
+                selectInput(ns(sprintf('%s_var_', !!input_filter_prefix, ii)), 'Variable', choices = vars, selected = get_val(filter, 'var', default = NULL))
+              ),
+              div(
+                style = 'flex-basis: 25%; min-height: 80px;',
+                selectInput(ns(sprintf('%s_op_', !!input_filter_prefix, ii)), 'Operator', choices = c('=', '!=', '>', '>=', '<', '<=', 'in', 'not in', 'between'), selected = get_val(filter, 'op', default = '='))
+              ),
+              div(
+                style = 'flex-basis: 25%; min-height: 80px;',
+                textInput(ns(sprintf('%s_val_', !!input_filter_prefix, ii)), 'Value', value = get_val(filter, 'val', default = NULL))
+              ),
+              div(
+                style = 'flex-basis: 25%; min-height: 80px;',
+                uiOutput(ns(sprintf('%s_msg_', !!input_filter_prefix, ii)))
+              )
+            )
+            
+          )
+        )
+      }
+      
+      # Given string like '=' return expression
+      ...ravemodule_environment_reserved[[!!input_ui]]$get_operator = function(op){
+        switch (op,
+                '=' = '%s == %s',
+                'in' = '%s %%in%% %s',
+                'between' = '%s %%within%% %s',
+                'not in' = '!%s %%in%% %s',
+                {
+                  paste('%s', op, '%s')
+                }
+        )
+      }
+      
+      # Given data, operator and criteria, return logical filters
+      ...ravemodule_environment_reserved[[!!input_ui]]$filter_data = function(dat, op, val){
+        if( is.numeric(dat) && is.character(val) ){
+          if( op %in% c('in', 'not in', 'between') ){
+            val = as.numeric(stringr::str_split(val, '[^0-9-.]+')[[1]])
+          }else{
+            val = as.numeric(val)
+          }
+        }
+        expr = ...ravemodule_environment_reserved[[!!input_ui]]$get_operator(op)
+        expr = sprintf(expr, 'dat', deparse(val))
+        sel = rlang::eval_tidy(rlang::parse_expr(expr), data = list(dat = dat))
+        sel
+      }
+      
+      ...ravemodule_environment_reserved[[!!input_ui]]$get_filter_results = function(ii){
+        ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$update
+        filter = ...ravemodule_environment_reserved[[!!input_ui]]$local_filters[[paste0('filter', ii)]]
+        
+        if(!is.data.frame(...ravemodule_environment_reserved[[!!input_ui]]$data) || !is.list(filter) || !isFALSE(filter$failed)){ return(NULL) }
+        var = filter$var; op = filter$op; val = filter$val
+        dat = ...ravemodule_environment_reserved[[!!input_ui]]$data[[var]]
+        if( op %in% c('in', 'not in', 'between') ){
+          val = as.numeric(stringr::str_split(val, '[^0-9-.]+')[[1]])
+        }else{
+          val = as.numeric(val)
+        }
+        sel = ...ravemodule_environment_reserved[[!!input_ui]]$filter_data(dat, op, val)
+        sel[is.na(sel)] = FALSE
+        sel
+      }
+      ...ravemodule_environment_reserved[[!!input_ui]]$add_filter_observer = function(ii){
+        .env = environment()
+        observe({
+          ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$update
+          n_filters = ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$filter_count
+          if(!is.data.frame(...ravemodule_environment_reserved[[!!input_ui]]$data) || !length(n_filters) || n_filters < ii ){ return(NULL) }
+          all_vars = names(...ravemodule_environment_reserved[[!!input_ui]]$data)
+          var = input[[sprintf('%s_var_', !!input_filter_prefix, ii)]]; op = input[[sprintf('%s_op_', !!input_filter_prefix, ii)]]; val = input[[sprintf('%s_val_', !!input_filter_prefix, ii)]]
+          var %?<-% ''; op %?<-% '='; val %?<-% ''
+          val_txt = val
+          # Do checks
+          msg = ''
+          failed = FALSE
+          if( !var %in% all_vars ){
+            msg = 'Variable not found'
+            failed = TRUE
+          }else{
+            dat = ...ravemodule_environment_reserved[[!!input_ui]]$data[[var]]
+            if( is.numeric(dat) ){
+              if( op %in% c('in', 'not in', 'between') ){
+                val = as.numeric(stringr::str_split(val, '[^0-9-.]+')[[1]])
+              }else{
+                val = as.numeric(val)
+              }
+              if( !length(val) || any(is.na(val)) ){
+                msg = 'Value is blank or invalid'
+                failed = TRUE
+              }
+            }
+            if( !failed ){
+              sel = ...ravemodule_environment_reserved[[!!input_ui]]$filter_data(dat, op, val)
+              n_na = sum(is.na(dat[sel]))
+              n_sel = sum(sel, na.rm = TRUE)
+              msg = sprintf('%d of %d selected (%d NAs)', n_sel, length(sel), n_na)
+              if(n_sel == 0){
+                msg = 'No data selected'
+                failed = TRUE
+              }
+            }
+          }
+          
+          re = list(
+            var = var, op = op, val = val_txt, failed = failed, msg = msg
+          )
+          ...ravemodule_environment_reserved[[!!input_ui]]$local_filters[[paste0('filter', ii)]] = re
+          ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$filter_has_update = Sys.time()
+        }, env = .env)
+        
+        output[[sprintf('%s_msg_', !!input_filter_prefix, ii)]] = shiny::renderUI({
+          ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$update
+          n_filters = shiny::isolate(...ravemodule_environment_reserved[[!!input_ui]]$local_filters$filter_count)
+          
+          if(!is.data.frame(...ravemodule_environment_reserved[[!!input_ui]]$data) || !length(n_filters) || n_filters < ii ){ return(NULL) }
+          
+          filter = ...ravemodule_environment_reserved[[!!input_ui]]$local_filters[[paste0('filter', ii)]]
+          if(!is.list(filter)){ return() }
+          
+          col = ifelse( isTRUE(filter$failed) , 'red', 'grey' )
+          filter$msg %?<-% ''
+          htmltools::span(style = col2hex(col, prefix = 'color:#'), filter$msg)
+        })
+        
+      }
+      
+      
+      # Add/remove filters
+      observeEvent(input[[!!input_add]], {
+        n_filters = shiny::isolate(...ravemodule_environment_reserved[[!!input_ui]]$local_filters$filter_count) + 1
+        n_observers = shiny::isolate(...ravemodule_environment_reserved[[!!input_ui]]$local_filters$filter_observers)
+        ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$filter_count = n_filters
+        # Check if observers are needed
+        if( n_filters > n_observers ){
+          ...ravemodule_environment_reserved[[!!input_ui]]$add_filter_observer( n_filters )
+          ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$filter_observers = n_filters
+        }
+      })
+      observeEvent(input[[!!input_remove]], {
+        n_filters = shiny::isolate(...ravemodule_environment_reserved[[!!input_ui]]$local_filters$filter_count) - 1
+        ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$filter_count = max(n_filters, 0)
+      })
+      
+      # summarise filters
+      ...ravemodule_environment_reserved[[!!input_ui]]$filter_summary = function(){
+        n_filters = ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$filter_count
+        nrows = 0
+        if(is.data.frame(...ravemodule_environment_reserved[[!!input_ui]]$data)){
+          nrows = nrow(...ravemodule_environment_reserved[[!!input_ui]]$data)
+        }
+        if(nrows == 0){
+          return(logical(0))
+        }
+        filters = rep(TRUE, nrows)
+        for(ii in seq_len(n_filters)){
+          fil = ...ravemodule_environment_reserved[[!!input_ui]]$get_filter_results( ii )
+          filters = filters & fil
+        }
+        filters
+      }
+      
+      
+      # UI renderer
+      assign(!!input_ui, function(){
+        
+        if(is.character(!!watch_target)){
+          eval(parse(text = sprintf('dat <- %s', !!watch_target)))
+        }else{
+          do.call('<-', list(quote(dat), !!watch_target))
+        }
+        ...ravemodule_environment_reserved[[!!input_ui]]$data = dat
+        ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$update = Sys.time()
+        if(!is.data.frame(dat)){
+          return(span(style = 'color: #a1a1a1', !!table_not_present))
+        }
+        n_filters = ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$filter_count
+        vars = names(dat); vars %?<-% ''
+        
+        filter_uis = NULL
+        minus_btn = NULL
+        
+        if(n_filters > 0){
+          minus_btn = actionButton(ns(!!input_remove), shiny::icon('minus'))
+          filter_uis = lapply( seq_len(n_filters), function(ii){ ...ravemodule_environment_reserved[[!!input_ui]]$get_ui( ii , vars ) } )
+        }
+        
+        tagList(
+          filter_uis,
+          div(
+            # Put a div to make buttons within a row
+            actionButton(ns(!!input_add), shiny::icon('plus')),
+            minus_btn
+          ),
+          actionLink(ns(!!input_preview), 'Preview filtered data')
+        )
+      })
+      
+      
+      # Misc:
+      
+      # preview data table
+      observeEvent(input[[!!input_preview]], {
+        # Collect data
+        shiny::showModal(shiny::modalDialog(
+          title = 'Preview filtered data', size = 'l', easyClose = TRUE, fade = FALSE,
+          tags$style('.modal-lg { min-width: 80vw; }'),
+          DT::dataTableOutput(ns(!!input_preview_table))
+        ))
+      })
+      output[[!!input_preview_table]] <- DT::renderDataTable({
+        ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$data_filtered
+      })
+      
+      observe({
+        ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$update
+        ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$filter_has_update
+        if( !is.data.frame(...ravemodule_environment_reserved[[!!input_ui]]$data) ){
+          res = NULL
+        }else{
+          sel = ...ravemodule_environment_reserved[[!!input_ui]]$filter_summary()
+          res = ...ravemodule_environment_reserved[[!!input_ui]]$data[sel,]
+        }
+        ...ravemodule_environment_reserved[[!!input_ui]]$local_filters$data_filtered = res
+        if(is.character(!!reactive_target)){
+          eval(parse(text = sprintf('%s <- res', !!reactive_target)))
+        }else{
+          do.call('<-', list(!!reactive_target, res))
+        }
+      })
+      
+      
+      
+    }))
+  })
+  
+  parent_frame = parent.frame()
+  rave::eval_dirty(quo, env = parent_frame)
+}
