@@ -179,7 +179,11 @@ define_input(
 {
   define_input(
     definition = textInput('analysis_prefix', value = 'power_by_condition',
-                           label = HTML('<br/>Export filename (no spaces)')))
+                           label = HTML('<br/>Export filename (no spaces)')),
+    init_args = 'value',
+    init_expr = {
+      value = cache_input('analysis_prefix', sprintf('%s_pow_by_cond', subject$subject_code))
+    })
   define_input(
     definition = checkboxInput('analysis_mask_export',value = FALSE,
                                label = 'Export Electrode Mask'))
