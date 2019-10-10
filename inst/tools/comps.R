@@ -163,8 +163,11 @@ get_comp_env <- function(module_id){
   init_env = new.env(parent = emptyenv())
   init_env[['init']] = FALSE
   define_initialization = function(definition){
+    if(isFALSE(init_env[['init']])){
+      init_env[['init']] = list()
+    }
     definition = substitute(definition)
-    init_env[['init']] = definition
+    init_env[['init']][[length(init_env[['init']]) + 1]] = definition
   }
   scripts = new.env(parent = emptyenv())
   load_scripts = function(..., asis = FALSE){
@@ -228,7 +231,13 @@ parse_components <- function(module_id){
   init_expr = envs$init_env$init
   inits = lapply(inputs, '[[', 'initialization')
   names(inits) = names(inputs)
-  rave_update_quo = rlang::quo(rave_updates({eval(!!init_expr)}, !!!inits))
+  
+  init_anon_quos = lapply(init_expr, function(expr){rlang::quo(eval(!!expr))})
+  
+  rlang::quo(rave_updates({!!!init_anon_quos}))
+  
+  rave_update_quo = rlang::quo(rave_updates({!!!init_anon_quos}, !!!inits))
+  # rave_update_quo = rlang::quo(rave_updates({eval(!!init_expr)}, !!!inits))
 
   # outputs
   output_layout = tmp_env[['output_layout']]
@@ -361,7 +370,10 @@ init_module <- function(module_id, debug = FALSE, force_local=FALSE){
 
   # initialize global variables
   init_expr = envs$init_env$init
-  base::eval(init_expr, envir = param_env)
+  lapply(init_expr, function(expr){
+    base::eval(expr, envir = param_env)
+  })
+  
 
   # Initialize inputs
   inputs = as.list(envs$input_env)
