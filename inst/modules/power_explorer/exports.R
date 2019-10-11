@@ -1,61 +1,72 @@
 input <- getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 
-power_3d_fun = function(brain){
+power_3d_fun = function(need_calc, side_width, daemon_env){
+  
   showNotification(p('Generating 3d viewer...'))
-  
-  # brain = rave::rave_brain2(subject = subject); 
-  # brain$load_surfaces(subject = subject, surfaces = c('pial', 'white', 'smoothwm'))
-  
-  dat = rave::cache(key = list(
-    list(BASELINE_WINDOW, preload_info)
-  ), val = get_summary())
-  
-  # for each electrode, we want to test the different conditions
-  .FUN <- if(length(levels(dat$condition)) > 1) {
-    if (length(levels(dat$condition)) == 2) {
-      function(x) {
-        res = get_t(power ~ condition, data=x)
-        res = c(res[1] - res[2], res[3], res[4])
-        res %>% set_names(c('b', 't', 'p'))
+  brain = rave::rave_brain2(subject = subject);
+  shiny::validate(shiny::need(!is.null(brain), message = 'No surface/volume file found!'))
+  re = NULL
+  if( need_calc ){
+    dat = rave::cache(key = list(
+      list(BASELINE_WINDOW, preload_info)
+    ), val = get_summary())
+    
+    # for each electrode, we want to test the different conditions
+    .FUN <- if(length(levels(dat$condition)) > 1) {
+      if (length(levels(dat$condition)) == 2) {
+        function(x) {
+          res = get_t(power ~ condition, data=x)
+          res = c(res[1] - res[2], res[3], res[4])
+          res %>% set_names(c('b', 't', 'p'))
+        }
+      } else {
+        function(x) {
+          get_f(power ~ condition, data=x)
+        }
       }
     } else {
       function(x) {
-        get_f(power ~ condition, data=x)
+        get_t(x$power) %>% set_names(c('b', 't', 'p'))
       }
     }
-  } else {
-    function(x) {
-      get_t(x$power) %>% set_names(c('b', 't', 'p'))
-    }
+    
+    # names(dat) = c('Subject', 'Electrode', 'trial', 
+    #                'condition', 'power')
+    
+    values = lapply(unique(dat$elec), function(e){
+      sub = dat[dat$elec == e, ]
+      re = .FUN(sub)
+      # v = re[input$viewer_3d_type]
+      # brain$set_electrode_value(subject, e, v)
+      return(re)
+    }) %>% rbind_list
+    
+    values = as.data.frame(values)
+    values$Subject = as.factor(subject$subject_code)
+    values$Electrode = unique(dat$elec)
+    
+    
+    #           b        t            p   Subject Electrode Time
+    # 1 120.36184 13.83425 7.733204e-22 sub_large        14  0
+    # 2  45.21445  8.11932 1.004675e-11 sub_large        15  0
+    
+    brain$set_electrode_values(values)
+    
+    
+    re = brain$plot(symmetric = 0, palettes = list(
+      b = rave_heat_map_colors,
+      p = c('red', 'red', 'grey')
+    ), side_width = side_width)
+  }else{
+    # optional, if you want to change the way 3D viewer looks in additional tab
+    daemon_env$widget = brain$plot(side_width = side_width, side_canvas = TRUE)
+    
+    # Just initialization, no need to show sidebar
+    re = brain$plot(side_width = side_width, side_canvas = FALSE)
   }
   
-  # names(dat) = c('Subject', 'Electrode', 'trial', 
-  #                'condition', 'power')
-
-  values = lapply(unique(dat$elec), function(e){
-    sub = dat[dat$elec == e, ]
-    re = .FUN(sub)
-    # v = re[input$viewer_3d_type]
-    # brain$set_electrode_value(subject, e, v)
-    return(re)
-  }) %>% rbind_list
-  
-  values = as.data.frame(values)
-  values$Subject = as.factor(subject$subject_code)
-  values$Electrode = unique(dat$elec)
-  
-  
-  #           b        t            p   Subject Electrode Time
-  # 1 120.36184 13.83425 7.733204e-22 sub_large        14  0
-  # 2  45.21445  8.11932 1.004675e-11 sub_large        15  0
-  
-  brain$set_electrode_values(values)
-  
-  brain$plot(symmetric = 0, palettes = list(
-    b = rave_heat_map_colors,
-    p = c('red', 'red', 'grey')
-  ), side_shift = c(-265, 0))
+  re
   
   # brain$view(value_range = c(-1,1) * max(abs(values)),
   #            color_ramp = rave_heat_map_colors, side_shift = c(-265, 0))

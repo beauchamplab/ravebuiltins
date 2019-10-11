@@ -11,13 +11,13 @@ local_data = reactiveValues(
     calculate_flag = 0
 )
 
-observeEvent(input$power_3d_mouse_dblclicked, {
+observeEvent(input$power_3d_widget_mouse_dblclicked, {
     # mouse_event = input$power_3d__mouse_dblclicked$event
     # object = input$power_3d__mouse_dblclicked$object
     
-    .data <- input$power_3d_mouse_dblclicked
+    .data <- input$power_3d_widget_mouse_dblclicked
 
-    # print(input$power_3d_mouse_dblclicked)
+    # print(input$power_3d_widget_mouse_dblclicked)
     
     if(isTRUE(.data$is_electrode)) {
         e <- .data$electrode_number
