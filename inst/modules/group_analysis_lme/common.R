@@ -34,6 +34,7 @@ lme_out = function() {
     }
     
     lmer_results = local_data$lmer_results
+    
     # flat_data <- isolate(local_data$full_table)
     #
     #   # ranef

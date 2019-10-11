@@ -104,3 +104,73 @@ src_data_snapshot <- function(){
     )
     
 }
+
+
+# 3D viewer, takes 3 args
+lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, ...){
+    # Check whether load is needed
+    lmer_results = local_data$lmer_results
+    
+    shiny::validate(shiny::need(!is.null(lmer_results), message = 'Please run LMER model first'))
+    
+    tbl = local_data$analysis_data
+    
+    assign('lmer_results', lmer_results, envir = globalenv())
+    assign('tbl', tbl, envir = globalenv())
+    
+    # Get Random effect
+    # randef = lme4::ranef(lmer_results)
+    coef = stats::coefficients(lmer_results); coef
+    project_name = subject$project_name
+    
+    # two cases: 
+    # Electrode:Subject
+    elec_table = NULL
+    val_ranges = list()
+    if('Electrode:Subject' %in% names(coef)){
+        dat = data.matrix(coef$`Electrode:Subject`)
+        if('(Intercept)' %in% names(coef$`Electrode:Subject`)[[1]]){
+            dat[, -1] = dat[, -1] + dat[, 1]
+        }
+        data_range = max(abs(range(dat)))
+        tmp = rownames(dat)
+        tmp = stringr::str_split_fixed(tmp, ':', n = 2)
+        dat = as.data.frame(dat)
+        val_ranges = sapply(names(dat), function(d){ c(-data_range, data_range) }, 
+                            simplify = FALSE, USE.NAMES = TRUE)
+        dat$Electrode = as.integer(tmp[,1])
+        dat$Subject = tmp[,2]
+        elec_table = dat
+    }else if('Electrode' %in% names(coef)){
+        # Subject only has one
+        
+        dat = data.matrix(coef$Electrode)
+        if('(Intercept)' %in% names(coef$Electrode)[[1]]){
+            dat[, -1] = dat[, -1] + dat[, 1]
+        }
+        data_range = max(abs(range(dat)))
+        dat = as.data.frame(dat)
+        
+        val_ranges = sapply(names(dat), function(d){ c(-data_range, data_range) }, 
+                            simplify = FALSE, USE.NAMES = TRUE)
+        dat$Electrode = rownames(coef$Electrode)
+        elec_table = merge(unique(tbl[, c('Project', 'Subject', 'Electrode')]), dat, by = 'Electrode')
+        
+    }
+    
+    re = NULL
+    if(is.data.frame(elec_table)){
+        elec_table$Project = project_name
+        # load brain
+        brains = lapply(unique(elec_table$Subject), function(sub){
+            tryCatch({
+                rave::rave_brain2(sprintf('%s/%s', project_name, sub))
+            }, error = function(e){ NULL })
+        })
+        brains = rave::dropNulls(brains)
+        brain = threeBrain::merge_brain(.list = brains)
+        brain$set_electrode_values(elec_table)
+        re = brain$plot(side_width = side_width, val_ranges = val_ranges)
+    }
+    
+}

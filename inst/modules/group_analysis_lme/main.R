@@ -10,12 +10,7 @@ init_module(module_id = 'group_analysis_lme', debug = TRUE)
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 ######' @auto=TRUE
 
-# local_data$participants = participants
-
-# Compromise, I'll just look at the first subject
-r = lapply(participants, get_analysis); names(r) = participants
-local_data$potential_analysis = r
-
+# not really used
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
 # Debug

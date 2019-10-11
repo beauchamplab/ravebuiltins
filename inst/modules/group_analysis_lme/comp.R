@@ -111,54 +111,6 @@ manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'model_dependent',
                   'model_formula', 'model_embedsubject', 'run_analysis')
 
 
-define_input(
-    selectInput('participants', 'Participants', choices = '', selected = NULL, multiple = T),
-    init_args = c('choices', 'selected'),
-    init_expr = {
-        choices = subjects
-        selected=unique(subjects)
-    }
-)
-
-define_input(
-    customizedUI('analysis_name_ui')
-)
-
-define_input(
-    customizedUI('var_dependent_ui')
-)
-
-define_input(
-    customizedUI('var_fixed_effects_ui')
-)
-
-define_input(
-    customizedUI('var_rand_effects_ui')
-)
-
-define_input(
-    customizedUI('var_formula_ui')
-)
-
-define_input(
-    checkboxInput('nested_electrode', 'Nest Electrode in Subject', value = T)
-)
-
-define_input(
-    customizedUI('collapse_trial', 'Collapse over trials (not recommended)', value = F)
-)
-
-define_input(
-    customizedUI('do_btn_ui')
-)
-
-
-# customizedUI('f1var_ui'),customizedUI('f1op_ui'),customizedUI('f1val_ui'),
-# customizedUI('f2var_ui'),customizedUI('f2op_ui'),customizedUI('f2val_ui'),
-
-
-
-
 # # selectInput('electrode', 'Electrode', choices = '', multiple = F),
 # textInput('electrode_text', 'Electrodes', value = "", placeholder = '1-5,8,11-20'),
 #
@@ -212,15 +164,22 @@ define_output(
     width = 8,
     order = 1
 )
-# rave_outputs(
-#     'LME Output' = customizedUI('lme_out', width = 12)
-#     # 'Activity over time by trial (Collapse freq)' = plotOutput('by_trial_heat_map', width = 12),
-#     # 'Activity over time (Collapse freq + trial)' = plotOutput('over_time_plot', width = 8),
-#     # 'Windowed Comparison (Collapse time + freq)' = plotOutput('windowed_comparison_plot', width = 4),
-#     # 'Side Message' = textOutput('msg_out', width = 4),
-#     # 'Async Message' = textOutput('async_out', width = 4),
-#     # '3D Viewer' = customizedUI('viewer_3d')
-# )
+
+define_output_3d_viewer(
+    outputId = 'lme_3dviewer',
+    message = 'Reload Viewer',
+    title = 'Statistical results by electrode',
+    order = 1e4
+)
+
+
+output_layout = list(
+  'Tabset One' = list(
+    'Multiple Output' = c('lme_out', 'src_data_snapshot'),
+    '3D Visualization' = c('lme_3dviewer')
+  )
+  # 'Multiple Output' = 'src_data_snapshot'
+)
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 

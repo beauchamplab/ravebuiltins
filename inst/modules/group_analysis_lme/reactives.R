@@ -128,7 +128,7 @@ observeEvent(input$run_analysis, {
         removeNotification(id = ns('noti'))
     }, error = function(e){
         # grouping factors must have > 1 sampled level
-        showNotification(p('Some random effects only have one level. Please remove them and run again'), duration = 20, type = 'error', id = ns('noti'))
+        showNotification(p(e), duration = 20, type = 'error', id = ns('noti'))
         local_data$lmer_results = NULL
     })
     
