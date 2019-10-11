@@ -356,11 +356,11 @@ define_input_analysis_data_csv <- function(
         htmltools::div(
           class = 'rave-grid-inputs',
           htmltools::div(
-            style = 'flex-basis: 80%; min-height: 80px;',
+            style = 'flex-basis: 75%; min-height: 80px;',
             selectInput(inputId = ns(!!input_selector), label = !!label, choices = choices, selected = character(0), multiple = !!multiple)
           ),
           htmltools::div(
-            style = 'flex-basis: 20%; min-height: 80px;',
+            style = 'flex-basis: 25%; min-height: 80px;',
             htmltools::tags$label('Additional'),
             fileInputMinimal(inputId = ns(!!input_uploader), label = !!label_uploader, multiple = FALSE, width = '100%', type = 'default')
           ),
@@ -484,6 +484,12 @@ define_input_analysis_data_csv <- function(
           res = do.call('rbind', res)
           if(!is.data.frame(res) || !nrow(res)){
             res = NULL
+          }else{
+            try({
+              res$Electrode = as.character(res$Electrode)
+              res$Subject = as.character(res$Subject)
+              res$Condition = as.character(res$Condition)
+            }, silent = TRUE)
           }
           if(is.character(!!reactive_target)){
             eval(parse(text = sprintf('%s <- res', !!reactive_target)))
@@ -493,7 +499,7 @@ define_input_analysis_data_csv <- function(
         }, event.env = .env, handler.env = .env)
       }
       
-      eval_when_ready(function(){
+      eval_when_ready(function(...){
         ...ravemodule_environment_reserved[[!!input_ui]][[!!input_evt]]()
       })
     }))
