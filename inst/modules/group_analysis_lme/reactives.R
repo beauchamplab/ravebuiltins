@@ -3,6 +3,10 @@ output = getDefaultReactiveOutput()
 session = getDefaultReactiveDomain()
 
 local_data %?<-% reactiveValues(
+    # Full data has two parts: local_data$analysis_data_raw, and local_data$additional_data
+    # togeither makes analysis_data
+    analysis_data_raw = NULL,
+    additional_data = NULL,
     analysis_data = NULL,
     
     potential_analysis = list(),
@@ -18,22 +22,134 @@ local_filters = reactiveValues(
 )
 
 
+cond_group_ui = function(){
+    rave::compoundInput(
+        inputId = ns('cond_group'), prefix= 'Condition Group', inital_ncomp = 1, components = {
+            textInput('group_name', 'Name', value = '', placeholder = 'Condition Name')
+            selectInput('group_conditions', ' ', choices = '', multiple = TRUE, selected = character(0))
+        }, max_ncomp = 10)
+}
+
+
+# Sync all group_names
+lapply(1:0, function(ii){
+    name_id = paste0('cond_group_group_name_', ii)
+    .env = environment()
+    observeEvent(input[[name_id]], {
+        val = val_raw = input[[name_id]]
+        if(length(val)){
+            if( stringr::str_detect(val, '^CondGroup[0-9]*') || 
+                val %in% names(local_data$analysis_data_raw) ){
+                # Invalid group name, reset to default
+                val = sprintf('CondGroup%d', ii)
+            }
+            if( val != val_raw ){
+                updateTextInput(session, name_id, value = val)
+            }
+        }
+    }, event.env = .env, handler.env = .env)
+})
+
+observe({
+    raw = local_data$analysis_data_raw
+    conditions = NULL
+    if( is.data.frame(raw) ){
+        conditions = unique(raw$Condition)
+    }
+    if(!length(conditions)){ conditions = '' }
+    
+    # Update cond_group 
+    lapply(seq_len(20), function(ii){
+        cond_groups = lapply(1:20, function(jj){
+            shiny::isolate(input[[paste0('cond_group_group_conditions_', jj)]])
+        })
+        selected = character(0)
+        if( length(cond_groups) >= ii ){
+            selected = unlist(cond_groups[[ii]])
+            if( !length(selected) ){ selected = character(0) }
+        }
+        updateSelectInput(session, inputId = sprintf('%s_%d', 'cond_group_group_conditions', ii),
+                          choices = conditions, selected = selected)
+    })
+})
+
+# Get additional data
+observe({
+    cond_groups = lapply(1:20, function(jj){input[[paste0('cond_group_group_conditions_', jj)]]})
+    cond_groups = rave::dropNulls(cond_groups)
+    conditions = NULL
+    if( is.data.frame(local_data$analysis_data_raw) ){
+        conditions = local_data$analysis_data_raw$Condition
+    }
+    if(length(cond_groups) && length(conditions)){
+        
+        cols = lapply(cond_groups, function(conds){
+            as.numeric(conditions %in% unlist(conds))
+        })
+        gnames = lapply(seq_along(cols), function(jj){input[[paste0('cond_group_group_name_', jj)]]})
+        names(cols) = gnames
+        local_data$additional_data = do.call('data.frame', cols)
+    }else{
+        local_data$additional_data = NULL
+    }
+    
+})
+
+
+# Combine raw and additional_data
+observe({
+    raw = local_data$analysis_data_raw
+    add = local_data$additional_data
+    if( is.data.frame(raw) ){
+        if(is.data.frame(add)){
+            raw = cbind(raw, add)
+        }
+        local_data$analysis_data = raw
+    }else{
+        local_data$analysis_data = NULL
+    }
+    
+})
+
+
 # build Model 
 observe({
-    if(!is.data.frame(local_data$analysis_data)){ return() }
-    local_data$sample_table = head(local_data$analysis_data)
-    vars = names(local_data$analysis_data)
-    vars = vars[!vars %in% c('Project')]
+    if(!is.data.frame(local_data$analysis_data)){
+        local_data$table_headers = NULL
+        local_data$sample_table = NULL
+    }else{
+        local_data$sample_table = head(local_data$analysis_data)
+        local_data$table_headers = names(local_data$analysis_data)
+    }
+})
+
+
+
+
+
+
+get_table_headers = function(){
+    vars = local_data$table_headers
     if(!length(vars)){ vars = '' }
+    vars = vars[!vars %in% c('Project')]
+    if( isTRUE(input$model_splinetime) && 'Time' %in% vars ){
+        vars[vars == 'Time'] = 'splines::bs(Time)'
+    }
+    vars
+}
+
+observe({
+    vars = get_table_headers()
     dep = 'Power'
     if(!dep %in% vars){
-        tmp = vars[!vars %in% c('Time')]
+        tmp = vars[!vars %in% c('Time', 'splines::bs(Time)')]
         if(length(tmp)){
             dep = tmp[[1]]
         }else{
             dep = vars[[1]]
         }
     }
+    
     vars2 = vars[!vars %in% dep]; if(length(vars2) == ''){vars2 = ''}
     updateSelectInput(session, 'model_fixed_effects', choices = vars2, selected = shiny::isolate(local_data$fixed))
     updateSelectInput(session, 'model_random_effects', choices = vars2, selected = shiny::isolate(local_data$rand))
@@ -61,7 +177,7 @@ rave::sync_shiny_inputs(
     input = input, session = session, inputIds = c('model_dependent', 'model_fixed_effects', 'model_random_effects'),
     uniform = list(
         function(var_y){ 
-            vars = names(local_data$analysis_data)
+            vars = get_table_headers()
             vars = vars[!vars %in% c('Project', var_y)]
             if(!length(vars)){ vars = '' }
             updateSelectInput(session, 'model_fixed_effects', choices = vars)
@@ -124,7 +240,7 @@ observeEvent(input$run_analysis, {
     fo = input$model_formula
     fo = as.formula(fo)
     tryCatch({
-        local_data$lmer_results = lmerTest::lmer(fo, data=local_data$analysis_data, na.action=na.omit)
+        local_data$lmer_results = lmerTest::lmer(fo, data=local_data$analysis_data_filtered, na.action=na.omit)
         removeNotification(id = ns('noti'))
     }, error = function(e){
         # grouping factors must have > 1 sampled level

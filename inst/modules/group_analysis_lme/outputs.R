@@ -82,27 +82,79 @@ src_data_snapshot <- function(){
         n_complete = nrow(tbl)
     }
     
-    tags$p(
-        # 1. dimensions
-        'Original analysis table (raw): ', strong(sprintf('%d rows x %d columns', nrow(tbl_raw), ncol(tbl_raw))), br(),
-        
-        # 2. columns
-        'Columns: ', strong(paste(vars, collapse = ', ')), br(),
-        
-        hr(),
-        
-        # 3. filtered table
-        'Filtered analysis table (input data): ', strong(sprintf(
-            '%d rows (%d complete entries)', nrow(tbl), n_complete
-        )), br(),
-        
-        # 3. column types
-        'Column types: ', br(),
-        
-        dv_tag, fe_tag, fr_tag, rest_tag
+    
+    tagList(
+        tags$p(
+            # 1. dimensions
+            'Original analysis table (raw): ', strong(sprintf('%d rows x %d columns', nrow(tbl_raw), ncol(tbl_raw))), br(),
+            
+            # 2. columns
+            'Columns: ', strong(paste(vars, collapse = ', ')), br(),
+            
+            hr(),
+            
+            # 3. filtered table
+            'Filtered analysis table (input data): ', strong(sprintf(
+                '%d rows (%d complete entries)', nrow(tbl), n_complete
+            )), br(),
+            
+            # 3. column types
+            'Column types: ', br(),
+            
+            dv_tag, fe_tag, fr_tag, rest_tag
+            
+        )
         
     )
     
+}
+
+lmer_diagnosis = function(){
+    lmer_results = local_data$lmer_results
+    shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
+    resid = stats::residuals(lmer_results, type = 'pearson', scaled = TRUE)
+    fitt = fitted(lmer_results)
+    hat_val = hatvalues(lmer_results)
+    tbl = shiny::isolate(local_data$analysis_data_filtered)
+    sub = as.factor(tbl$Subject)
+    
+    nobs = length(resid); n_plot = min(10000, nobs)
+    if(nobs > n_plot){
+        sel = sample(nobs, n_plot)
+        resid = resid[sel]
+        fitt = fitt[sel]
+        hat_val = hat_val[sel]
+        sub = sub[sel]
+    }
+    pretty2 = function(v, digits = 2){
+        c(pretty(v), round(range(v), digits))
+    }
+    
+    graphics::layout(matrix(c(1,1,2,3), 2, byrow = TRUE))
+    par(mar = c(4.1, 2.1, 4.1, 1))
+    # 1. resid vs fitted
+    rutabaga::plot_clean(xlim = fitt, ylim = resid, 
+                         main = sprintf('Resid vs. Fitted (%d of %d)', n_plot, nobs))
+    points(fitt, resid, pch = 20, cex = 0.3)
+    rutabaga::ruta_axis(1, pretty(fitt))
+    rutabaga::ruta_axis(2, pretty(resid))
+    abline(h = 0, col = 'orange3', lty = 2, lwd = 2)
+    
+    # 2. qqplot
+    tmp = sort(rnorm(n_plot))
+    rutabaga::plot_clean(xlim = tmp, ylim = resid,
+                         main = 'Normal Q-Q plot')
+    points(tmp, sort(resid), pch = 20, cex = 0.3)
+    rutabaga::ruta_axis(1, pretty(tmp))
+    rutabaga::ruta_axis(2, pretty(resid))
+    abline(a = 0, b = sd(resid)/sd(tmp), col = 'orange3', lty = 2, lwd = 2)
+    
+    # 3. Boxplot of residual vs subjects
+    boxplot(resid ~ sub, axes = FALSE, 
+            main = 'BoxPlot of Resid/Subj', cex.main = 1.5, cex.lab = 1.4)
+    rutabaga::ruta_axis(2, pretty(resid))
+    
+    # 4. Boxplot of residuals vs Electrodes
 }
 
 
@@ -113,7 +165,7 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, ...){
     
     shiny::validate(shiny::need(!is.null(lmer_results), message = 'Please run LMER model first'))
     
-    tbl = local_data$analysis_data
+    tbl = shiny::isolate(local_data$analysis_data_filtered)
     
     assign('lmer_results', lmer_results, envir = globalenv())
     assign('tbl', tbl, envir = globalenv())
@@ -173,4 +225,9 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, ...){
         re = brain$plot(side_width = side_width, val_ranges = val_ranges)
     }
     
+}
+
+
+lme_diagnosis <- function(){
+    plot(1:10)
 }

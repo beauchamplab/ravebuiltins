@@ -283,7 +283,38 @@ define_input_time <- function(inputId, label = 'Time Range', is_range = TRUE, ro
   rave::eval_dirty(quo, env = parent_frame)
 }
 
-define_input_condition_groups <- function(inputId, label = 'Group', initial_groups = 1){
+define_input_condition_groups <- function(
+  inputId, label = 'Group', initial_groups = 1, 
+  init_args, init_expr, quoted = FALSE, ...){
+  
+  if(missing(init_args)){
+    init_args = c('initialize', 'value')
+  }
+  
+  if(missing(init_expr)){
+    init_expr = rlang::quo({
+      cond = unique(preload_info$condition)
+      
+      initialize = list(
+        group_conditions = list(
+          choices = cond
+        )
+      )
+      default_val = list(
+        list(
+          group_name = 'All Conditions',
+          group_conditions = list(cond)
+        )
+      )
+      value = cache_input(!!inputId, default_val)
+      if( !length(value) || !length(value[[1]]$group_conditions) || !any(value[[1]]$group_conditions %in% cond)){
+        value = default_val
+      }
+    })
+  }else if (!quoted){
+    init_expr = substitute(init_expr)
+  }
+  
   quo = rlang::quo({
 
     define_input(
@@ -293,26 +324,10 @@ define_input_condition_groups <- function(inputId, label = 'Group', initial_grou
           selectInput('group_conditions', ' ', choices = '', multiple = TRUE)
         }),
 
-      init_args = c('initialize', 'value'),
+      init_args = !!init_args,
 
       init_expr = {
-        cond = unique(preload_info$condition)
-
-        initialize = list(
-          group_conditions = list(
-            choices = cond
-          )
-        )
-        default_val = list(
-          list(
-            group_name = 'All Conditions',
-            group_conditions = list(cond)
-          )
-        )
-        value = cache_input(!!inputId, default_val)
-        if( !length(value) || !length(value[[1]]$group_conditions) || !any(value[[1]]$group_conditions %in% cond)){
-          value = default_val
-        }
+        eval(!!init_expr)
       }
     )
   })
@@ -323,6 +338,70 @@ define_input_condition_groups <- function(inputId, label = 'Group', initial_grou
 
 }
 
+
+define_input_condition_groups2 <- function(
+  inputId, label = 'Group', initial_groups = 1, max_group = 10, min_group = 1,
+  label_color = rep('black', max_group), init_args, init_expr, quoted = FALSE, ...
+){
+  if( !rutabaga::package_installed('dipsaus') ){
+    call = match.call()
+    call[[1]] = quote(define_input_condition_groups)
+    eval(call)
+    return()
+  }
+  
+  get_from_package('registerCompoundInput2', 'dipsaus', internal = TRUE)()
+  if(missing(init_args)){
+    init_args = c('initialization', 'value')
+  }
+  
+  if(missing(init_expr)){
+    init_expr = rlang::quo({
+      cond = unique(preload_info$condition)
+      
+      initialization = list(
+        group_conditions = list(
+          choices = cond
+        )
+      )
+      default_val = list(
+        list(
+          group_name = 'All Conditions',
+          group_conditions = list(cond)
+        )
+      )
+      value = cache_input(!!inputId, default_val)
+      if( !length(value) || !length(value[[1]]$group_conditions) || !any(value[[1]]$group_conditions %in% cond)){
+        value = default_val
+      }
+    })
+  }else if (!quoted){
+    init_expr = substitute(init_expr)
+  }
+  
+  quo = rlang::quo({
+    
+    define_input(
+      definition = dipsaus::compoundInput2(
+        inputId = !!inputId, label = !!label, inital_ncomp = !!initial_groups, 
+        components = htmltools::div(
+          textInput('group_name', 'Name', value = '', placeholder = 'Condition Name'),
+          selectInput('group_conditions', ' ', choices = '', multiple = TRUE)
+        ),
+        label_color = !!label_color, max_ncomp = !!max_group, min_group = !!min_group
+      ),
+      
+      init_args = !!init_args,
+      
+      init_expr = eval(!!init_expr)
+    )
+  })
+  
+  parent_frame = parent.frame()
+  
+  rave::eval_dirty(quo, env = parent_frame)
+  
+}
 
 
 define_input_analysis_data_csv <- function(
@@ -512,7 +591,12 @@ define_input_analysis_data_csv <- function(
 
 
 
-define_input_table_filters <- function(inputId, label = 'Filter', watch_target = 'local_data[["analysis_data"]]', reactive_target = 'local_data[["analysis_data_filtered"]]',table_not_present = p('Analysis table not loaded')){
+define_input_table_filters <- function(
+  inputId, label = 'Filter', 
+  watch_target = 'local_data[["analysis_data"]]', 
+  reactive_target = 'local_data[["analysis_data_filtered"]]',
+  table_not_present = p('Analysis table not loaded')
+){
   input_ui = inputId
   watch_target = substitute(watch_target)
   reactive_target = substitute(reactive_target)
@@ -545,19 +629,19 @@ define_input_table_filters <- function(inputId, label = 'Filter', watch_target =
               # To make a box to wrap group inputs
               class = 'rave-grid-inputs',
               div(
-                style = 'flex-basis: 25%; min-height: 80px;',
+                style = 'flex-basis: 33%; min-height: 80px;',
                 selectInput(ns(sprintf('%s_var_', !!input_filter_prefix, ii)), 'Variable', choices = vars, selected = get_val(filter, 'var', default = NULL))
               ),
               div(
-                style = 'flex-basis: 25%; min-height: 80px;',
+                style = 'flex-basis: 33%; min-height: 80px;',
                 selectInput(ns(sprintf('%s_op_', !!input_filter_prefix, ii)), 'Operator', choices = c('=', '!=', '>', '>=', '<', '<=', 'in', 'not in', 'between'), selected = get_val(filter, 'op', default = '='))
               ),
               div(
-                style = 'flex-basis: 25%; min-height: 80px;',
+                style = 'flex-basis: 33%; min-height: 80px;',
                 textInput(ns(sprintf('%s_val_', !!input_filter_prefix, ii)), 'Value', value = get_val(filter, 'val', default = NULL))
               ),
               div(
-                style = 'flex-basis: 25%; min-height: 80px;',
+                style = 'flex-basis: 100%;',
                 uiOutput(ns(sprintf('%s_msg_', !!input_filter_prefix, ii)))
               )
             )
@@ -581,17 +665,21 @@ define_input_table_filters <- function(inputId, label = 'Filter', watch_target =
       
       # Given data, operator and criteria, return logical filters
       ...ravemodule_environment_reserved[[!!input_ui]]$filter_data = function(dat, op, val){
-        if( is.numeric(dat) && is.character(val) ){
-          if( op %in% c('in', 'not in', 'between') ){
-            val = as.numeric(stringr::str_split(val, '[^0-9-.]+')[[1]])
-          }else{
-            val = as.numeric(val)
+        tryCatch({
+          if( is.numeric(dat) && is.character(val) ){
+            if( op %in% c('in', 'not in', 'between') ){
+              val = as.numeric(stringr::str_split(val, '[^0-9-.]+')[[1]])
+            }else{
+              val = as.numeric(val)
+            }
           }
-        }
-        expr = ...ravemodule_environment_reserved[[!!input_ui]]$get_operator(op)
-        expr = sprintf(expr, 'dat', deparse(val))
-        sel = rlang::eval_tidy(rlang::parse_expr(expr), data = list(dat = dat))
-        sel
+          expr = ...ravemodule_environment_reserved[[!!input_ui]]$get_operator(op)
+          expr = sprintf(expr, 'dat', deparse(val))
+          sel = rlang::eval_tidy(rlang::parse_expr(expr), data = list(dat = dat))
+          sel
+        }, error = function(e){
+          NULL
+        })
       }
       
       ...ravemodule_environment_reserved[[!!input_ui]]$get_filter_results = function(ii){
@@ -601,12 +689,22 @@ define_input_table_filters <- function(inputId, label = 'Filter', watch_target =
         if(!is.data.frame(...ravemodule_environment_reserved[[!!input_ui]]$data) || !is.list(filter) || !isFALSE(filter$failed)){ return(NULL) }
         var = filter$var; op = filter$op; val = filter$val
         dat = ...ravemodule_environment_reserved[[!!input_ui]]$data[[var]]
-        if( op %in% c('in', 'not in', 'between') ){
-          val = as.numeric(stringr::str_split(val, '[^0-9-.]+')[[1]])
+        if( var == 'Electrode' ){
+          dat = as.numeric(dat)
+        }
+        if(is.numeric(dat)){
+          if( op %in% c('in', 'not in', 'between') ){
+            val = as.numeric(stringr::str_split(val, '[^0-9-.]+')[[1]])
+          }else{
+            val = as.numeric(val)
+          }
         }else{
-          val = as.numeric(val)
+          if( op %in% c('in', 'not in') ){
+            val = stringr::str_split(val, ',[ ]{0,1}')[[1]]
+          }
         }
         sel = ...ravemodule_environment_reserved[[!!input_ui]]$filter_data(dat, op, val)
+        if(is.null(sel)){ return(NULL) }
         sel[is.na(sel)] = FALSE
         sel
       }
@@ -638,15 +736,24 @@ define_input_table_filters <- function(inputId, label = 'Filter', watch_target =
                 msg = 'Value is blank or invalid'
                 failed = TRUE
               }
+            }else{
+              if( op %in% c('in', 'not in') ){
+                val = stringr::str_split(val, ',[ ]{0,1}')[[1]]
+              }
             }
             if( !failed ){
               sel = ...ravemodule_environment_reserved[[!!input_ui]]$filter_data(dat, op, val)
-              n_na = sum(is.na(dat[sel]))
-              n_sel = sum(sel, na.rm = TRUE)
-              msg = sprintf('%d of %d selected (%d NAs)', n_sel, length(sel), n_na)
-              if(n_sel == 0){
-                msg = 'No data selected'
+              if( is.null(sel) ){
+                msg = 'Filter has error, will be ignored'
                 failed = TRUE
+              }else{
+                n_na = sum(is.na(dat[sel]))
+                n_sel = sum(sel, na.rm = TRUE)
+                msg = sprintf('%d of %d selected (%d NAs)', n_sel, length(sel), n_na)
+                if(n_sel == 0){
+                  msg = 'No data selected'
+                  failed = TRUE
+                }
               }
             }
           }
@@ -704,7 +811,9 @@ define_input_table_filters <- function(inputId, label = 'Filter', watch_target =
         filters = rep(TRUE, nrows)
         for(ii in seq_len(n_filters)){
           fil = ...ravemodule_environment_reserved[[!!input_ui]]$get_filter_results( ii )
-          filters = filters & fil
+          if(length(fil)){
+            filters = filters & fil
+          }
         }
         filters
       }
