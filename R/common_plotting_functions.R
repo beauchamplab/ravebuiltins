@@ -13,6 +13,7 @@
 #' Don't depend on this call order, use PANEL.LAST if you want to draw things on top of the heatmap
 #' @param PANEL.LAST a function that is called after the rendering of each heat map. It is not called after the rendering of the color bar. 
 #' @param axes vector of logicals, whether to draw axis
+#' @param xrange x range, similar to \code{xlim}
 #' @description Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar.
 #' By default it is setup for time/freq, but by swapping labels and decorators you can do anything.
 #' @seealso layout_heat_maps

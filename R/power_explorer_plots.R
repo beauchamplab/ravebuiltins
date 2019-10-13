@@ -175,7 +175,7 @@ across_electrodes_corrected_pvalue <- function(results, ...) {
     
     if(!is.null(cut)) {
         segments(x0=0, x1=ncol(omnibus_results), y0=nl10(cut), lty=2, col='orangered')
-        rave_axis(4, at=nl10(cut), label=results$get_value('pval_operand'),
+        rave_axis(4, at=nl10(cut), labels=results$get_value('pval_operand'),
                   tcl=0, cex.axis = 1, lwd=0, mgpy=c(-3, -1, -0))
     }
     
@@ -192,7 +192,7 @@ across_electrodes_corrected_pvalue <- function(results, ...) {
     # not sure how to vectorize an expression involving bquote :(
     rave_axis(2, at=axt, labels = F, tcl=0)
     for(ii in seq_along(axt)) {
-        rave_axis(2, at=axt[ii], label=bquote(10**-.(axt[ii])), cex.axis = rave_cex.axis*.9)
+        rave_axis(2, at=axt[ii], labels=bquote(10**-.(axt[ii])), cex.axis = rave_cex.axis*.9)
     }
     print(omnibus_results[3,])
 }

@@ -13,6 +13,7 @@
 #' @import lmerTest
 #'
 #' @importFrom methods is
+#' @importFrom methods getMethod
 #' @import circular
 #' 
 #' @importFrom grDevices dev.off
@@ -28,6 +29,8 @@
 #' @importFrom stats median.default
 #' @importFrom stats pt
 #' @importFrom stats quantile
+#' @importFrom stats p.adjust
+#' @importFrom stats symnum
 #' 
 NULL
 

@@ -30,6 +30,8 @@ Don't depend on this call order, use PANEL.LAST if you want to draw things on to
 \item{PANEL.LAST}{a function that is called after the rendering of each heat map. It is not called after the rendering of the color bar.}
 
 \item{axes}{vector of logicals, whether to draw axis}
+
+\item{xrange}{x range, similar to \code{xlim}}
 }
 \description{
 Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar.

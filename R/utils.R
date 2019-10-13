@@ -111,7 +111,7 @@ htmltable_coefmat <- function(
   # Make Cf a table
   # print.default(Cf, quote = quote, right = right, na.print = na.print, ...)
   re = list()
-  tags = htmltools::tags
+  tags = shiny::tags
   rnames = rownames(Cf)
   
   if(length(caption) != 1){
