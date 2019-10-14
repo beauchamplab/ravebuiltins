@@ -357,19 +357,19 @@ export_data_function <- function(){
   progress$inc('Collecting data')
   
   # Get trial conditions
-  conditions = trial_type_filter
+  conditions = input$trial_type_filter
   conditions = conditions[conditions %in% preload_info$condition]
   trials = module_tools$get_meta('trials')
   trial_number = trials$Trial[trials$Condition %in% conditions]
   
   # Get timepoints,frequency range
   time_points = preload_info$time_points
-  time_points = time_points[time_points %within% export_time_window]
+  time_points = time_points[time_points %within% input$export_time_window]
   freq_range = preload_info$frequencies
-  freq_range = freq_range[freq_range %within% FREQUENCY]
+  freq_range = freq_range[freq_range %within% input$FREQUENCY]
   
   # get baseline
-  baseline_range = BASELINE_WINDOW
+  baseline_range = input$BASELINE_WINDOW
   
   # Do some checks
   
@@ -398,22 +398,39 @@ export_data_function <- function(){
   cond_list = list(); cond_list[trials$Trial] = trials$Condition
   
   # Use async lapply to speed up the calculation as it's really per electrode analysis
-  res = rave::lapply_async(electrodes, function(e){
-    bl = baseline(power$subset(Trial = Trial %in% trial_number,
-                          Time = Time %within% time_points,
-                          Frequency = Frequency %within% freq_range,
-                          Electrode = Electrode %in% e), 
-             from = baseline_range[1], to = baseline_range[2], hybrid = FALSE, mem_optimize = FALSE)
+  # res = rave::lapply_async(electrodes, function(e){
+  #   bl = baseline(power$subset(Trial = Trial %in% trial_number,
+  #                         Time = Time %within% time_points,
+  #                         Frequency = Frequency %within% freq_range,
+  #                         Electrode = Electrode %in% e), 
+  #            from = baseline_range[1], to = baseline_range[2], hybrid = FALSE, mem_optimize = FALSE)
+  #   flat = bl$collapse(keep = c(1,3))
+  #   dimnames(flat) = dimnames(bl)[c(1,3)]
+  #   flat = reshape2::melt(flat, value.name = 'Power') # trial time, value
+  #   flat$Condition = unlist(cond_list[flat$Trial])
+  #   flat$Electrode = e
+  #   flat
+  # }, .call_back = function(ii){
+  #   progress$inc(sprintf('Electrode %d', electrodes[[ii]]))
+  # # specify all variables in .globals, in this way we can avoid the whole memory mappings
+  # }, .globals = c('power', 'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list'))
+  
+  res = lapply(electrodes, function(e){
+    progress$inc(sprintf('Electrode %d', e))
+    # Important p_sub is assigned, otherwise, it will get gc before baselined
+    p_sub = power$subset(Trial = Trial %in% trial_number,
+                         Frequency = Frequency %within% freq_range,
+                         Electrode = Electrode %in% e)
+    bl = baseline(p_sub, from = baseline_range[1], to = baseline_range[2], hybrid = FALSE, mem_optimize = FALSE)
+    bl = bl$subset(Time = Time %within% time_points)
     flat = bl$collapse(keep = c(1,3))
     dimnames(flat) = dimnames(bl)[c(1,3)]
     flat = reshape2::melt(flat, value.name = 'Power') # trial time, value
     flat$Condition = unlist(cond_list[flat$Trial])
     flat$Electrode = e
     flat
-  }, .call_back = function(ii){
-    progress$inc(sprintf('Electrode %d', electrodes[[ii]]))
-  # specify all variables in .globals, in this way we can avoid the whole memory mappings
-  }, .globals = c('power', 'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list'))
+  })
+  
   res = do.call('rbind', res)
   res$Project = project_name
   res$Subject = subject_code
@@ -427,6 +444,25 @@ export_data_function <- function(){
   dirname = file.path(subject$dirs$subject_dir, '..', '_project_data', 'power_explorer')
   dir.create(dirname, showWarnings = FALSE, recursive = TRUE)
   data.table::fwrite(res, file.path(dirname, fname), append = FALSE)
+  
+  # Collapse time
+  res_collapse_time = lapply(split(res, paste(res$Trial, res$Electrode)), function(x){
+    data.frame(stringsAsFactors = FALSE, 
+               Trial = x$Trial[1], Power = mean( x$Power ), Condition = x$Condition[1],
+               Electrode = x$Electrode[1], Project = x$Project[1], Subject = x$Subject[1])
+  })
+  res_collapse_time = do.call('rbind', res_collapse_time)
+  data.table::fwrite(res_collapse_time, file.path(dirname, paste0(analysis_prefix, '-collapse_time-', now, '.csv')), append = FALSE)
+  
+  # Collapse Trial
+  res_collapse_trial = lapply(split(res, paste0(res$Condition, res$Electrode, res$Time)), function(x){
+    data.frame(stringsAsFactors = FALSE, 
+               Power = mean( x$Power ), Condition = x$Condition[1], Time = x$Time[1], 
+               Electrode = x$Electrode[1], Project = x$Project[1], Subject = x$Subject[1])
+  })
+  res_collapse_trial = do.call('rbind', res_collapse_trial)
+  data.table::fwrite(res_collapse_trial, file.path(dirname, paste0(analysis_prefix, '-collapse_trial-', now, '.csv')), append = FALSE)
+  
   return(normalizePath(file.path(dirname, fname)))
 }
 

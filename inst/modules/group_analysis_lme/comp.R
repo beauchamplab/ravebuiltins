@@ -127,9 +127,7 @@ define_input(
 
 manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'model_dependent', 
                   'model_fixed_effects', 'model_random_effects', 'model_splinetime',
-                  'model_formula', 'model_embedsubject', 'run_analysis', 'cond_group_ui',
-                  sprintf('%s_%s_%d', 'group_name', c('group_name', 'group_conditions'), 
-                          rep(1:20, each = 2))
+                  'model_formula', 'model_embedsubject', 'run_analysis'
                   )
 
 
