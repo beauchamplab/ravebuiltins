@@ -158,10 +158,57 @@ src_data_snapshot <- function() {
 #     
 # }
 
-group_figures <- function() {
+
+windowed_activity <- function() {
     lmer_results = local_data$lmer_results
     shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
-    plot(1:20)
+    .y <- aggregate(Power ~ Group, m_se, data=local_data$collapsed_data)
+    
+    xp <- rutabaga::rave_barplot(.y$Power[,1], axes=F, col = adjustcolor(1:nrow(.y), 0.7),
+                           border=NA,
+                           ylim = range(pretty(c(0, plus_minus(.y$Power[,1], .y$Power[,2])))),
+                           names.arg=.y$Group)
+    
+    rave_axis(2, at=axTicks(2))
+    rave_axis_labels(xlab='Group', ylab='Power')
+    abline(h=0)
+    
+    ebars(xp, .y$Power, col=1:nrow(.y), code=0, lwd=2, lend=0)
+    
+}
+
+power_over_time <- function() {
+    lmer_results = local_data$lmer_results
+    shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
+
+    sample_size = local_data$collapsed_data %>% do_aggregate(Power ~ Group, length) %$% {
+        names(Power) = Group
+        Power
+    }
+    
+    lpd <- local_data$agg_over_trial %>% split((.)$Group) %>% lapply(function(aot) {
+        res = list(
+            x = aot$Time,
+            data = aot$Power,
+            N= sample_size[as.character(aot$Group[1])],
+            range = range(plus_minus(aot$Power[,1], aot$Power[,2])),
+            has_trials = TRUE,
+            name = aot$Group[1]
+        )
+        
+        attr(res$data, 'xlab') = 'Time'
+        attr(res$data, 'ylab') = 'Power'
+        res
+    })
+    
+    set_palette('OrBlGrRdBrPr')
+    time_series_plot(plot_data = lpd)
+    axis_label_decorator(lpd)
+    
+    abline(v=input$analysis_window, lty=2)
+    
+    legend_include = c('name', 'N')
+    legend_decorator(lpd, include = legend_include)
 }
 
 lmer_diagnosis = function(){
@@ -169,7 +216,7 @@ lmer_diagnosis = function(){
     shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
     
     plot_clean(1:10, 1:20)
-    pointr(rnorm(10, mean = 10))
+    # pointr(rnorm(10, mean = 10))
     return()
     resid = stats::residuals(lmer_results, type = 'pearson', scaled = TRUE)
     fitt = fitted(lmer_results)
@@ -294,14 +341,18 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, ...){
             }, error = function(e){ NULL })
         })
         brains = rave::dropNulls(brains)
-        brain = threeBrain::merge_brain(.list = brains)
+        brain = threeBrain::merge_brain(.list = brains, template_surface_types = c('pial', 'inf_200', 'smoothwm'))
+        
+        # set_palette()
         brain$set_electrode_values(elec_table)
-        re = brain$plot(side_width = side_width, val_ranges = val_ranges)
+        re = brain$plot(side_width = side_width, val_ranges = val_ranges,
+                        side_display = FALSE, control_display=FALSE)
     }
-    
 }
 
 
 lme_diagnosis <- function(){
-    plot(1:10)
+    shiny::validate(shiny::need(TRUE == FALSE, message = 'Not implemented'))
+    
+    # plot(1:10)
 }

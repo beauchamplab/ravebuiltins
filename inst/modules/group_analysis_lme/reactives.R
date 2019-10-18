@@ -2,6 +2,7 @@ input = getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 session = getDefaultReactiveDomain()
 
+
 local_data %?<-% reactiveValues(
     # Full data has two parts: local_data$analysis_data_raw, and local_data$additional_data
     # together makes analysis_data
@@ -17,7 +18,6 @@ local_data %?<-% reactiveValues(
     var_fixed_effects = NULL,
     lmer_results = NULL,
     lmer_results_summary = NULL
-    
 )
 local_filters = reactiveValues(
     filter_count = 0,
@@ -272,26 +272,30 @@ observeEvent(input$run_analysis, {
     all_trial_types <- cond_group %>% lapply(`[[`, 'group_conditions') %>% unlist %>% unique
     
     # create a joint variable representing the Group as a factor
+    showNotification(p('Fitting mixed effect model. Please wait...'), duration = NULL, type = 'default', id = ns('noti'))
     
     ldf <- local_data$analysis_data_filtered
-    subset_data <- subset(ldf, subset = Time %within% analysis_window & Condition %in% all_trial_types)
-    
+    subset_data <- subset(ldf, subset = Condition %in% all_trial_types)
     subset_data$Group = cond_group[[1]]$group_name
     for(ii in seq_along(cond_group)[-1]) {
         subset_data$Group[subset_data$Condition %in% cond_group[[ii]]$group_conditions] = cond_group[[ii]]$group_name
     }
     subset_data$Group %<>% factor(levels = sapply(cond_group, `[[`, 'group_name'))
     
+    local_data$over_time_data = subset_data
+    subset_data %<>% subset(Time %within% analysis_window)
     collapsed_data <- do_aggregate(Power ~ Group + Electrode + Subject, data=subset_data, FUN=mean)
     local_data$collapsed_data = collapsed_data
     
-    showNotification(p('Fitting mixed effect model. Please wait...'), duration = NULL, type = 'default', id = ns('noti'))
+    local_data$agg_over_trial = aggregate(Power ~ Group + Time + Subject + Electrode,
+                                          local_data$over_time_data, FUN=mean) %>% do_aggregate(Power ~ Group + Time, .fast_mse)
     
-    # fo = input$model_formula
-    fo = as.formula('Power ~ Group + (1|Subject:Electrode)')
+    fo = input$model_formula
+    fo %<>% as.formula #as.formula('Power ~ Group + (1|Subject/Electrode)')
     tryCatch({
         lmer_results = lmerTest::lmer(fo, data=collapsed_data, na.action=na.omit)
-        assign('..lmer_results', value = lmer_results, envir = globalenv())
+        assign('..local_data', value = shiny::isolate(shiny:::reactiveValuesToList(local_data)), envir = globalenv())
+        
         local_data$lmer_results_summary <- summary(lmer_results)
         local_data$lmer_results = lmer_results
         showNotification(p('Model finished!'), duration = 3, type = 'default', id = ns('noti'))

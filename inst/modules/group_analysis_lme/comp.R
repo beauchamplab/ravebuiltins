@@ -188,18 +188,18 @@ input_layout = list(
     'Analysis Settings' = list(
       'cond_group_ui',
       'analysis_window'
-    ),
-    'Filter Data' = list(
-      'var_sel'
-    ),
+      ),
+    # 'Filter Data' = list(
+    #   'var_sel'
+    # ),
     # 'Feature Selection' = list(
     #     c('omnibus_f', 'fcutoff')
     # ),
     'Build Model' = list(
-        c('model_dependent'),
-        c('model_fixed_effects', 'model_random_effects'),
-        'model_embedsubject',
-        'model_splinetime',
+        # c('model_dependent'),
+        # c('model_fixed_effects', 'model_random_effects'),
+        # 'model_embedsubject',
+        # 'model_splinetime',
         'model_formula',
         'run_analysis'
     )
@@ -219,32 +219,27 @@ define_output(
 )
 
 define_output(
-    definition = customizedUI('lme_out', width = 12, style='min-height:300px'),
+    definition = customizedUI('lme_out', style='min-height:300px'),
     title = 'LME Output',
     width = 12,
     order = 2
 )
 
 define_output(
-  definition = customizedUI('group_figures', width = 12, style='min-height:300px'),
-  title = 'Group-level figures',
-  width = 12,
+  definition = plotOutput('power_over_time', height='500px'),
+  title = 'Power over time',
+  width = 8,
   order = 1
 )
 
 define_output(
-  definition = customizedUI('multiple_comparisons', width = 12, style='min-height:300px'),
-  title = 'Statistics for Groups',
-  width = 12,
-  order = 3
+  definition = plotOutput('windowed_activity', height='500px'),
+  title = 'Mean activity within anlaysis window',
+  width = 4,
+  order = 1
 )
 
-define_output(
-    definition = plotOutput('lme_diagnosis', height = '520px'),
-    title = 'Diagnostic Plots',
-    width = 7,
-    order = 1e3
-)
+
 
 define_output_3d_viewer(
     outputId = 'lme_3dviewer',
@@ -256,10 +251,11 @@ define_output_3d_viewer(
 # 'Multiple Comparisons' = c('multiple_comparisons'),
 
 output_layout = list(
-  'Tabset One' = list(
-    'Model Fitting Results' = c('lme_out'),
-    'Graphs' = c('group_figures'),
-    'Results on Surface' = c('lme_3dviewer')
+  'Model Results' = list(
+    'Model Fitting Results' = c('power_over_time', 'windowed_activity', 'lme_out'),
+    # 'Graphs' = c('group_figures'),
+    'Results on Surface' = c('lme_3dviewer'),
+    'Data Description' = c('src_data_snapshot')
   )
   # 'Multiple Output' = 'src_data_snapshot'
 )
