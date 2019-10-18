@@ -697,7 +697,7 @@ write_ref_table = function(){
     utils = rave_preprocess_tools()
     utils$load_subject(subject_code = subject$subject_code, project_name = subject$project_name)
     utils$save_to_subject(checklevel = 4) # 4 means referenced
-    switch_to('condition_explorer')
+    # switch_to('condition_explorer')
     return(fname)
 }
 

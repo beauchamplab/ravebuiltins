@@ -469,24 +469,12 @@ export_data_function <- function(){
   save_inputs(file.path(dirname, paste0(fname, '.yaml')))
   
   
-  # # Collapse time
-  # res_collapse_time = lapply(split(res, paste(res$Trial, res$Electrode)), function(x){
-  #   data.frame(stringsAsFactors = FALSE, 
-  #              Trial = x$Trial[1], Power = mean( x$Power ), Condition = x$Condition[1],
-  #              Electrode = x$Electrode[1], Project = x$Project[1], Subject = x$Subject[1])
-  # })
-  # res_collapse_time = do.call('rbind', res_collapse_time)
-  # data.table::fwrite(res_collapse_time, file.path(dirname, paste0(analysis_prefix, '-collapse_time-', now, '.csv')), append = FALSE)
-  # 
-  # # Collapse Trial
-  # res_collapse_trial = lapply(split(res, paste0(res$Condition, res$Electrode, res$Time)), function(x){
-  #   data.frame(stringsAsFactors = FALSE, 
-  #              Power = mean( x$Power ), Condition = x$Condition[1], Time = x$Time[1], 
-  #              Electrode = x$Electrode[1], Project = x$Project[1], Subject = x$Subject[1])
-  # })
-  # res_collapse_trial = do.call('rbind', res_collapse_trial)
-  # data.table::fwrite(res_collapse_trial, file.path(dirname, paste0(analysis_prefix, '-collapse_trial-', now, '.csv')), append = FALSE)
-  # 
+  # Collapse Trial and save to 3D viewer
+  collapsed_trial = reshape2::dcast(res, Project+Subject+Electrode+Time~Condition, mean, value.var = 'Power')
+  dirname_viewer = file.path(subject$dirs$subject_dir, '..', '_project_data', '3dviewer')
+  dir.create(dirname_viewer, showWarnings = FALSE, recursive = TRUE)
+  data.table::fwrite(collapsed_trial, file.path(dirname_viewer, paste0(analysis_prefix, '-collapse_trial-', now, '.csv')), append = FALSE)
+
   return(normalizePath(file.path(dirname, fname)))
 }
 
