@@ -11,6 +11,59 @@ local_data = reactiveValues(
     calculate_flag = 0
 )
 
+
+# observeEvent(input$btn_save_analysis_settings, {
+#     tstmp <- strftime(Sys.time(), format = '%Y-%h-%d')
+#     
+#     shiny::showModal(shiny::modalDialog(
+#         title = 'Save Analysis Settings',
+#         size = 's',
+#         easyClose = TRUE,
+#         textInput(ns('modal_analysis_settings_name'), label = 'Settings Name', value = paste0('power_explorer_settings_', tstmp)),
+#         tags$small('Will overwrite settings with the same name currently in RAVE settings folder'),
+#         footer = tagList(
+#             rave::actionButtonStyled(ns('btn_do_save_analysis'), 'Save'),
+#             shiny::modalButton("Cancel")
+#         )
+#     ))
+# })
+
+
+# observeEvent(input$btn_do_save_analysis, {
+#     # save
+#     fname = input$modal_analysis_settings_name
+#     fname = stringr::str_replace_all(fname, '[^a-zA-Z0-9]+', '_')
+#     fname = paste0(fname, '.yaml')
+#     save_dir = file.path(subject$dirs$subject_dir, '..', '_project_data', 'analysis_yamls')
+#     dir.create(save_dir, recursive = TRUE, showWarnings = FALSE)
+#     save_inputs(file.path(save_dir, fname))
+#     shiny::removeModal()
+# })
+observeEvent(input$analysis_settings_load, {
+    fdata = input$analysis_settings_load
+    if(!is.list(fdata) || !length(fdata$files)){ return() }
+    assign('fdata', fdata, envir = globalenv())
+    f_name = unlist(fdata$files); names(f_name) = NULL
+    
+    read_source = c('Analysis Settings' = 'analysis_yamls')
+    
+    f_name = c(subject$dirs$subject_dir, '..', '_project_data', read_source[[fdata$root]], f_name)
+    f_path = do.call(file.path, as.list(f_name))
+    print(f_path)
+    conf = yaml::read_yaml(f_path)
+    print(conf)
+    
+    updateCheckboxInput(session, inputId = 'auto_calculate', value = FALSE)
+    lapply(1:10, function(ii){
+        gc_id = sprintf('GROUPS_group_conditions_%d', ii)
+        gc = conf[[gc_id]]
+        if(!length(gc)){ gc = character(0) }
+        print(paste(ii, c(gc)))
+        updateSelectInput(session, gc_id, selected = gc)
+    })
+})
+
+
 observeEvent(input$power_3d_widget_mouse_dblclicked, {
     # mouse_event = input$power_3d__mouse_dblclicked$event
     # object = input$power_3d__mouse_dblclicked$object

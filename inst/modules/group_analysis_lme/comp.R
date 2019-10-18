@@ -72,38 +72,75 @@ define_initialization({
 # )
 
 define_input_analysis_data_csv(
-    inputId= 'analysis_data', label = 'Data files', paths = c('_project_data/group_analysis_lme/source', '_project_data/power_explorer'),
-    reactive_target = 'local_data$analysis_data_raw'
+    inputId= 'analysis_data', label = "Data files located in this project's RAVE directory", 
+    paths = c('_project_data/group_analysis_lme/source', '_project_data/power_explorer/exports'),
+    reactive_target = 'local_data$analysis_data_raw', try_load_yaml = TRUE
 )
 
 # define_input(
 #     customizedUI('var_sel')
 # )
-define_input_table_filters('var_sel', label = 'Filter', watch_target = 'local_data$analysis_data',
-                           reactive_target = 'local_data[["analysis_data_filtered"]]')
+# define_input_table_filters('var_sel', label = 'Filter', watch_target = 'local_data$analysis_data',
+#                            reactive_target = 'local_data[["analysis_data_filtered"]]')
+
+data_dir = rave_options('data_dir'); names(data_dir) = NULL
+# define_input_analysis_file_chooser(
+#   'lmer_yaml', labels = c('Save settings', 'Load settings'),
+#   name_prefix = 'lmer_settings_', 
+#   read_source = c('Analysis Settings' = '', 'RAVE Home' = '../..'),
+#   write_source = 'group_analysis_lme',
+#   default_path = 'power_explorer'
+# )
 
 
+load_scripts(rlang::quo({
+  observeEvent(input$lmer_yaml_load, {
+    fdata = input$lmer_yaml_load
+    if(!is.list(fdata) || !length(fdata$files)){ return() }
+    assign('fdata', fdata, envir = globalenv())
+    f_name = unlist(fdata$files); names(f_name) = NULL
+    
+    read_source = list(
+      'Power Explorer Analysis' = 'power_explorer',
+      'LME Analysis' = 'group_analysis_lme'
+    )
+    
+    f_name = c(subject$dirs$subject_dir, '..', '_project_data', read_source[[fdata$root]], f_name)
+    f_path = do.call(file.path, as.list(f_name))
+    print(f_path)
+    conf = yaml::read_yaml(f_path)
+    print(conf)
+    
+    # updateCheckboxInput(session, inputId = 'auto_calculate', value = FALSE)
+    # lapply(1:10, function(ii){
+    #   gc_id = sprintf('GROUPS_group_conditions_%d', ii)
+    #   gc = conf[[gc_id]]
+    #   if(!length(gc)){ gc = character(0) }
+    #   print(paste(ii, c(gc)))
+    #   updateSelectInput(session, gc_id, selected = gc)
+    # })
+  })
+}))
 
-#### Define model
 
+# define_input(
+#     selectInput('model_dependent', 'Dependent', choices = '', selected = character(0))
+# )
+# define_input(
+#     selectInput('model_fixed_effects', 'Fixed effects', choices = '', selected = character(0), multiple = TRUE)
+# )
+# define_input(
+#     selectInput('model_random_effects', 'Random effects', choices = '', selected = character(0), multiple = TRUE)
+# )
 define_input(
-    selectInput('model_dependent', 'Dependent', choices = '', selected = character(0))
+    textInput('model_formula', 'Formula', value = 'Power ~ Group + (1|Subject/Electrode)')
 )
-define_input(
-    selectInput('model_fixed_effects', 'Fixed effects', choices = '', selected = character(0), multiple = TRUE)
-)
-define_input(
-    selectInput('model_random_effects', 'Random effects', choices = '', selected = character(0), multiple = TRUE)
-)
-define_input(
-    textInput('model_formula', 'Formula', value = '')
-)
-define_input(
-    checkboxInput('model_embedsubject', HTML('Embed subject into electrode <small style="color:#a1a1a1">[only if both Subject and Electrode are selected as random effect]</small>'), value = TRUE)
-)
-define_input(
-    checkboxInput('model_splinetime', HTML('Wrap <span style="font-style:italic">Time</span> with Splines <small style="color:#a1a1a1">[use splines::bs(Time)]</small>'), value = TRUE)
-)
+# define_input(
+#     checkboxInput('model_embedsubject', HTML('Embed subject into electrode <small style="color:#a1a1a1">[only if both Subject and Electrode are selected as random effect]</small>'), value = TRUE)
+# )
+# define_input(
+#     checkboxInput('model_splinetime', HTML('Wrap <span style="font-style:italic">Time</span> with Splines <small style="color:#a1a1a1">[use splines::bs(Time)]</small>'), value = TRUE)
+# )
 
 define_input(
     actionButtonStyled('run_analysis', 'Run Analysis', type = 'primary', width = '100%')
@@ -125,11 +162,15 @@ define_input(
 )
 
 
-manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'model_dependent', 
-                  'model_fixed_effects', 'model_random_effects', 'model_splinetime',
+define_input(
+  definition = sliderInput('analysis_window', 'Analysis Window',
+                           min = 0, max = 1, value=c(0,1), round=-2, step=0.01)
+)
+
+manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'analysis_window',
+                  'model_dependent', 'model_fixed_effects', 'model_random_effects', 'model_splinetime',
                   'model_formula', 'model_embedsubject', 'run_analysis'
                   )
-
 
 # # selectInput('electrode', 'Electrode', choices = '', multiple = F),
 # textInput('electrode_text', 'Electrodes', value = "", placeholder = '1-5,8,11-20'),
@@ -142,28 +183,25 @@ input_layout = list(
         # c('participants'),
         # c('analysis_name_ui')
         # 'source_files', 'csv_file', 'load_csvs'
-        'analysis_data',
-        'cond_group_ui'
+        'analysis_data'
     ),
-    '[-]Data Filter' = list(
+    'Analysis Settings' = list(
+      'cond_group_ui',
+      'analysis_window'
+    ),
+    'Filter Data' = list(
       'var_sel'
     ),
     # 'Feature Selection' = list(
     #     c('omnibus_f', 'fcutoff')
     # ),
-    'Model Building' = list(
+    'Build Model' = list(
         c('model_dependent'),
         c('model_fixed_effects', 'model_random_effects'),
         'model_embedsubject',
         'model_splinetime',
         'model_formula',
         'run_analysis'
-        
-        # 'var_dependent_ui',
-        # 'var_fixed_effects_ui',
-        # 'var_rand_effects_ui',
-        # 'var_formula_ui',
-        # 'nested_electrode'
     )
 )
 
@@ -177,48 +215,56 @@ define_output(
     definition = customizedUI('src_data_snapshot', style='min-height:500px'),
     title = 'Data Snapshot',
     width = 5,
-    order = 2
+    order = 1e2
 )
 
 define_output(
     definition = customizedUI('lme_out', width = 12, style='min-height:300px'),
     title = 'LME Output',
     width = 12,
-    order = 1
+    order = 2
 )
 
 define_output(
-    definition = plotOutput('lmer_diagnosis', height = '520px'),
-    title = 'Diagnostic Plots',
-    width = 7,
-    order = 3
+  definition = customizedUI('group_figures', width = 12, style='min-height:300px'),
+  title = 'Group-level figures',
+  width = 12,
+  order = 1
 )
 
+define_output(
+  definition = customizedUI('multiple_comparisons', width = 12, style='min-height:300px'),
+  title = 'Statistics for Groups',
+  width = 12,
+  order = 3
+)
 
-# hr(),
-# h4('Diagnostic Plots'),
-# shiny::plotOutput(ns('lmer_diagnosis'))
+define_output(
+    definition = plotOutput('lme_diagnosis', height = '520px'),
+    title = 'Diagnostic Plots',
+    width = 7,
+    order = 1e3
+)
+
 define_output_3d_viewer(
     outputId = 'lme_3dviewer',
     message = 'Reload Viewer',
     title = 'Statistical results by electrode',
-    order = 1e4
+    order = 4
 )
 
+# 'Multiple Comparisons' = c('multiple_comparisons'),
 
 output_layout = list(
   'Tabset One' = list(
-    'Multiple Output' = c('lme_out'),
-    '3D Visualization' = c('lme_3dviewer')
+    'Model Fitting Results' = c('lme_out'),
+    'Graphs' = c('group_figures'),
+    'Results on Surface' = c('lme_3dviewer')
   )
   # 'Multiple Output' = 'src_data_snapshot'
 )
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
-
-
-
-
 
 
 # -------------------------------- View layout ---------------------------------

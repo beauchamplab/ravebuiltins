@@ -337,10 +337,28 @@ output$export_data_and_download <- downloadHandler(
     file.copy(res_path, to=con)
   }
 )
+
 observeEvent(input$export_data_only, {
   export_data_function()
   showNotification(p('Done saving'), duration = 3, type = 'message')
 })
+
+save_inputs <- function(yaml_path, variables_to_export){
+  if( !shiny_is_running() || !exists('getDefaultReactiveInput') ){ return(FALSE) }
+  
+  input <- getDefaultReactiveInput()
+  cache_list = shiny::isolate(shiny::reactiveValuesToList(input))
+  if(!missing(variables_to_export)) {
+    cache_list =cache_list[variables_to_export]
+  }
+  # if( exists('local_data') && shiny::is.reactivevalues(local_data) ){
+  #   local_dat = shiny::isolate(shiny::reactiveValuesToList(local_data))
+  #   cl = names(cache_list); cl = cl[cl %in% names(local_dat)]
+  #   cache_list[cl] = local_dat[cl]
+  # }
+  yaml::write_yaml(x = cache_list, fileEncoding = 'utf-8', file = yaml_path)
+  return(TRUE)
+}
 
 # export data for group analysis
 export_data_function <- function(){
@@ -441,28 +459,34 @@ export_data_function <- function(){
   now = strftime(Sys.time(), '-%Y%m%d-%H%M%S')
   
   fname = paste0(analysis_prefix, now, '.csv')
-  dirname = file.path(subject$dirs$subject_dir, '..', '_project_data', 'power_explorer')
+  dirname = file.path(subject$dirs$subject_dir, '..', '_project_data', 'power_explorer', 'exports')
   dir.create(dirname, showWarnings = FALSE, recursive = TRUE)
   data.table::fwrite(res, file.path(dirname, fname), append = FALSE)
   
-  # Collapse time
-  res_collapse_time = lapply(split(res, paste(res$Trial, res$Electrode)), function(x){
-    data.frame(stringsAsFactors = FALSE, 
-               Trial = x$Trial[1], Power = mean( x$Power ), Condition = x$Condition[1],
-               Electrode = x$Electrode[1], Project = x$Project[1], Subject = x$Subject[1])
-  })
-  res_collapse_time = do.call('rbind', res_collapse_time)
-  data.table::fwrite(res_collapse_time, file.path(dirname, paste0(analysis_prefix, '-collapse_time-', now, '.csv')), append = FALSE)
   
-  # Collapse Trial
-  res_collapse_trial = lapply(split(res, paste0(res$Condition, res$Electrode, res$Time)), function(x){
-    data.frame(stringsAsFactors = FALSE, 
-               Power = mean( x$Power ), Condition = x$Condition[1], Time = x$Time[1], 
-               Electrode = x$Electrode[1], Project = x$Project[1], Subject = x$Subject[1])
-  })
-  res_collapse_trial = do.call('rbind', res_collapse_trial)
-  data.table::fwrite(res_collapse_trial, file.path(dirname, paste0(analysis_prefix, '-collapse_trial-', now, '.csv')), append = FALSE)
   
+  
+  save_inputs(file.path(dirname, paste0(fname, '.yaml')))
+  
+  
+  # # Collapse time
+  # res_collapse_time = lapply(split(res, paste(res$Trial, res$Electrode)), function(x){
+  #   data.frame(stringsAsFactors = FALSE, 
+  #              Trial = x$Trial[1], Power = mean( x$Power ), Condition = x$Condition[1],
+  #              Electrode = x$Electrode[1], Project = x$Project[1], Subject = x$Subject[1])
+  # })
+  # res_collapse_time = do.call('rbind', res_collapse_time)
+  # data.table::fwrite(res_collapse_time, file.path(dirname, paste0(analysis_prefix, '-collapse_time-', now, '.csv')), append = FALSE)
+  # 
+  # # Collapse Trial
+  # res_collapse_trial = lapply(split(res, paste0(res$Condition, res$Electrode, res$Time)), function(x){
+  #   data.frame(stringsAsFactors = FALSE, 
+  #              Power = mean( x$Power ), Condition = x$Condition[1], Time = x$Time[1], 
+  #              Electrode = x$Electrode[1], Project = x$Project[1], Subject = x$Subject[1])
+  # })
+  # res_collapse_trial = do.call('rbind', res_collapse_trial)
+  # data.table::fwrite(res_collapse_trial, file.path(dirname, paste0(analysis_prefix, '-collapse_trial-', now, '.csv')), append = FALSE)
+  # 
   return(normalizePath(file.path(dirname, fname)))
 }
 

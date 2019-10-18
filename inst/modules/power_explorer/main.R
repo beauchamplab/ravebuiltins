@@ -365,6 +365,9 @@ ravebuiltins:::dev_ravebuiltins(T)
 mount_demo_subject(force_reload_subject = T)
 module = ravebuiltins:::debug_module('power_explorer')
 
+
+eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
+
 result = module(ELECTRODE_TEXT = '14',
   GROUPS = list(list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
                               # putting in an empty group to test our coping mechanisms

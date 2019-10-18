@@ -18,6 +18,9 @@ load_scripts(
   asis = TRUE
 )
 
+# split up the UI into multiple files to make it easier to manage
+# source(..., local=TRUE)
+
 define_initialization({
   ##
   ## Make sure power (referenced) exists
@@ -98,10 +101,17 @@ define_input(
 )
 
 
+define_input_condition_groups(inputId = 'GROUPS')
+
 define_input_frequency(inputId = 'FREQUENCY', initial_value = c(70,150))
 define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis', initial_value = c(0,1))
 define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline', initial_value = c(-1,0))
-define_input_condition_groups(inputId = 'GROUPS')
+
+
+
+
+# define_input_analysis_file_chooser('analysis_settings', read_source = c('Analysis Settings' = 'analysis_yamls'))
+
 
 define_input(
   definition = selectInput('combine_method', 'Electrode Transforms',
@@ -182,7 +192,7 @@ define_input(
                            label = HTML('<br/>Export filename (no spaces)')),
     init_args = 'value',
     init_expr = {
-      value = cache_input('analysis_prefix', sprintf('%s_pow_by_cond', subject$subject_code))
+      value = sprintf('%s_pow_by_cond', subject$subject_code)
     })
   define_input(
     definition = checkboxInput('analysis_mask_export',value = FALSE,
@@ -217,7 +227,7 @@ define_input(
     , init_args = c('choices', 'selected'),
     init_expr = {
       choices = c('none', names(electrodes_csv))
-      selected = ifelse('Hemisphere' %in% names(electrodes_csv), 'Hemisphere', 'none')
+      selected = 'none'
     }
   )
     
@@ -381,6 +391,7 @@ define_input(
 # determine which variables only need to be set, not triggering rendering nor executing
 manual_inputs <- c(
   'graph_export', 'filter_3d_viewer', 'trial_type_filter', 'synch_with_trial_selector', 'download_electrodes_csv',
+  'btn_save_analysis_settings', 'btn_load_analysis_settings',
   'export_what', 'analysis_prefix', 'analysis_mask_export', 'export_data', 'current_active_set', 'export_also_download', 'export_time_window'
 )
 
@@ -400,14 +411,9 @@ input_layout = list(
   ),
   #[#99ccff]
   'Compare trial types' = list(
-    'GROUPS'
+    'GROUPS',
+    'analysis_settings'
   ),
-  # 'Set analysis options' = list(
-    # 'FREQUENCY',
-    # 'BASELINE_WINDOW',
-    # 'ANALYSIS_WINDOW',
-    # 'do_calculate_btn', 'auto_calculate'
-  # ),
   '[-]Set plot options' = list(
     'plot_time_range',
     c('PLOT_TITLE'),

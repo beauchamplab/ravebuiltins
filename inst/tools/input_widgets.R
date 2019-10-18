@@ -406,7 +406,7 @@ define_input_condition_groups2 <- function(
 
 define_input_analysis_data_csv <- function(
   inputId, label, paths, reactive_target = sprintf('local_data[[%s]]', inputId),
-  multiple = TRUE, label_uploader = 'Upload'){
+  multiple = TRUE, label_uploader = '...', try_load_yaml = TRUE, allow_uploader = FALSE){
   
   input_ui = inputId
   input_selector = paste0(inputId, '_source_files')
@@ -431,22 +431,27 @@ define_input_analysis_data_csv <- function(
         od = order(strptime(dt, '%Y%m%d-%H%M%S'), decreasing = TRUE)
         choices = choices[od]
         
+        uploader_tag = NULL
+        if(!!allow_uploader){
+          uploader_tag = htmltools::div(
+            style = 'flex-basis: 50%; min-height: 80px;',
+            htmltools::tags$label("Upload new files to this project's RAVE directory"),
+            fileInput(inputId = ns(!!input_uploader), label = !!label_uploader, multiple = FALSE, width = '100%')
+          )
+        }
+        
         # function to render UI
         htmltools::div(
           class = 'rave-grid-inputs',
           htmltools::div(
-            style = 'flex-basis: 75%; min-height: 80px;',
+            style = 'flex-basis: 100%; min-height: 80px;',
             selectInput(inputId = ns(!!input_selector), label = !!label, choices = choices, selected = character(0), multiple = !!multiple)
-          ),
-          htmltools::div(
-            style = 'flex-basis: 25%; min-height: 80px;',
-            htmltools::tags$label('Additional'),
-            fileInputMinimal(inputId = ns(!!input_uploader), label = !!label_uploader, multiple = FALSE, width = '100%', type = 'default')
           ),
           htmltools::div(
             style = 'flex-basis: 100%',
             actionButtonStyled(inputId = ns(!!input_btn), label = 'Load analysis data', width = '100%', type = 'primary')
-          )
+          ),
+          uploader_tag
         )
       })
       ...ravemodule_environment_reserved[[!!input_ui]][[!!input_evt]] = function(){
@@ -547,7 +552,7 @@ define_input_analysis_data_csv <- function(
           
           # Read all data
           project_name = subject$project_name
-          res = rave::dropNulls(lapply(metas, function(x){
+          tbls = rave::dropNulls(lapply(metas, function(x){
             progress$inc('Loading...')
             tbl = data.table::fread(file = x$fpath, stringsAsFactors = FALSE, header = TRUE)
             tbl = tbl[tbl$Project %in% project_name, ]
@@ -558,9 +563,26 @@ define_input_analysis_data_csv <- function(
             for(m in mish){
               tbl[[m]] = NA
             }
-            return( tbl )
+            
+            # Load YAML files
+            conf = NULL
+            if( !!try_load_yaml ){
+              yaml_path = paste0(x$fpath, '.yaml')
+              if(file.exists(yaml_path)){
+                conf = yaml::read_yaml(yaml_path)
+              }
+            }
+            
+            return(list(
+              data = tbl,
+              conf = conf,
+              path = x$fpath,
+              subject = tbl$Subject[[1]]
+            ))
           }))
-          res = do.call('rbind', res)
+          
+          res = do.call('rbind', lapply(tbls, '[[', 'data'))
+          
           if(!is.data.frame(res) || !nrow(res)){
             res = NULL
           }else{
@@ -569,12 +591,25 @@ define_input_analysis_data_csv <- function(
               res$Subject = as.character(res$Subject)
               res$Condition = as.character(res$Condition)
             }, silent = TRUE)
+            
+            subjects = sapply(tbls, '[[', 'subject')
+            confs = lapply(tbls, '[[', 'conf')
+            names(confs) = subjects
+            
+            res = list(
+              data = res,
+              subjects = subjects,
+              confs = confs,
+              headers = names(res)
+            )
+            
           }
           if(is.character(!!reactive_target)){
             eval(parse(text = sprintf('%s <- res', !!reactive_target)))
           }else{
             do.call('<-', list(!!reactive_target, res))
           }
+          
         }, event.env = .env, handler.env = .env)
       }
       
@@ -895,3 +930,115 @@ define_input_table_filters <- function(
   parent_frame = parent.frame()
   rave::eval_dirty(quo, env = parent_frame)
 }
+
+
+
+
+# options to save and load analysis parameters
+# define_input_analysis_file_chooser <- function(
+#   inputId, labels = c('Save settings', 'Load settings'),
+#   name_prefix = 'power_explorer_settings_',
+#   read_source = c('Analysis Settings' = 'analysis_yamls'),
+#   write_source = 'settings',
+#   default_path = ''
+# ){
+#   save_btn = paste0(inputId, '_save')
+#   load_btn = paste0(inputId, '_load')
+#   save_text = paste0(inputId, '_savename')
+#   do_save = paste0(inputId, '_do_save')
+#   quo = rlang::quo({
+#     define_input(customizedUI(inputId = !!inputId))
+#     load_scripts(rlang::quo({
+#       assign(!!inputId, function(){
+# 
+#         read_source = c('/' = '/')
+# 
+#         load_btn = as.character(!!load_btn)
+#         fp = names(!!read_source)
+#         shinyFiles::shinyFileChoose(
+#           input = input,
+#           id = load_btn, roots= c('/' = '/'),
+#           filetypes = c('yaml', 'yml'), defaultRoot = '/',
+#           defaultPath = !!default_path
+#         )
+# 
+#         div(
+#           class = 'rave-grid-inputs', style='border:none',
+#           div(
+#             style = 'flex-basis:50%',
+#             rave::actionButtonStyled(inputId = ns(!!save_btn),
+#                                      label=!!labels[[1]], icon = shiny::icon('save'), width = '100%')
+#           ),
+#           div(
+#             style = 'flex-basis:50%',
+#             shinyFiles::shinyFilesButton(id = ns(load_btn), label = !!labels[[2]], title = 'Select Analysis Settings',
+#                                          multiple = FALSE, icon = shiny::icon('puzzle-piece'), style = 'width:100%')
+#           )
+#         )
+#       })
+# 
+#       # redirect shiny server file chooser home directory
+#       eval_when_ready(function(.env, ...){
+# 
+#         with(.env, {
+#           input %?<-% getDefaultReactiveInput()
+#           shiny_is_running <- function() {
+#             cls <- class(getDefaultReactiveDomain())
+#             any(cls %in% c('ShinySession', 'session_proxy'))
+#           }
+#           save_inputs <- function(yaml_path, variables_to_export){
+#             if( !shiny_is_running() || !exists('getDefaultReactiveInput') ){ return(FALSE) }
+# 
+#             input <- getDefaultReactiveInput()
+#             cache_list = shiny::isolate(shiny::reactiveValuesToList(input))
+#             if(!missing(variables_to_export)) {
+#               cache_list =cache_list[variables_to_export]
+#             }
+#             # if( exists('local_data') && shiny::is.reactivevalues(local_data) ){
+#             #   local_dat = shiny::isolate(shiny::reactiveValuesToList(local_data))
+#             #   cl = names(cache_list); cl = cl[cl %in% names(local_dat)]
+#             #   cache_list[cl] = local_dat[cl]
+#             # }
+#             yaml::write_yaml(x = cache_list, fileEncoding = 'utf-8', file = yaml_path)
+#             return(TRUE)
+#           }
+# 
+#           # save Modal pop up
+#           observeEvent(input[[!!save_btn]], {
+#             tstmp <- strftime(Sys.time(), format = '%Y-%h-%d')
+# 
+#             shiny::showModal(shiny::modalDialog(
+#               title = 'Save Analysis Settings',
+#               size = 's',
+#               easyClose = TRUE,
+#               textInput(ns(!!save_text), label = 'Settings Name', value = paste0(!!name_prefix, tstmp)),
+#               tags$small('Will overwrite settings with the same name currently in RAVE settings folder'),
+#               footer = tagList(
+#                 rave::actionButtonStyled(ns(!!do_save), 'Save'),
+#                 shiny::modalButton("Cancel")
+#               )
+#             ))
+#           })
+# 
+#           # Modal do save
+#           observeEvent(input[[!!do_save]], {
+#             # save
+#             fname = input[[!!save_text]]
+#             fname = stringr::str_replace_all(fname, '[^a-zA-Z0-9]+', '_')
+#             fname = paste0(fname, '.yaml')
+#             save_dir = file.path(subject$dirs$subject_dir, '..', '_project_data', !!write_source)
+#             dir.create(save_dir, recursive = TRUE, showWarnings = FALSE)
+#             save_inputs(file.path(save_dir, fname))
+#             shiny::removeModal()
+#           })
+# 
+#         })
+# 
+#       })
+#     }))
+# 
+#   })
+# 
+#   parent_env = parent.frame()
+#   rave::eval_dirty(quo, env = parent_env)
+# }

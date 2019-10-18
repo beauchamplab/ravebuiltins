@@ -26,41 +26,60 @@ matrix_to_table <- function(mat, row_label=' ') {
     return(str)
 }
 
+multiple_comparisons <- function() {
+    # return()
+    # lmer_results = local_data$lmer_results
+    # 
+    # if(is.null(local_data$lmer_results)){
+        return(htmltools::div(style='color:#a1a1a1; text-align:center; ', 'No model calculated yet'))
+    # }
+    print('in MC')
+    
+    test_conditions <- htmltable_coefmat(ls_means(lmer_results))
+    compare_conditions <- htmltable_coefmat(ls_means(lmer_results, pairwise = TRUE))
+    
+    htmltools::p(
+        test_conditions$table,
+        hr(),
+        compare_conditions$table
+    )
+}
 
-lme_out = function() {
+lme_out <- function() {
     # put analysis information in here
     if(is.null(local_data$lmer_results)){
         return(htmltools::div(style='color:#a1a1a1; text-align:center; ', 'No model calculated yet'))
     }
     
+    print('in lme out')
+    
+    
     lmer_results = local_data$lmer_results
+    lmer_summary = local_data$lmer_results_summary
     
-    # flat_data <- isolate(local_data$full_table)
-    #
-    #   # ranef
-    #   ngrps(.lmer)
-    #
-    #   model.matrix(.lmer, 'fixed') %>% str
-    #   model.frame(.lmer) %>% str
-    #
-    #   plot(fitted(.lmer) + resid(.lmer), fitted(.lmer), asp=1)
-    #
+    deviance_summary = car::Anova(lmer_results)
     
-    smry = summary(lmer_results)
     
-    tbl_html = htmltable_coefmat(smry$coefficients, caption = 'LME Summary Table')
+    print('got deviance summary')
+    
+    tbl_html = htmltable_coefmat(lmer_summary$coefficients, caption = 'LME Summary Table')
+    anova_html = htmltable_coefmat(deviance_summary, caption = 'LME Analysis of Deviance Table')
+    
+    test_conditions <- htmltable_coefmat(ls_means(lmer_results))
+    compare_conditions <- htmltable_coefmat(ls_means(lmer_results, pairwise = TRUE))
+    
     # put a description row
     htmltools::p(
-        smry$methTitle, sprintf(' (%s)', smry$objClass), br(),
+        lmer_summary$methTitle, sprintf(' (%s)', lmer_summary$objClass), br(),
         'LME call: ', strong(format(formula(lmer_results))), br(),
         
-        'Number of obs: ', strong(smry$devcomp$dims[["n"]]), 'groups: ', 
-        strong(paste(paste(names(smry$ngrps), smry$ngrps, sep = ', '), collapse = '; ')), br(),
+        'Number of obs: ', strong(lmer_summary$devcomp$dims[["n"]]), 'groups: ', 
+        strong(paste(paste(names(lmer_summary$ngrps), lmer_summary$ngrps, sep = ', '), collapse = '; ')), br(),
         
         br(),
         # Convergence criteria
         local({
-            aictab = smry$AICtab
+            aictab = lmer_summary$AICtab
             t.4 <- round(aictab, 1)
             if (length(aictab) == 1 && names(aictab) == "REML") 
                 res = tagList(paste("REML criterion at convergence:", t.4), br())
@@ -76,11 +95,16 @@ lme_out = function() {
         # residual
         do.call('sprintf', c(
             list('Scaled residual: %.4g (min), %.4g (25%%), %.4g (median), %.4g (75%%), %.4g (max)'),
-            structure(as.list(quantile(smry$residuals, na.rm = TRUE)), names = NULL)
+            structure(as.list(quantile(lmer_summary$residuals, na.rm = TRUE)), names = NULL)
         )),
         
         # coef table
-        tbl_html$table
-        
+        tbl_html$table,
+        hr(),
+        anova_html$table,
+        hr(),
+        test_conditions$table,
+        hr(),
+        compare_conditions$table
     )
 }

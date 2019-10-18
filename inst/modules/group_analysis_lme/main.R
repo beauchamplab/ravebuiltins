@@ -22,12 +22,12 @@ mount_demo_subject(force_reload_subject = T)
 
 # module_id = 'group_analysis_lme'
 module = ravebuiltins:::debug_module('group_analysis_lme')
-
-result = module(ANALYSIS_WINDOW = 0)
-result$phase_histogram()
-result$itpc_plot()
-result$itpc_time_plot()
-result$phase_plot()
+# 
+# result = module(ANALYSIS_WINDOW = 0)
+# result$phase_histogram()
+# result$itpc_plot()
+# result$itpc_time_plot()
+# result$phase_plot()
 
 results = result$results
 
