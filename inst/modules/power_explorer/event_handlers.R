@@ -42,24 +42,25 @@ local_data = reactiveValues(
 observeEvent(input$analysis_settings_load, {
     fdata = input$analysis_settings_load
     if(!is.list(fdata) || !length(fdata$files)){ return() }
-    assign('fdata', fdata, envir = globalenv())
+    # assign('fdata', fdata, envir = globalenv())
     f_name = unlist(fdata$files); names(f_name) = NULL
     
-    read_source = c('Analysis Settings' = 'analysis_yamls')
+    roots = c('RAVE Home' = normalizePath(subject$dirs$data_dir), 'root' = '/')
     
-    f_name = c(subject$dirs$subject_dir, '..', '_project_data', read_source[[fdata$root]], f_name)
-    f_path = do.call(file.path, as.list(f_name))
-    print(f_path)
+    f_path = do.call(file.path, as.list(c(roots[[fdata$root]], f_name)))
     conf = yaml::read_yaml(f_path)
-    print(conf)
     
     updateCheckboxInput(session, inputId = 'auto_calculate', value = FALSE)
     lapply(1:10, function(ii){
         gc_id = sprintf('GROUPS_group_conditions_%d', ii)
         gc = conf[[gc_id]]
         if(!length(gc)){ gc = character(0) }
-        print(paste(ii, c(gc)))
         updateSelectInput(session, gc_id, selected = gc)
+        
+        gc_id = sprintf('GROUPS_group_names_%d', ii)
+        gc = conf[[gc_id]]
+        if(length(gc) != 1){ gc = '' }
+        updateTextInput(session, gc_id, value = gc)
     })
 })
 
