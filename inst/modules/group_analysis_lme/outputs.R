@@ -221,6 +221,8 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, ...){
     # Check whether load is needed
     lmer_results = local_data$lmer_results
     
+    # assign('lmer_results', lmer_results, envir = globalenv())
+    
     shiny::validate(shiny::need(!is.null(lmer_results), message = 'Please run LMER model first'))
     
     tbl = shiny::isolate(local_data$analysis_data_filtered)
@@ -239,9 +241,9 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, ...){
     val_ranges = list()
     if('Electrode:Subject' %in% names(coef)){
         dat = data.matrix(coef$`Electrode:Subject`)
-        if('(Intercept)' %in% names(coef$`Electrode:Subject`)[[1]]){
-            dat[, -1] = dat[, -1] + dat[, 1]
-        }
+        # if('(Intercept)' %in% names(coef$`Electrode:Subject`)[[1]]){
+        #     dat[, -1] = dat[, -1] + dat[, 1]
+        # }
         data_range = max(abs(range(dat)))
         tmp = rownames(dat)
         tmp = stringr::str_split_fixed(tmp, ':', n = 2)
@@ -251,13 +253,27 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, ...){
         dat$Electrode = as.integer(tmp[,1])
         dat$Subject = tmp[,2]
         elec_table = dat
+    }else if('Subject:Electrode' %in% names(coef)){
+        dat = data.matrix(coef$`Subject:Electrode`)
+        # if('(Intercept)' %in% names(coef$`Subject:Electrode`)[[1]]){
+        #     dat[, -1] = dat[, -1] + dat[, 1]
+        # }
+        data_range = max(abs(range(dat)))
+        tmp = rownames(dat)
+        tmp = stringr::str_split_fixed(tmp, ':', n = 2)
+        dat = as.data.frame(dat)
+        val_ranges = sapply(names(dat), function(d){ c(-data_range, data_range) }, 
+                            simplify = FALSE, USE.NAMES = TRUE)
+        dat$Electrode = as.integer(tmp[,2])
+        dat$Subject = tmp[,1]
+        elec_table = dat
     }else if('Electrode' %in% names(coef)){
         # Subject only has one
         
         dat = data.matrix(coef$Electrode)
-        if('(Intercept)' %in% names(coef$Electrode)[[1]]){
-            dat[, -1] = dat[, -1] + dat[, 1]
-        }
+        # if('(Intercept)' %in% names(coef$Electrode)[[1]]){
+        #     dat[, -1] = dat[, -1] + dat[, 1]
+        # }
         data_range = max(abs(range(dat)))
         dat = as.data.frame(dat)
         

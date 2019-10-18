@@ -111,7 +111,12 @@ define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline', initial_value =
 
 
 # define_input_analysis_file_chooser('analysis_settings', read_source = c('Analysis Settings' = 'analysis_yamls'))
-
+define_input_analysis_yaml_chooser(
+  'analysis_settings', name_prefix = 'power_explorer_settings_', 
+  # Relative to project directory
+  read_path = 'power_explorer/settings',
+  labels = c('Save settings', 'Load settings')
+)
 
 define_input(
   definition = selectInput('combine_method', 'Electrode Transforms',

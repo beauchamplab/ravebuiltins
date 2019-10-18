@@ -935,110 +935,109 @@ define_input_table_filters <- function(
 
 
 # options to save and load analysis parameters
-# define_input_analysis_file_chooser <- function(
-#   inputId, labels = c('Save settings', 'Load settings'),
-#   name_prefix = 'power_explorer_settings_',
-#   read_source = c('Analysis Settings' = 'analysis_yamls'),
-#   write_source = 'settings',
-#   default_path = ''
-# ){
-#   save_btn = paste0(inputId, '_save')
-#   load_btn = paste0(inputId, '_load')
-#   save_text = paste0(inputId, '_savename')
-#   do_save = paste0(inputId, '_do_save')
-#   quo = rlang::quo({
-#     define_input(customizedUI(inputId = !!inputId))
-#     load_scripts(rlang::quo({
-#       assign(!!inputId, function(){
-# 
-#         read_source = c('/' = '/')
-# 
-#         load_btn = as.character(!!load_btn)
-#         fp = names(!!read_source)
-#         shinyFiles::shinyFileChoose(
-#           input = input,
-#           id = load_btn, roots= c('/' = '/'),
-#           filetypes = c('yaml', 'yml'), defaultRoot = '/',
-#           defaultPath = !!default_path
-#         )
-# 
-#         div(
-#           class = 'rave-grid-inputs', style='border:none',
-#           div(
-#             style = 'flex-basis:50%',
-#             rave::actionButtonStyled(inputId = ns(!!save_btn),
-#                                      label=!!labels[[1]], icon = shiny::icon('save'), width = '100%')
-#           ),
-#           div(
-#             style = 'flex-basis:50%',
-#             shinyFiles::shinyFilesButton(id = ns(load_btn), label = !!labels[[2]], title = 'Select Analysis Settings',
-#                                          multiple = FALSE, icon = shiny::icon('puzzle-piece'), style = 'width:100%')
-#           )
-#         )
-#       })
-# 
-#       # redirect shiny server file chooser home directory
-#       eval_when_ready(function(.env, ...){
-# 
-#         with(.env, {
-#           input %?<-% getDefaultReactiveInput()
-#           shiny_is_running <- function() {
-#             cls <- class(getDefaultReactiveDomain())
-#             any(cls %in% c('ShinySession', 'session_proxy'))
-#           }
-#           save_inputs <- function(yaml_path, variables_to_export){
-#             if( !shiny_is_running() || !exists('getDefaultReactiveInput') ){ return(FALSE) }
-# 
-#             input <- getDefaultReactiveInput()
-#             cache_list = shiny::isolate(shiny::reactiveValuesToList(input))
-#             if(!missing(variables_to_export)) {
-#               cache_list =cache_list[variables_to_export]
-#             }
-#             # if( exists('local_data') && shiny::is.reactivevalues(local_data) ){
-#             #   local_dat = shiny::isolate(shiny::reactiveValuesToList(local_data))
-#             #   cl = names(cache_list); cl = cl[cl %in% names(local_dat)]
-#             #   cache_list[cl] = local_dat[cl]
-#             # }
-#             yaml::write_yaml(x = cache_list, fileEncoding = 'utf-8', file = yaml_path)
-#             return(TRUE)
-#           }
-# 
-#           # save Modal pop up
-#           observeEvent(input[[!!save_btn]], {
-#             tstmp <- strftime(Sys.time(), format = '%Y-%h-%d')
-# 
-#             shiny::showModal(shiny::modalDialog(
-#               title = 'Save Analysis Settings',
-#               size = 's',
-#               easyClose = TRUE,
-#               textInput(ns(!!save_text), label = 'Settings Name', value = paste0(!!name_prefix, tstmp)),
-#               tags$small('Will overwrite settings with the same name currently in RAVE settings folder'),
-#               footer = tagList(
-#                 rave::actionButtonStyled(ns(!!do_save), 'Save'),
-#                 shiny::modalButton("Cancel")
-#               )
-#             ))
-#           })
-# 
-#           # Modal do save
-#           observeEvent(input[[!!do_save]], {
-#             # save
-#             fname = input[[!!save_text]]
-#             fname = stringr::str_replace_all(fname, '[^a-zA-Z0-9]+', '_')
-#             fname = paste0(fname, '.yaml')
-#             save_dir = file.path(subject$dirs$subject_dir, '..', '_project_data', !!write_source)
-#             dir.create(save_dir, recursive = TRUE, showWarnings = FALSE)
-#             save_inputs(file.path(save_dir, fname))
-#             shiny::removeModal()
-#           })
-# 
-#         })
-# 
-#       })
-#     }))
-# 
-#   })
-# 
-#   parent_env = parent.frame()
-#   rave::eval_dirty(quo, env = parent_env)
-# }
+define_input_analysis_yaml_chooser <- function(
+  inputId, name_prefix = 'settings_', 
+  # Relative to project directory
+  read_path, write_path = read_path,
+  labels = c('Save settings', 'Load settings')
+){
+  save_btn = paste0(inputId, '_save')
+  load_btn = paste0(inputId, '_load')
+  save_text = paste0(inputId, '_savename')
+  do_save = paste0(inputId, '_do_save')
+  quo = rlang::quo({
+    define_input(customizedUI(inputId = !!inputId))
+    load_scripts(rlang::quo({
+      assign(!!inputId, function(){
+
+        defaultPath = do.call(file.path, as.list(c(subject$project_name, '_project_data', !!read_path)))
+        dir.create(file.path(subject$dirs$data_dir, defaultPath), showWarnings = FALSE, recursive = TRUE)
+        defaultPath = normalizePath(defaultPath)
+        shinyFiles::shinyFileChoose(
+          input = input,
+          id = !!load_btn, roots= c('RAVE Home' = normalizePath(subject$dirs$data_dir), 'root' = '/'),
+          filetypes = c('yaml', 'yml'), defaultRoot = 'RAVE Home',
+          defaultPath = defaultPath
+        )
+
+        div(
+          class = 'rave-grid-inputs', style='border:none',
+          div(
+            style = 'flex-basis:50%',
+            rave::actionButtonStyled(inputId = ns(!!save_btn),
+                                     label=!!labels[[1]], icon = shiny::icon('save'), width = '100%')
+          ),
+          div(
+            style = 'flex-basis:50%',
+            shinyFiles::shinyFilesButton(id = ns(!!load_btn), label = !!labels[[2]], title = 'Select Analysis Settings',
+                                         multiple = FALSE, icon = shiny::icon('puzzle-piece'), style = 'width:100%')
+          )
+        )
+      })
+
+      # redirect shiny server file chooser home directory
+      eval_when_ready(function(.env, ...){
+
+        with(.env, {
+          input %?<-% getDefaultReactiveInput()
+          shiny_is_running <- function() {
+            cls <- class(getDefaultReactiveDomain())
+            any(cls %in% c('ShinySession', 'session_proxy'))
+          }
+          save_inputs <- function(yaml_path, variables_to_export){
+            if( !shiny_is_running() || !exists('getDefaultReactiveInput') ){ return(FALSE) }
+
+            input <- getDefaultReactiveInput()
+            cache_list = shiny::isolate(shiny::reactiveValuesToList(input))
+            if(!missing(variables_to_export)) {
+              cache_list =cache_list[variables_to_export]
+            }
+            # if( exists('local_data') && shiny::is.reactivevalues(local_data) ){
+            #   local_dat = shiny::isolate(shiny::reactiveValuesToList(local_data))
+            #   cl = names(cache_list); cl = cl[cl %in% names(local_dat)]
+            #   cache_list[cl] = local_dat[cl]
+            # }
+            yaml::write_yaml(x = cache_list, fileEncoding = 'utf-8', file = yaml_path)
+            return(TRUE)
+          }
+
+          # save Modal pop up
+          observeEvent(input[[!!save_btn]], {
+            tstmp <- strftime(Sys.time(), format = '%Y-%h-%d')
+
+            shiny::showModal(shiny::modalDialog(
+              title = 'Save Analysis Settings',
+              size = 's',
+              easyClose = TRUE,
+              textInput(ns(!!save_text), label = 'Settings Name', value = paste0(!!name_prefix, tstmp)),
+              tags$small('Will overwrite settings with the same name currently in RAVE settings folder'),
+              footer = tagList(
+                rave::actionButtonStyled(ns(!!do_save), 'Save'),
+                shiny::modalButton("Cancel")
+              )
+            ))
+          })
+
+          # Modal do save
+          observeEvent(input[[!!do_save]], {
+            # save
+            fname = input[[!!save_text]]
+            fname = stringr::str_replace_all(fname, '[^a-zA-Z0-9]+', '_')
+            fname = paste0(fname, '.yaml')
+            save_dir = do.call(file.path, as.list(c(normalizePath(subject$dirs$subject_dir, mustWork = TRUE), '..', '_project_data', !!write_path)))
+            print(save_dir)
+            dir.create(save_dir, recursive = TRUE, showWarnings = FALSE)
+            save_inputs(file.path(save_dir, fname))
+            shiny::removeModal()
+          })
+
+        })
+
+      })
+    }))
+
+  })
+
+  parent_env = parent.frame()
+  rave::eval_dirty(quo, env = parent_env)
+}
