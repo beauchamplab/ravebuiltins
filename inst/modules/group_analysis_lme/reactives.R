@@ -286,18 +286,64 @@ observeEvent(input$run_analysis, {
     subset_data %<>% subset(Time %within% analysis_window)
     collapsed_data <- do_aggregate(Power ~ Group + Electrode + Subject, data=subset_data, FUN=mean)
     local_data$collapsed_data = collapsed_data
-    
     local_data$agg_over_trial = aggregate(Power ~ Group + Time + Subject + Electrode,
                                           local_data$over_time_data, FUN=mean) %>% do_aggregate(Power ~ Group + Time, .fast_mse)
     
+    by_el_data = local_data$over_time_data %>%
+        subset((.)$Time %within% analysis_window) %>% 
+        do_aggregate(Power ~ Condition + Trial + Subject + Electrode + Project + Group, mean)
+    by_el_data$UUID = by_el_data %$% {Subject %&% Electrode}
+    
+    by_el_data %>% split((.)$UUID) %>% lapply(function(bed) {
+        # bed <- by_el_data %>% split((.)$UUID) %>% extract2(1)
+        summ = summary(lsmeans::lsmeans(
+                            lm(Power ~ Group, data=bed),
+                            pairwise ~ Group),
+                       infer=TRUE)
+        
+        a = summ$lsmeans[c('Group', 'lsmean', 't.ratio', 'p.value')] %$% {
+            c(rbind(lsmean, t.ratio, p.value))
+        } %>% set_names(
+            c(outer(c('m(', 't(', 'p('), levels(bed$Group), paste0)) %&% ')'
+        )
+        
+        b = summ$contrasts[c('contrast', 'estimate', 't.ratio', 'p.value')] %$% {
+            c(rbind(estimate, t.ratio, p.value))
+        } %>% set_names(
+            c(outer(c('m(', 't(', 'p('), summ$contrasts$contrast, paste0)) %&% ')'
+        )
+
+        res <- data.frame(Project = bed$Project[1], Subject = bed$Subject[1], 
+                          Electrode = bed$Electrode[1])
+        res[names(a)] = a
+        res[names(b)] = b
+        res
+    })  %>% rbind_list %>% set_rownames(NULL) -> by_el_results
+    
+    by_el_results[names(by_el_results) %>% startsWith('p(')] %<>% lapply(function(pval){
+        lpval = pmax(-16, log10(pval))
+        
+        ifelse(lpval > -2.5,
+               formatC(round(pval,3),width = 3, digits=4),
+               paste0('1e', formatC(round(lpval), width=3,flag=0)))
+    })
+    
+    by_el_results[names(by_el_results) %>% startsWith('t(')] %<>% lapply(round, 2)
+    by_el_results[names(by_el_results) %>% startsWith('m(')] %<>% lapply(round, 2)
+    by_el_results$Electrode <-  as.numeric(as.character(by_el_results$Electrode))
+    local_data$by_electrode_results = by_el_results
+    
     fo = input$model_formula
-    fo %<>% as.formula #as.formula('Power ~ Group + (1|Subject/Electrode)')
+    fo %<>% as.formula #fo=as.formula('Power ~ Group + (1|Subject/Electrode)')
     tryCatch({
         lmer_results = lmerTest::lmer(fo, data=collapsed_data, na.action=na.omit)
-        assign('..local_data', value = shiny::isolate(shiny:::reactiveValuesToList(local_data)), envir = globalenv())
         
         local_data$lmer_results_summary <- summary(lmer_results)
         local_data$lmer_results = lmer_results
+        
+        if(exists('.__DEBUG__'))
+            assign('..local_data', value = shiny::isolate(shiny:::reactiveValuesToList(local_data)), envir = globalenv())
+        
         showNotification(p('Model finished!'), duration = 3, type = 'default', id = ns('noti'))
     }, error = function(e){
         print(e)

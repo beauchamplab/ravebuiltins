@@ -213,14 +213,14 @@ input_layout = list(
 
 define_output(
     definition = customizedUI('src_data_snapshot', style='min-height:500px'),
-    title = 'Data Snapshot',
+    title = 'Data Description',
     width = 5,
     order = 1e2
 )
 
 define_output(
-    definition = customizedUI('lme_out', style='min-height:300px'),
-    title = 'LME Output',
+    definition = customizedUI('lme_out', style='min-height:500px'),
+    title = 'Model Output',
     width = 12,
     order = 2
 )
@@ -234,12 +234,16 @@ define_output(
 
 define_output(
   definition = plotOutput('windowed_activity', height='500px'),
-  title = 'Mean activity within anlaysis window',
+  title = 'Mean power in analysis window',
   width = 4,
   order = 1
 )
 
-
+define_output(
+  definition = customizedUI('mass_univariate_results', style='min-height:500px'),
+  title = ' ',
+  width = 12, order=5
+)
 
 define_output_3d_viewer(
     outputId = 'lme_3dviewer',
@@ -253,8 +257,7 @@ define_output_3d_viewer(
 output_layout = list(
   'Model Results' = list(
     'Model Fitting Results' = c('power_over_time', 'windowed_activity', 'lme_out'),
-    # 'Graphs' = c('group_figures'),
-    'Results on Surface' = c('lme_3dviewer'),
+    'Results by electrode' = c('lme_3dviewer', 'mass_univariate_results'),
     'Data Description' = c('src_data_snapshot')
   )
   # 'Multiple Output' = 'src_data_snapshot'

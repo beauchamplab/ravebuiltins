@@ -1,6 +1,4 @@
 
-
-
 matrix_to_table <- function(mat, row_label=' ') {
     cnms <- colnames(mat)
     rnms <- rownames(mat)
@@ -51,28 +49,39 @@ lme_out <- function() {
         return(htmltools::div(style='color:#a1a1a1; text-align:center; ', 'No model calculated yet'))
     }
     
-    print('in lme out')
-    
-    
     lmer_results = local_data$lmer_results
     lmer_summary = local_data$lmer_results_summary
     
     deviance_summary = car::Anova(lmer_results)
     
+    # clean row names
+    gnames = levels(local_data$collapsed_data$Group)
+    fix_rownames <- function(m, regression=FALSE) {
+        .match = paste0("Group", gnames)
+        if(regression) {
+            .replace = c(gnames[1], paste(gnames, 'rel. to', gnames[1]))
+            names(.replace) = c('\\(Intercept\\)', .match)
+        } else {
+            .replace = gnames
+            names(.replace) = .match
+        }
+        rownames(m) = stringr::str_remove_all(rownames(m), .replace)
+        m
+    }
     
-    print('got deviance summary')
+    lmer_summary$coefficients %<>% fix_rownames(regression=TRUE)
+    tbl_html = htmltable_coefmat(lmer_summary$coefficients)
     
-    tbl_html = htmltable_coefmat(lmer_summary$coefficients, caption = 'LME Summary Table')
-    anova_html = htmltable_coefmat(deviance_summary, caption = 'LME Analysis of Deviance Table')
+    anova_html = htmltable_coefmat(deviance_summary)
     
-    test_conditions <- htmltable_coefmat(ls_means(lmer_results))
-    compare_conditions <- htmltable_coefmat(ls_means(lmer_results, pairwise = TRUE))
+    test_conditions <- htmltable_coefmat(fix_rownames(ls_means(lmer_results)))
+    compare_conditions <- htmltable_coefmat(fix_rownames(ls_means(lmer_results,
+                                                     pairwise = TRUE)))
     
     # put a description row
     htmltools::p(
         lmer_summary$methTitle, sprintf(' (%s)', lmer_summary$objClass), br(),
         'LME call: ', strong(format(formula(lmer_results))), br(),
-        
         'Number of obs: ', strong(lmer_summary$devcomp$dims[["n"]]), 'groups: ', 
         strong(paste(paste(names(lmer_summary$ngrps), lmer_summary$ngrps, sep = ', '), collapse = '; ')), br(),
         
@@ -99,12 +108,16 @@ lme_out <- function() {
         )),
         
         # coef table
+        h3('LME Regression Table'),
         tbl_html$table,
         hr(),
+        h3('Analysis of Deviance table from car::Anova'),
         anova_html$table,
         hr(),
+        h3('Compare condition means against 0'),
         test_conditions$table,
         hr(),
+        h3('All pairwise comparisons'),
         compare_conditions$table
     )
 }

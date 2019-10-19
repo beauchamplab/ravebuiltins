@@ -177,6 +177,27 @@ windowed_activity <- function() {
     
 }
 
+mass_univariate_results <-  function(){
+    lmer_results = local_data$lmer_results
+    shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
+
+    htmltools::div(
+        hr(),
+        h3('Results per electrode'),
+        DT::dataTableOutput(ns('show_by_electrode_results'))        
+    )
+}
+
+output$show_by_electrode_results <- DT::renderDataTable({
+    by_electrode_results = local_data$by_electrode_results
+    
+    DT::datatable(by_electrode_results, class = 'nowrap',
+                  options = list(
+                      scrollX = TRUE,
+                      order = list(list(2, 'asc'), list(3, 'desc'))
+                  ))
+})
+
 power_over_time <- function() {
     lmer_results = local_data$lmer_results
     shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
@@ -200,15 +221,13 @@ power_over_time <- function() {
         attr(res$data, 'ylab') = 'Power'
         res
     })
-    
     set_palette('OrBlGrRdBrPr')
     time_series_plot(plot_data = lpd)
     axis_label_decorator(lpd)
     
     abline(v=input$analysis_window, lty=2)
     
-    legend_include = c('name', 'N')
-    legend_decorator(lpd, include = legend_include)
+    legend_decorator(lpd, include = c('name', 'N'))
 }
 
 lmer_diagnosis = function(){
@@ -263,15 +282,9 @@ lmer_diagnosis = function(){
     # 4. Boxplot of residuals vs Electrodes
 }
 
-# 3D viewer, takes 3 args
-lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, ...){
-    # Check whether load is needed
-    lmer_results = local_data$lmer_results
-    
-    # assign('lmer_results', lmer_results, envir = globalenv())
-    
-    shiny::validate(shiny::need(!is.null(lmer_results), message = 'Please run LMER model first'))
-    
+
+
+..old_code_for_visualize_lmer_results <- function() {
     tbl = shiny::isolate(local_data$analysis_data_filtered)
     
     # assign('lmer_results', lmer_results, envir = globalenv())
@@ -331,23 +344,41 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, ...){
         
     }
     
-    re = NULL
-    if(is.data.frame(elec_table)){
-        elec_table$Project = project_name
-        # load brain
-        brains = lapply(unique(elec_table$Subject), function(sub){
-            tryCatch({
-                rave::rave_brain2(sprintf('%s/%s', project_name, sub))
-            }, error = function(e){ NULL })
-        })
-        brains = rave::dropNulls(brains)
-        brain = threeBrain::merge_brain(.list = brains, template_surface_types = c('pial', 'inf_200', 'smoothwm'))
+}
+
+
+# 3D viewer, takes 3 args
+lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, ...){
+    # Check whether load is needed
+    lmer_results = local_data$lmer_results
+    shiny::validate(shiny::need(!is.null(lmer_results), message = 'Please run LMER model first'))
+    
+    by_electrode_results = local_data$by_electrode_results
+    
+    #make sure all the pvalues are numeric
+    by_electrode_results[startsWith(names(by_electrode_results), 'p(')] %<>% lapply(as.numeric)
+    
+    # load brain
+    brains = lapply(unique(by_electrode_results$Subject), function(sub){
+        tryCatch({
+            rave::rave_brain2(sprintf('%s/%s', by_electrode_results$Project[1], sub))
+        }, error = function(e){ NULL })
+    })
+    brains = rave::dropNulls(brains)
+    brain = threeBrain::merge_brain(.list = brains, template_surface_types = c('pial', 'inf_200'))
+    
+    # set_palette()
+    nms <- names(by_electrode_results)[-(1:3)]
+    val_ranges = sapply(nms, function(d) {
+        if (startsWith(d, 'p('))
+            return(c(-.2, .2))
         
-        # set_palette()
-        brain$set_electrode_values(elec_table)
-        re = brain$plot(side_width = side_width, val_ranges = val_ranges,
-                        side_display = FALSE, control_display=FALSE)
-    }
+        c(-1, 1) * ceiling(max(abs(by_electrode_results[[d]])))
+    }, simplify = FALSE, USE.NAMES = TRUE)
+    
+    brain$set_electrode_values(by_electrode_results)
+    re = brain$plot(side_width = side_width, val_ranges = val_ranges,
+                    side_display = FALSE, control_display=FALSE)
 }
 
 
