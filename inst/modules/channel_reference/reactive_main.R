@@ -118,32 +118,44 @@ output[['elec_loc']] <- threeBrain::renderBrain({
         Group = tbl$Group[sel]
         Type = tbl$Type[sel]
         Reference = tbl$Reference[sel]
-        sprintf('<p>Reference - %s (%s)<br/>Reference to - %s</p>', Group, Type, Reference)
+        sprintf('Group - %s (%s)Reference to - %s', Group, Type, Reference)
     }) ->
         marker
 
-    values = rep(-1, length(electrodes))
+    lev = factor(c('Current Group', 'Bad Electrode'))
+    values = rep(lev[1], length(electrodes))
     bad_electrodes = rave:::parse_selections(input[[('ref_bad')]])
-    values[electrodes %in% bad_electrodes] = 1
+    values[electrodes %in% bad_electrodes] = lev[2]
 
 
-    brain = rave_brain2(surfaces = 'pial', multiple_subject = F)
-    brain$load_electrodes(subject)
+    # brain = rave_brain2(surfaces = 'pial', multiple_subject = F)
+    # brain$load_electrodes(subject)
     
-    if(local_data$load_mesh){
-        brain$load_surfaces(subject, quiet = TRUE)
+    # make a table
+    tbl = data.frame(
+        Electrode = electrodes,
+        Type = values,
+        Note = marker
+    )
+    brain$set_electrode_values( tbl )
+    
+    if( isTRUE(local_data$load_mesh) ){
+        brain$plot(volumes = FALSE, surfaces = TRUE, side_canvas = FALSE, control_panel = FALSE, palettes = list(
+            'Type' = c('red', 'navy')
+        ))
+    }else{
+        # Maybe load N27 brain if not exists
+        brain$plot(volumes = FALSE, surfaces = FALSE, side_canvas = FALSE, control_panel = FALSE, palettes = list(
+            'Type' = c('red', 'navy')
+        ))
     }
     
-    for(ii in seq_along(electrodes)){
-        brain$set_electrode_value(subject = subject, electrode = electrodes[[ii]], value = values[[ii]], time = 0, message = marker[[ii]])
-    }
-    
-    brain$view(value_range = c(-1,1), control_panel = F)
+    # brain$view(value_range = c(-1,1), control_panel = F)
     
 })
 
 observeEvent(input$load_mesh, {
-    load_mesh = isolate(!local_data$load_mesh)
+    load_mesh = isolate(!isTRUE(local_data$load_mesh))
     local_data$load_mesh = load_mesh
     updateActionButton(session, 'load_mesh', label = ifelse(load_mesh, 'Hide Mesh', 'Show Mesh'))
 })
@@ -685,7 +697,7 @@ write_ref_table = function(){
     utils = rave_preprocess_tools()
     utils$load_subject(subject_code = subject$subject_code, project_name = subject$project_name)
     utils$save_to_subject(checklevel = 4) # 4 means referenced
-    switch_to('condition_explorer')
+    # switch_to('condition_explorer')
     return(fname)
 }
 

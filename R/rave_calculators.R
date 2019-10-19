@@ -358,7 +358,6 @@ get_favored_collapsers <- function(swap_var = 'collapse_using_median') {
 }
 
 .fast_se <- function(x) {
-    
     C_cov <- get_from_package('C_cov', 'stats', internal = TRUE, check = FALSE)
     
     sqrt(.Call(C_cov, x, NULL, 4, FALSE)/length(x))

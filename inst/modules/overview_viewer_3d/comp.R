@@ -25,118 +25,131 @@ module_id <- 'overview_viewer_3d'
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
+load_scripts(rlang::quo({ DEBUG = FALSE }),
+             'inst/modules/overview_viewer_3d/reactives.R', 
+             'inst/modules/overview_viewer_3d/outputs.R', 
+             asis = TRUE)
 
-#  ----------------------  Initializing Global variables -----------------------
-load_scripts(
-    get_path('inst/modules/overview_viewer_3d/reactive_inputs.R'),
-    get_path('inst/modules/overview_viewer_3d/io.R'),
-    rlang::quo({
-        
-        
-        # observe({
-        #     if(length(local_data$gen_3d)){
-        #         local_data$update_viewer_btn
-        #         isolate(update_data())
-        #         print(local_data$gen_3d)
-        #         local_data[['__update']] = Sys.time()
-        #     }
-        #     
-        # })
-        
-    }), 
-    asis = TRUE
-    
-)
 
 define_initialization({
     project_name = subject$project_name
-    current_subject = subject$subject_code
-    all_subjects = rave::get_subjects(project_name)
-    
+    current_subject_code = subject$subject_code
+    all_subject_code = rave::get_subjects( project_name )
+    project_dir = normalizePath(file.path(subject$dirs$rave_dir, '../../'))
 })
 
 
+
+
 #  ---------------------------------  Inputs -----------------------------------
-# Define inputs
-
 define_input(
-    definition = selectInput(
-        inputId = 'SURFACE_TYPES', label = 'Surface Type(s)', 
-        choices = c('pial', 'white', 'smoothwm'),
-        multiple = TRUE, selected = 'pial'),
-    init_args = 'selected',
-    init_expr = {
-        selected = 'pial'
-    }
-)
-
-define_input(
-    definition = selectInput(inputId = 'SUBJECTS', label = 'Subject(s)', choices = '', multiple = TRUE),
+    definition = shiny::selectInput(
+        inputId = 'subject_codes', label = 'Subject', choices = '', 
+        selected = character(0), multiple = TRUE),
     init_args = c('choices', 'selected'),
     init_expr = {
-        choices = all_subjects
-        selected = current_subject
+        choices = all_subject_code
+        selected = cache_input('subject_codes', current_subject_code)
     }
 )
 
 define_input(
-    definition = checkboxInput(inputId = 'load_n27', label = 'Force to load N27 brain.', value = FALSE)
+    definition = shiny::selectInput(
+        inputId = 'surface_types', label = 'Additional Surface Types',
+        choices = c('white', 'smoothwm', 'inf_200', 'pial-outer-smoothed', 'sphere', 'inflated'), 
+        selected = character(0), multiple = TRUE),
+    init_args = c('selected'),
+    init_expr = {
+        selected = cache_input('surface_types', character(0))
+    }
 )
+
+define_input(definition = shiny::checkboxInput(inputId = 'use_template', label = 'Use Template Brain', value = FALSE))
+
+define_input(definition = rave::actionButtonStyled(inputId = 'viewer_result_btn2', type = 'success', 'Update Viewer', width = '100%'))
+
+
+# Add csv file
+define_input(
+    definition = shiny::fileInput('csv_file', label = 'Upload a csv Data File', accept = 'text/csv', multiple = TRUE)
+)
+define_input(definition = customizedUI('file_check', width = '100%'))
 
 define_input(
-    definition = customizedUI('subject_checks')
+    definition = shiny::selectInput('data_files', label = 'Data Files', choices = NULL, selected = character(0), multiple = TRUE),
+    init_args = c('choices', 'selected'),
+    init_expr = {
+        # Find all csvs
+        choices = find_csv( project_dir, NULL )
+        local_env$csv_files = choices
+        selected = cache_input('data_files', character(0))
+    }
 )
 
-define_input(
-    definition = rave::actionButtonStyled('gen_3d', label = 'Generate 3D viewer', type = 'success')
-)
+
+define_input_3d_viewer_generator('viewer_result', label = 'Open viewer in a new tab', reactive = 'local_data')
 
 
-
-
-define_input(
-    definition = fileInput('DATA_FILE', label = 'Data File', multiple = FALSE)
-)
-
-define_input(
-    definition = customizedUI('data_checks')
-)
-
-define_input(
-    definition = actionButtonStyled('viewer_update_btn', 'Update Viewer', type = 'info')
-)
-
-define_input(
-    definition = customizedUI('viewer_inputs3')
-)
 
 input_layout = list(
-    'Surfaces' = list(
-        c('SURFACE_TYPES', 'SUBJECTS'),
-        'load_n27',
-        'subject_checks',
-        'gen_3d'
+    'Subject & Surfaces' = list(
+        c('subject_codes'),
+        c('surface_types'),
+        c('use_template'),
+        'viewer_result_btn2'
     ),
-    'Data' = list(
-        'DATA_FILE',
-        'data_checks',
-        'viewer_update_btn'
+    'Data Source' = list(
+        c('data_files'),
+        c('csv_file'),
+        c('file_check')
     ),
-    'Share' = list('viewer_inputs3')
+    'Misc' = list(
+        c('viewer_result', 'viewer_result_ui')
+    )
 )
+manual_inputs = c('subject_codes', 'surface_types', 'use_template', 'csv_file', 'viewer_result_download')
+
 
 
 # End of input
 # ----------------------------------  Outputs ----------------------------------
-# Define Outputs
+#' Define Outputs
 
+# define_output_3d_viewer(outputId = 'viewer_result', title = 'Embedded Viewer',
+#                         order = 1, width = 12, hide_btn = TRUE, height = '82vh')
 
 define_output(
-    definition = customizedUI('viewer_wrapper'),
+    definition = rave::customizedUI('viewer_result_out_ui'),
     title = 'Viewer',
     width = 12L,
     order = 1
 )
+
+define_output(
+    definition = rave::customizedUI('electrode_details'),
+    title = 'Details',
+    width = 4L,
+    order = 3
+)
+
+define_output(
+    definition = rave::customizedUI('electrode_table_ui'), #DT::dataTableOutput('electrode_table'),
+    title = 'Combined Data File',
+    width = 8,
+    order = 2
+)
+
+# output_layout = list(
+#   width = 12L,
+#   'Outputs' =list(
+#     'Data Table' = list(
+#       'electrode_details', 'viewer_result_out_ui'
+#     ),
+#     '3D Viewer' = list(
+#       'electrode_table'
+#     )
+#   )
+# )
 
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------

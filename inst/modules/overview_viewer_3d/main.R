@@ -8,84 +8,120 @@ mount_demo_subject()
 init_module(module_id = 'overview_viewer_3d', debug = TRUE)
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
-######' @auto=TRUE
 
-# Check all the data
-mis_terms = c('Surface cache', 'Surface files', 'Transform matrix', 'Surface volume file', 'Mapping to template')
+# Step 1. collect variables needed
+subject_codes = unique(c(subject$subject_code, subject_codes))
+project_name = subject$project_name
+local_data$current_subjecct = subject$subject_code
+local_data$current_project = project_name
+project_dir = normalizePath(file.path(subject$dirs$rave_dir, '../../'))
 
-has_subject = length(SUBJECTS) > 0
-multiple_subject = load_n27 || length(SUBJECTS) > 1
-
-has_surface = length(SURFACE_TYPES) > 0
-
-local_data$has_subject = has_subject
-local_data$has_surface = has_surface
-######'
-
-checks = sapply(SUBJECTS, function(s){
-  res = check_subject(project_name, s, SURFACE_TYPES)
+# Step 2. Read all csv files and combine them
+local_env$tables = list()
+selected_paths = lapply(data_files, function(p){
+  path = normalizePath(file.path(project_dir, '_project_data', '3dviewer',  p), mustWork = FALSE)
+  if(!file.exists(path)){ return() }
   
-  missing_files = paste(mis_terms[c(2,4)][!res[c(2,4)]], collapse = ', ')
-  if(missing_files != ''){
-    missing_files = tags$li(strong(s), missing_files)
-  }else{
-    missing_files = NULL
-  }
-  if(multiple_subject){
-    missing_cache = paste(mis_terms[c(1,3,5)][!res[c(1,3,5)]], collapse = ', ')
-  }else{
-    missing_cache = paste(mis_terms[c(1,3)][!res[c(1,3)]], collapse = ', ')
-  }
-  if(missing_cache != ''){
-    missing_cache = tags$li(strong(s), missing_cache)
-  }else{
-    missing_cache = NULL
-  }
-  
-  list(
-    subject_code = s,
-    result = res,
-    missing_files = missing_files,
-    missing_cache = missing_cache
-  )
-}, USE.NAMES = T, simplify = F)
-
-miss_f = any(vapply(checks, function(x){ !is.null(x$missing_files) }, FUN.VALUE = FALSE))
-miss_c = any(vapply(checks, function(x){ !is.null(x$missing_cache) }, FUN.VALUE = FALSE))
-
-local_data$file_checks = checks
-local_data$miss_f = miss_f
-local_data$miss_c = miss_c
-
-######'
-
-# load data
-has_data_file = FALSE
-valid_data = FALSE
-contains_data = FALSE
-dat = NULL
-
-if(length(DATA_FILE) && length(DATA_FILE$datapath)){
-  has_data_file = TRUE
-  dat = read_data(DATA_FILE$datapath)
-  if(is.data.frame(dat)){
-    dat = dat[dat$ProjectName == project_name & dat$SubjectCode %in% SUBJECTS, ]
-    valid_data = TRUE
-    if(nrow(dat)){
-      contains_data = TRUE
+  # Read in path
+  tryCatch({
+    dat = read.csv( path , stringsAsFactors = FALSE )
+    nms = names(dat)
+    if( !nrow(dat) ){ return() }
+    
+    # 1. Electrode
+    if( !'Electrode' %in% nms ){ return() }
+    
+    # 2. Subject
+    if( !'Subject' %in% nms ){
+      # try to guess subject code from p
+      subcode = unlist(stringr::str_split(p, '[\\\\/_]'))[[1]]
+      if( !subcode %in% subject_codes ){ return() }
+      dat$Subject = subcode
     }
+    
+    # 3. project
+    if( 'Project' %in% nms ){
+      dat = dat[dat$Project %in% subject$project_name, ]
+    }
+    dat$Project = subject$project_name
+    
+    # 4. Time
+    if( 'Time' %in% nms ){
+      dat$Time = as.numeric(dat$Time)
+      dat = dat[!is.na(dat$Time), ]
+    }else{
+      dat$Time = 0
+    }
+    
+    local_env$tables[[ path ]] = dat
+    return(path)
+  }, error = function(e){
+    NULL
+  })
+})
+
+selected_paths = unlist( selected_paths )
+# Find table names
+table_headers = lapply(selected_paths, function(path){ names(local_env$tables[[ path ]]) })
+table_headers = unique( unlist( table_headers ) )
+table_headers = c('Project', 'Subject', 'Electrode', 'Time',
+                  table_headers[!table_headers %in% c('Project', 'Subject', 'Electrode', 'Time')])
+
+elec_value_table = structure(lapply(table_headers, function(x){NULL}), 
+                             names = table_headers, class = 'data.frame')
+
+# This can't be a file path
+local_env$tables[['#$..^']] = elec_value_table
+combined_table = do.call('rbind', lapply(c('#$..^', selected_paths), function(path){
+  re = local_env$tables[[ path ]]
+  if( !is.data.frame(re) || !nrow(re)){ return( NULL ) } # this cannot happen but just in case
+  for( nm in table_headers[!table_headers %in% names(re)] ){
+    re[[nm]] = NA
   }
+  re
+}))
+
+print(names(local_env$tables))
+
+# Step 3. generate combined csv tables
+combined_table = combined_table[, table_headers]
+
+
+# Step 4. collect freesurfer data
+progress = rave::progress('Importing from FreeSurfer files', max = length(subject_codes) + 1)
+on.exit({ progress$close() })
+
+progress$inc('Initializing...')
+brain = lapply(subject_codes, function(subject_code){
+  progress$inc(sprintf('Import %s (might take a while)', subject_code))
+  check_result = rave:::check_subjects2(project_name = project_name, 
+                                        subject_code = subject_code, quiet = TRUE)
+  if( check_result$check$rave_dir ){
+    sub = rave::Subject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
+    return(rave::rave_brain2(sub, surfaces = surface_types))
+  }
+  return(NULL)
+})
+
+# Step 5. if template, use it
+brain = rave::dropNulls(brain)
+if( isTRUE(use_template) || length(brain) > 1 ){
+  brain = threeBrain::merge_brain(.list = brain)
+}else if(length(brain)){
+  brain = brain[[1]]
 }
 
-local_data$dat = dat
-local_data$has_data_file = has_data_file
-local_data$valid_data = valid_data
-local_data$contains_data = contains_data
-
-######'
-local_data$force_update = Sys.time()
+if( 'R6' %in% class(brain) && is.data.frame(combined_table) && nrow(combined_table) ){
+  brain$set_electrode_values(combined_table)
+}
 
 
+# Step 6. refresh UI
+local_data$viewer_result = Sys.time()
+
+# shiny::validate(
+#   shiny::need(length(brain), message = 'Cannot find any Brain object')
+# )
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 

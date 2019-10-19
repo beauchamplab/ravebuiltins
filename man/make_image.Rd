@@ -8,17 +8,21 @@ make_image(mat, x, y, zlim, col, log = "", useRaster = TRUE,
   clip_to_zlim = TRUE, add = TRUE)
 }
 \arguments{
+\item{mat}{z-matrix}
+
 \item{x, y}{z and y axis}
 
 \item{zlim}{value to trim zmat}
+
+\item{col}{vector of colors, color palette}
 
 \item{log}{which axis will be in log scale}
 
 \item{useRaster, ...}{passed to image()}
 
-\item{zmat}{z-matrix}
+\item{clip_to_zlim}{whether to clip mat}
 
-\item{xlab, }{ylab label for x and y}
+\item{add}{logical, whether to overlay current plot to an existing image}
 }
 \description{
 The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators.

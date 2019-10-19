@@ -76,11 +76,11 @@ to_module <- function(module_id, sidebar_width = 3){
   m
 }
 
-view_layout <- function(module_id, sidebar_width = 5, launch.browser = rstudio_viewer){
+view_layout <- function(module_id, sidebar_width = 5, launch.browser = rstudio_viewer, ...){
   # Always reload the package to the newest status and preview
   env = reload_this_package()
 
   m = env$to_module(module_id = module_id, sidebar_width = sidebar_width)
-  rave::init_app(m, launch.browser = launch.browser, disable_sidebar = T, simplify_header = T)
+  rave::init_app(m, launch.browser = launch.browser, disable_sidebar = T, simplify_header = T, ...)
 
 }

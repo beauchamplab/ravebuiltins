@@ -12,13 +12,15 @@
 #' so if you draw within the plotting region it will overwrite the heatmap. To fix this requires editing draw_img(...) to allow for a function to be called after creation but before rendering.
 #' Don't depend on this call order, use PANEL.LAST if you want to draw things on top of the heatmap
 #' @param PANEL.LAST a function that is called after the rendering of each heat map. It is not called after the rendering of the color bar. 
+#' @param axes vector of logicals, whether to draw axis
+#' @param xrange x range, similar to \code{xlim}
 #' @description Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar.
 #' By default it is setup for time/freq, but by swapping labels and decorators you can do anything.
 #' @seealso layout_heat_maps
 #' @seealso draw_img
 draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
                                 show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
-                                PANEL.FIRST=NULL, PANEL.LAST=NULL, axes=c(TRUE, TRUE), ...) {
+                                PANEL.FIRST=NULL, PANEL.LAST=NULL, axes=c(TRUE, TRUE), xrange=NULL, ...) {
 
     k <- sum(hmaps %>% get_list_elements('has_trials'))
     orig.pars <- layout_heat_maps(k)
@@ -29,7 +31,12 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
     # this is to add some extra spacing on the LEFT margin to allow, e.g., longer axis titles
     # we could also set this adaptively based on the max(nchar(...)) for the appropriate labels from hmap[[ii]] condition names
     if(wide) {
-        par(mar = c(5.1, 7, 2, 2))
+        #NB: B, L, T, R
+        # trying to be smart about the size of the margin to accomodate the angular text. R doesn't auto adjust :(
+        max_char_count = max(sapply(hmaps, function(h) ifelse(h$has_trials, max(nchar(h$conditions)), 1)))
+        
+        par(mar = c(5.1, 5.1 + max(0,(max_char_count - 5)*0.75),
+                    2, 2))
     }
 
     # actual data range, as opposed to the max zlim which controls the plottable range
@@ -44,9 +51,18 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
     } else {
         ''
     }
-    
     lapply(hmaps, function(map){
         if(map$has_trials){
+            
+            # check the plottable range, to make sure we're only plotting what the user has requested
+            xrange %?<-% range(map$x)
+
+            if (! all(map$x %within% xrange) ) {
+                ind <- map$x %within% xrange
+                map$x <- map$x[ind]
+                map$data <- map$data[ind,,drop=FALSE]
+            }
+            
             # we are linearizing the x and y spaces so that we can use the fast raster
             x <- seq_along(map$x)
             y <- seq_along(map$y)
@@ -109,9 +125,20 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
 }
 
 # show power over time with MSE by condition
-time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL) {
+time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, xrange=NULL) {
     
-    xlim <- pretty(get_list_elements(plot_data, 'x') %>% unlist)
+    # check the plottable range, to make sure we're only plotting what the user has requested
+    xrange %?<-% get_data_range(plot_data, 'x')
+    
+    for(ii in seq_along(plot_data)) {
+        if (! all(plot_data[[ii]]$x %within% xrange) ) {
+            ind <- plot_data[[ii]]$x %within% xrange
+            plot_data[[ii]]$x <- plot_data[[ii]]$x[ind]
+            plot_data[[ii]]$data <- plot_data[[ii]]$data[ind,,drop=FALSE]
+        }
+    }
+    
+    xlim <- pretty(xrange)#get_list_elements(plot_data, 'x') %>% unlist)
     ylim <- pretty(get_data_range(plot_data) %>% unlist, min.n=2, n=4)
     
     plot_clean(xlim, ylim)
@@ -145,8 +172,8 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL) {
 # group_data is a list
 # this is a list to allow different N in each group
 # NB: the reason we use barplot here is that it takes care of the width between groups for us, even though by default we don't actually show the bars
-trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, cols, ebar.cols='gray30', ebar.lwds=3, jitr_x,
-                              pchs=19, pt.alpha=175, xlab='Group', ylab='Mean % Signal Change', ebar.lend=2, ...) {
+trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, cols, ebar.cols='gray30', ebar.lwd=3, jitr_x,
+                              pchs=19, pt.alpha=175, xlab='Group', ylab='Mean % Signal Change', ebar.lend=2, show_outliers=TRUE, ...) {
     
     nms <- group_data %>% get_list_elements('name')
     #
@@ -156,47 +183,56 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
     #
     ns <- group_data %>% get_list_elements('N')
     
-    yax <- do_if(missing(ylim), {
-        pretty(get_data_range(group_data), high.u.bias = 100, n=4, min.n=3)
-    }, ylim)
+    if(show_outliers) {
+        yax <- do_if(missing(ylim), {
+            pretty(get_data_range(group_data), high.u.bias = 100, n=4, min.n=3)
+        }, ylim)
+    } else {
+        yax <- do_if(missing(ylim), {
+            pretty(sapply(group_data, function(.d) {
+                range(.d %$% data[is_clean])
+                }), high.u.bias = 100, n=4, min.n=3)
+        }, ylim)
+    }
     
     #there are edge cases where length(mses) != length(names), take care of this with `ind` below
     bp_names <- paste0(nms, ' (N=' %&% ns %&%')')
     
     # this creates space for empty groups -- is this expected behavior? It is good to preserve the color
-    # mapping, but I'd rather not have the empty, space... so we need to preserve the colors but not the empty space
+    # mapping, but I'd rather not have the empty space... so we need to preserve the colors but not the empty space
     ind <- which(unlist(lapply(group_data, '[[', 'has_trials')))
     mses <- sapply(ind, function(ii) group_data[[ii]]$mse)
     
+    # 
+    axis_col = get_foreground_color()
     
-    .col <- if(par('bg')=='black') {
-        'white'
-    } else {
-        'black'
-    }
-    
+    # x <- rave_barplot(mses[1,],col='white', ylim=.fast_range(yax), axes=F)
+    .fg <- par('fg'=axis_col, 'col.lab' = axis_col, col.axis=axis_col)
     x <- rave_barplot(mses[1,],
                       ylim=.fast_range(yax) %>% stretch(.01), col=bar.cols, border=bar.borders,
-                      names.arg=bp_names[ind], col.axis=.col, axes=F, ...)
+                      names.arg=bp_names[ind], axes=F, ...)
+    par('fg'=.fg)
     
-    # putting this here, but move this out to a PANEL.FIRST
+    # putting this here, but move this out to a PANEL.FIRST argument
     axis_label_decorator(group_data)
     
     rave_axis(2, at=yax)
     
     if(min(yax) < 0) abline(h=0, col='lightgray')
-    
+
     # grabbing an attribute from the group data
     if(not_null(attr(group_data, 'stats')))
         rave_title(as.title(pretty(attr(group_data, 'stats'))))
     
     #emphasize the means
     lsize <- (1/3)*mean(unique(diff(x)))
+    
     # this means there is only 1 group. If there is one group, the barplot seems to get placed at 0.7, with
     # the usr range being 0.16 - 1.24.
     if(is.na(lsize)) lsize <- 1/3
     
-    if(missing(jitr_x)) jitr_x <- 0.75*lsize
+    # jittering is done in main.R now so that it can persist across refreshes
+    # if(missing(jitr_x)) jitr_x <- 0.75*lsize
     
     # if(missing(cols)) cols <- get_color(seq_along(group_data))
     if(missing(cols)) cols <- grDevices::palette()
@@ -204,12 +240,11 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
     # Ensure all parameters are sufficiently long. This feels extravagant, but needed because we're indexing into these variables
     # and we don't want to reach beyond the end
     par_rep <- function(y) rep_len(y, length(group_data))
-    
     cols %<>% par_rep
     pchs %<>% par_rep
-    bar.cols %<>% par_rep
     ebar.cols %<>% par_rep
-    bar.borders %<>% par_rep
+    # bar.cols %<>% par_rep
+    # bar.borders %<>% par_rep
     
     # x may not be the same length as group_data because we're skipping empty groups
     # we still want everything else to be based on group number
@@ -217,19 +252,39 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
     for(ii in seq_along(group_data)) {
         if(group_data[[ii]]$has_trials) {
             
-            lines(x[xi] + c(-lsize, lsize), rep(mses[1, xi], 2), lwd=3, lend=ebar.lend, col=ebar.cols[ii])
+            lines(group_data[[ii]]$xp + c(-lsize, lsize), rep(mses[1, xi], 2),
+                  lwd=ebar.lwd, lend=ebar.lend, col=ebar.cols[ii])
             
-            add_points(x[xi], group_data[[ii]]$data,
-                       col=getAlphaRGB(cols[ii], pt.alpha), pch=pchs[ii], jitr_x=jitr_x)
+            # add_points(x[xi], group_data[[ii]]$data,
+            #            col=getAlphaRGB(cols[ii], pt.alpha), pch=pchs[ii], jitr_x=jitr_x)
             
+            
+            if(show_outliers) {
+                group_data[[ii]] %$% {
+                    points(x, data,
+                           col=ifelse(is_clean, getAlphaRGB(cols[ii], pt.alpha), 'gray30'),
+                           pch=ifelse(is_clean, pchs[ii], 1))
+                }
+            } else {
+                group_data[[ii]] %$% {
+                    points(x[is_clean], data[is_clean],
+                           col=getAlphaRGB(cols[ii], pt.alpha),
+                           pch=pchs[ii])
+                }
+                
+                
+            }
+            
+            # cat('How many clean datapoints?' %&% sum(group_data[[ii]]$is_clean) %&% '\n')
             ebars.y(x[xi], mses[1,xi], mses[2,xi],
-                    lwd=ebar.lwds, col=ebar.cols[ii], code=0, lend=ebar.lend)
+                    lwd=ebar.lwd, col=ebar.cols[ii], code=0, lend=ebar.lend)
+            
             xi <- xi+1
         }
     }
     
     # in case people need to further decorate
-    invisible(x)
+    invisible(group_data)
 }
 
 # the Xmap and Ymap here are functions that allow for transformation of the plot_data $x and $y into
@@ -247,15 +302,15 @@ spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=f
         
         windows <- list(
             'Baseline'=list(
-                window = Xmap(results$get_value('BASELINE_WINDOW')),
+                window = Xmap(plot_data$baseline_window),#results$get_value('BASELINE_WINDOW')),
                 type=btype
             ),
             'Analysis'=list(
                 window = if(atype=='box') {
-                    list(x=Xmap(results$get_value('ANALYSIS_WINDOW')),
-                         y=Ymap(results$get_value('FREQUENCY')))
+                    list(x=Xmap(plot_data$analysis_window),#results$get_value('ANALYSIS_WINDOW')),
+                         y=Ymap(plot_data$frequency_window))#results$get_value('FREQUENCY')))
                 } else {
-                    Xmap(results$get_value('ANALYSIS_WINDOW'))
+                    Xmap(plot_data$analysis_window)#results$get_value('ANALYSIS_WINDOW'))
                 },
                 type=atype
             )
@@ -298,18 +353,34 @@ by_trial_heat_map_decorator <- function(plot_data=NULL, results, Xmap=force, Yma
 }
 
 
+by_electrode_heat_map_decorator <- function(plot_data=NULL, results, Xmap=force, Ymap=force, ...) {
+    args <- list(
+        results=results, Xmap=Xmap, Ymap=Ymap, atype='line', btype='line',
+        title_options = list(allow_enum=FALSE),
+        ...
+    )
+    
+    if(is.null(plot_data)) {
+        return(do.call(spectrogram_heatmap_decorator, args = args))
+    }
+    
+    args$plot_data=plot_data
+    do.call(spectrogram_heatmap_decorator, args = args)
+}
 
 
 
 
 #' @author John Magnotti
 #' @title RAVE custom image plotter
-#' @param zmat z-matrix
+#' @param mat z-matrix
 #' @param x,y z and y axis
-#' @param xlab, ylab label for x and y
+#' @param col vector of colors, color palette
 #' @param zlim value to trim zmat
 #' @param log which axis will be in log scale
 #' @param useRaster,... passed to image()
+#' @param clip_to_zlim whether to clip mat
+#' @param add logical, whether to overlay current plot to an existing image
 #' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators.
 #' We are just plotting image(mat) Rather Than t(mat) as you might expect. The Rave_calculators know this so we can save a few transposes along the way.
 make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zlim=TRUE, add=TRUE) {
@@ -326,9 +397,11 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
         }
     }
     
-    col %?<-% if (par('bg')=='black') {
+    col %?<-% if(par('bg') == 'black') {
         rave_heat_map_dark_colors
-    } else {
+    } else if(par('bg') == '#1E1E1E') {
+        rave_heat_map_gray_colors
+    }else {
         rave_heat_map_colors
     }
     
@@ -354,7 +427,8 @@ layout_heat_maps <- function(k, ratio=4) {
 ##RUTABAGA
 median_ticks <- function(k, .floor=1) c(.floor, ceiling(k/2), k)
 
-`conditional_sep<-` <- function(str, value = '', sep=' ') {
+`conditional_sep<-` <- function(str, value = '') {
+    sep=' '
     if(isTRUE(nchar(str) > 0)) {
         str = paste0(str, sep)
     }
@@ -385,7 +459,6 @@ fix_pdf_name <- function(fname) {
     return(fname)
 }
 
-
 str_rng <- function(rng) sprintf('[%s]', paste0(rng, collapse=':'))
 
 rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change',
@@ -393,14 +466,16 @@ rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change',
     
     clrs %?<-% if(par('bg') == 'black') {
         rave_heat_map_dark_colors
-    } else {
+    } else if(par('bg') == '#1E1E1E') {
+        rave_heat_map_gray_colors
+    }else {
         rave_heat_map_colors
     }
     
     cbar <- matrix(seq(-zlim, zlim, length=length(clrs))) %>% t
     par(mar=mar)
     image(cbar,
-          col=clrs, axes=F, ylab=ylab, main='',
+          col=clrs, axes=F, ylab=ylab, main='', col.lab = get_foreground_color(),
           cex.main=rave_cex.main*.8, cex.lab=rave_cex.lab, cex.axis=rave_cex.axis)
 
     # rave_main(str_rng(actual_lim %>% round))
@@ -417,9 +492,10 @@ midpoint <- function(x) {
     })
 }
 
-# this is really only used by the by_trial heat map, but that gets used in multiple modules, so it's here....
+# this is really only used by the by_trial heat map,
+# but that gets used in multiple modules, so it's here....
 reorder_trials_by_type <- function(bthmd) {
-    # we want to sort but preserve the order that the conditions were added to the group, but this doesn't do that
+    # we want to sort but preserve the order that the conditions were added to the group
     ind <- sapply(bthmd$conditions, function(ttype) which(ttype==bthmd$trials), simplify = FALSE)
 
     .xlab <- attr(bthmd$data, 'xlab')
@@ -490,7 +566,8 @@ trial_type_boundaries_hm_decorator <- function(map, ...) {
         } else {
             yat <- median(y)
         }
-        rave_axis(2, tcl=0, lwd=0, at=yat, labels=map$ttypes)
+        # rather than drawing the labels AT the lines, we should draw them intermediate
+        rave_axis(2, tcl=0, lwd=0, at=yat+0.5, labels=map$ttypes)
     })
 
     invisible(map)
@@ -575,15 +652,19 @@ axis_label_decorator <- function(plot_data, col) {
         pd <- pd[[ii]]
     } 
     
-    col %?<-% if(par('bg') == 'black') {
-        'white'
-    } else {
-        'black'
+    if(missing(col)) {
+        col = get_foreground_color()
     }
     title(xlab=attr(pd$data, 'xlab'),
           ylab=attr(pd$data, 'ylab'),
           cex.lab=rave_cex.lab, col.lab=col)
 }
+
+
+round_to_nearest <- function(x, val=10) {
+    val*round(x/val)
+}
+
 
 
 # by default we use PLOT_TITLE variable in results to see what to put in the title string
@@ -606,13 +687,13 @@ title_decorator <- function(plot_data, results,
     if(allow_cond)
         add_if_selected('Condition', {
             .name <- plot_data[['name']]
-            if(nchar(.name) > 0) {
+            if(isTRUE(nchar(.name) > 0)) {
                 .name <- '' %&% .name
             }
             title_string = .name
         })
     
-    # we could write this as a simply m/sapply if the variable names had a clear relationship to one another
+    # we could write this as a simple m/sapply if the variable names had a clear relationship to one another
     if(allow_sid)
         add_if_selected('Subject ID', {
             conditional_sep(title_string) = results$get_value('subject_code')
@@ -620,7 +701,13 @@ title_decorator <- function(plot_data, results,
     
     if(allow_enum)
         add_if_selected('Electrode #', {
-            conditional_sep(title_string) = 'E' %&% results$get_value('ELECTRODE')
+            el <- results$get_value('ELECTRODE', ifNotFound = NULL)
+            if(is.null(el)) {
+                # using requested_electrodes here rather than ELECTRODE_TEXT because of parsing issues in ELECTRODE_TEXT
+                el <- rutabaga::deparse_svec(results$get_value('requested_electrodes', ifNotFound = '?'), max_lag=1)
+            } 
+            # print('EL: ' %&% el)
+            conditional_sep(title_string) = 'E' %&% el
         })
     
     if(allow_freq)
@@ -688,7 +775,7 @@ time_series_decorator <- function(plot_data, results, ...) {
 }
 
 # this decorator takes care of checking if has_data==TRUE and only shows labels for which there is data
-# I guess this could be an option to include N==0 labels...
+# I guess there could be an option to include N==0 labels...
 legend_decorator <- function(plot_data, include=c('name', 'N'), location='topleft') {
 
     valid.names <- c('name', 'N')
@@ -727,11 +814,7 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded'),
     text.y <- par('usr')[4] * .9
     
     
-    line.col %?<-% if(par('bg') == 'black') {
-        'white'
-    } else {
-        'black'
-    }
+    line.col %?<-% get_foreground_color()
     
     switch(type, 
            line = {
@@ -786,7 +869,7 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded'),
 #
 # x = sort(rnorm(10))
 # ..get_nearest(pretty(x), x)
-# RUTABAGA
+# move to RUTABAGA
 ..get_nearest_i <- function(from,to) {
     sapply(from, function(.x) which.min(abs(.x-to)))
 }
@@ -894,13 +977,16 @@ tf_hm_decorator <- function(hmap, results, ...)
 easy_layout <- function(K, nrows = 1, legend,
                         legend_size = lcm(3), legend_side = 4,
                         s_margin = par('mar'), b_margin = par('oma'),
-                        l_margin = local({
-                            mar = s_margin;
-                            mar[legend_side] = 0;
-                            mar[(legend_side + 2) %% 4] = 0.5;
-                            mar
-                        })){
+                        l_margin){
 #TODO RUTABAGA
+    if(missing( l_margin )){
+        l_margin = local({
+            mar = s_margin;
+            mar[legend_side] = 0;
+            mar[(legend_side + 2) %% 4] = 0.5;
+            mar
+        })
+    }
 
     # calculate nrow and ncols
     ncols = ceiling(K / nrows)
@@ -965,8 +1051,6 @@ pretty_num <- function(x, digits = 3, roundup = 5, decimal.mark = '.', ...){
 }
 
 
-
-
 #TODO
 # have a parameter called "center" that allows all histograms to be centered
 # enabling easier comparison of the concentraion/dispersion kappa
@@ -1015,9 +1099,10 @@ hist.circular <- function(x, ymax, nticks=3, digits=1, breaks=20, col='black', .
     invisible(x.hist)
 }
 
-
-
-# # # Colors
+#' Function to get builtin color palettes
+#' @param pname palette name
+#' @param get_palette_names whether to get palette names
+#' @param get_palettes ignored
 #' @export
 get_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
     # Some of these are from:
@@ -1047,6 +1132,7 @@ get_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
     
     return (pal)
 }
+
 
 get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
     # Some of these are from:
@@ -1085,11 +1171,6 @@ get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FAL
     
     return (pal)
 }
-
-
-
-
-
 
 set_palette <- function(pname) {
     if(length(pname) == 1) {

@@ -6,17 +6,22 @@
 #' @importFrom magrittr %>%
 #' @import stringr
 #' @importFrom magrittr %<>%
+#' @importFrom magrittr %$%
 #' @importFrom magrittr extract2
 #' @importFrom magrittr extract
 #' @import rlang
 #' @import lmerTest
 #'
 #' @importFrom methods is
+#' @importFrom methods getMethod
 #' @import circular
 #' 
 #' @importFrom grDevices dev.off
 #' @importFrom grDevices pdf
 #' @importFrom grDevices palette
+#' @importFrom grDevices col2rgb
+#' @importFrom grDevices colorRampPalette
+#' @importFrom grDevices rgb
 #' 
 #' @import graphics
 #' 
@@ -24,7 +29,36 @@
 #' @importFrom stats median.default
 #' @importFrom stats pt
 #' @importFrom stats quantile
+#' @importFrom stats p.adjust
+#' @importFrom stats symnum
 #' 
+NULL
+
+# Add global variables to pass check
+..async_quo = NULL
+..async_var = NULL
+.palettes = NULL
+BASELINE = NULL
+FREQUENCY = NULL
+Frequency = NULL
+TIME_RANGE = NULL
+Time = NULL
+draw_time_baseline = NULL
+is_clean = NULL
+label.col = NULL
+x = NULL
+xax = NULL
+xlab = NULL
+y = NULL
+yax = NULL
+ylab = NULL
+data = NULL
+
+
+
+
+
+
 
 cat2 <- function(..., end = '\n', level = 'DEBUG', print_level = FALSE, pal = list(
     'DEBUG' = 'grey60',
@@ -262,14 +296,16 @@ rave_color_ramp_dark_palette <- colorRampPalette(c('#13547a', 'black', '#ff758c'
 ..dark_blue_to_red <- rev(c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#ffffff", 
                         "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061"))
 ..light_blue_to_light_red <- c(..dark_blue_to_red[5:1], 'black', ..dark_blue_to_red[11:7])
-
+..light_blue_to_gray_to_light_red <- c(..dark_blue_to_red[5:1], '#1E1E1E', ..dark_blue_to_red[11:7])
 
 rave_color_ramp_palette <- colorRampPalette(..dark_blue_to_red, interpolate='linear', space='Lab')
 rave_heat_map_colors <- rave_color_ramp_palette(1001)
 
 rave_color_ramp_dark_palette <- colorRampPalette(..light_blue_to_light_red, interpolate='linear', space='Lab')
+rave_color_ramp_gray_palette <- colorRampPalette(..light_blue_to_gray_to_light_red, interpolate='linear', space='Lab')
 
 rave_heat_map_dark_colors <- rave_color_ramp_dark_palette(1001)
+rave_heat_map_gray_colors <- rave_color_ramp_gray_palette(1001)
 
 # put this here for legacy, but we need to exterminate these references
 crp <- rave_heat_map_colors
@@ -282,12 +318,7 @@ rave_axis <- function(side, at, tcl=-0.3, labels=at, las=1, cex.axis=rave_cex.ax
   
   # if the color isn't specified, then we are free to set the color to what we want.
   # let's set it to be black, unless that background color is black, then we'll do white
-  col %?<-% if(par('bg') == 'black') {
-    'white'
-  } else {
-    'black'
-  }
-  
+  col %?<-% get_foreground_color()
   col.axis %?<-% col
   
   ruta_axis(
@@ -304,8 +335,6 @@ rave_axis <- function(side, at, tcl=-0.3, labels=at, las=1, cex.axis=rave_cex.ax
     ...
   )
 }
-
-
 
 default_plot <- function() {
   plot_clean(1, 1, type='n', main='No Conditions Specified')
@@ -387,11 +416,14 @@ rave_colors <- list('BASELINE_WINDOW'='gray60', 'ANALYSIS_WINDOW' = 'salmon2', '
                     'TRIAL_TYPE_SEPARATOR'='gray40')
 
 rave_title <- function(main, cex=rave_cex.main, col, font=1) {
-  
-  col %?<-% if(par('bg') == 'black') {
-    'white'
-  } else {
-    'black'
+  if(missing(col)) {
+    col = if(par('bg') == 'black') {
+      'white'
+    } else if (par('bg') == '#1E1E1E'){
+      'gray70'
+    } else {
+      'black'
+    }
   }
   
   title(main=list(main, cex=cex, col=col, font=font))
