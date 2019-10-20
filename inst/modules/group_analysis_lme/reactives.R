@@ -318,7 +318,7 @@ observeEvent(input$run_analysis, {
         res[names(a)] = a
         res[names(b)] = b
         res
-    })  %>% rbind_list %>% set_rownames(NULL) -> by_el_results
+    })  %>% rbind_list %>% magrittr::set_rownames(NULL) -> by_el_results
     
     by_el_results[names(by_el_results) %>% startsWith('p(')] %<>% lapply(function(pval){
         lpval = pmax(-16, log10(pval))

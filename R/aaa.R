@@ -9,6 +9,7 @@
 #' @importFrom magrittr %$%
 #' @importFrom magrittr extract2
 #' @importFrom magrittr extract
+#' @importFrom magrittr set_rownames
 #' @import rlang
 #' @import lmerTest
 #'
