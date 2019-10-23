@@ -10,6 +10,7 @@
 #' @importFrom magrittr extract2
 #' @importFrom magrittr extract
 #' @importFrom magrittr set_rownames
+#' @importFrom magrittr equals
 #' @import rlang
 #' @import lmerTest
 #'
