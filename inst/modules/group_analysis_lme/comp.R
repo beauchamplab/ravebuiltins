@@ -10,8 +10,6 @@ env$mount_demo_subject()
 
 module_id <- 'group_analysis_lme'
 
-
-
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
 #  ----------------------  Initializing Global variables -----------------------
@@ -146,6 +144,11 @@ define_input(
     actionButtonStyled('run_analysis', 'Run Analysis', type = 'primary', width = '100%')
 )
 
+define_input(
+  definition = customizedUI('download_all_results')
+)
+
+
 # We can't use define_input_condition_groups as it defaults to preload_info$condition
 # In fact every project might have different stimulus for each subjects, then condition is not
 # the same sometime
@@ -169,7 +172,7 @@ define_input(
 
 manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'analysis_window',
                   'model_dependent', 'model_fixed_effects', 'model_random_effects', 'model_splinetime',
-                  'model_formula', 'model_embedsubject', 'run_analysis'
+                  'model_formula', 'model_embedsubject', 'run_analysis','download_all_results'
                   )
 
 # # selectInput('electrode', 'Electrode', choices = '', multiple = F),
@@ -201,7 +204,8 @@ input_layout = list(
         # 'model_embedsubject',
         # 'model_splinetime',
         'model_formula',
-        'run_analysis'
+        'run_analysis',
+        'download_all_results'
     )
 )
 
@@ -211,12 +215,12 @@ input_layout = list(
 # ----------------------------------  Outputs ----------------------------------
 # Define Outputs
 
-define_output(
-    definition = customizedUI('src_data_snapshot', style='min-height:500px'),
-    title = 'Data Description',
-    width = 5,
-    order = 1e2
-)
+# define_output(
+#     definition = customizedUI('src_data_snapshot', style='min-height:500px'),
+#     title = 'Data Description',
+#     width = 5,
+#     order = 1e2
+# )
 
 define_output(
     definition = customizedUI('lme_out', style='min-height:500px'),
@@ -256,9 +260,9 @@ define_output_3d_viewer(
 
 output_layout = list(
   'Model Results' = list(
-    'Model Fitting Results' = c('power_over_time', 'windowed_activity', 'lme_out'),
-    'Results by electrode' = c('lme_3dviewer', 'mass_univariate_results'),
-    'Data Description' = c('src_data_snapshot')
+    'Results across electrodes' = c('power_over_time', 'windowed_activity', 'lme_out'),
+    'Results by electrode' = c('lme_3dviewer', 'mass_univariate_results')#,
+    # 'Data description' = c('src_data_snapshot')
   )
   # 'Multiple Output' = 'src_data_snapshot'
 )

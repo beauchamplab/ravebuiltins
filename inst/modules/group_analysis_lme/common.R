@@ -70,13 +70,20 @@ lme_out <- function() {
     }
     
     lmer_summary$coefficients %<>% fix_rownames(regression=TRUE)
+    local_data$lmer_summary_coefficients <- lmer_summary$coefficients
     tbl_html = htmltable_coefmat(lmer_summary$coefficients)
     
     anova_html = htmltable_coefmat(deviance_summary)
+    local_data$anova_summary <- deviance_summary
+    lmer_cond <- fix_rownames(ls_means(lmer_results))
+    test_conditions <- htmltable_coefmat(lmer_cond)
+    local_data$test_conditions = lmer_cond
+
+    lmer_compare <- fix_rownames(ls_means(lmer_results,
+                                       pairwise = TRUE))    
+    compare_conditions <- htmltable_coefmat(lmer_compare)
     
-    test_conditions <- htmltable_coefmat(fix_rownames(ls_means(lmer_results)))
-    compare_conditions <- htmltable_coefmat(fix_rownames(ls_means(lmer_results,
-                                                     pairwise = TRUE)))
+    local_data$compare_conditions= lmer_compare
     
     # put a description row
     htmltools::p(

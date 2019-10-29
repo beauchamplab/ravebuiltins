@@ -10,6 +10,7 @@ local_data %?<-% reactiveValues(
     additional_data = NULL,
     analysis_data = NULL,
     collapsed_data = NULL,
+    analysis_window = 0:1,
     
     potential_analysis = list(),
     analysis_name = NULL,
@@ -71,6 +72,9 @@ observe({
         groups = confs$GROUPS
         analysis_window = sort(c(confs$ANALYSIS_WINDOW, time_range)[1:2])
     }
+    
+    # store this in local_data so that we have everything in one place
+    local_data$analysis_window = analysis_window
     
     rave::updateCompoundInput(session, 'cond_group', to = length(groups))
     # Update cond_group 
@@ -288,7 +292,6 @@ observeEvent(input$run_analysis, {
     local_data$collapsed_data = collapsed_data
     local_data$agg_over_trial = aggregate(Power ~ Group + Time + Subject + Electrode,
                                           local_data$over_time_data, FUN=mean) %>% do_aggregate(Power ~ Group + Time, .fast_mse)
-    
     by_el_data = local_data$over_time_data %>%
         subset((.)$Time %within% analysis_window) %>% 
         do_aggregate(Power ~ Condition + Trial + Subject + Electrode + Project + Group, mean)
@@ -320,14 +323,16 @@ observeEvent(input$run_analysis, {
         res
     })  %>% rbind_list %>% magrittr::set_rownames(NULL) -> by_el_results
     
-    by_el_results[names(by_el_results) %>% startsWith('p(')] %<>% lapply(function(pval){
+    
+    round_pvals <- function(pval){
         lpval = pmax(-16, log10(pval))
         
-        ifelse(lpval > -2.5,
-               formatC(round(pval,3),width = 3, digits=4),
+        ifelse(lpval > -3.5,
+               formatC(round(pval,4),width = 4, digits=4),
                paste0('1e', formatC(round(lpval), width=3,flag=0)))
-    })
+    }
     
+    by_el_results[names(by_el_results) %>% startsWith('p(')] %<>% lapply(round_pvals)
     by_el_results[names(by_el_results) %>% startsWith('t(')] %<>% lapply(round, 2)
     by_el_results[names(by_el_results) %>% startsWith('m(')] %<>% lapply(round, 2)
     by_el_results$Electrode <-  as.numeric(as.character(by_el_results$Electrode))

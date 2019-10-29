@@ -158,11 +158,13 @@ src_data_snapshot <- function() {
 #     
 # }
 
-
-windowed_activity <- function() {
-    lmer_results = local_data$lmer_results
+windowed_activity <- function(lmer_results, collapsed_data) {
+    lmer_results %?<-% local_data$lmer_results
+    collapsed_data %?<-% local_data$collapsed_data
+    
     shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
-    .y <- aggregate(Power ~ Group, m_se, data=local_data$collapsed_data)
+    
+    .y <- aggregate(Power ~ Group, m_se, data=collapsed_data)
     
     xp <- rutabaga::rave_barplot(.y$Power[,1], axes=F, col = adjustcolor(1:nrow(.y), 0.7),
                            border=NA,
@@ -174,7 +176,6 @@ windowed_activity <- function() {
     abline(h=0)
     
     ebars(xp, .y$Power, col=1:nrow(.y), code=0, lwd=2, lend=0)
-    
 }
 
 mass_univariate_results <-  function(){
@@ -198,16 +199,21 @@ output$show_by_electrode_results <- DT::renderDataTable({
                   ))
 })
 
-power_over_time <- function() {
-    lmer_results = local_data$lmer_results
+
+power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analysis_window) {
+    lmer_results %?<-% local_data$lmer_results
+    collapsed_data %?<-% local_data$collapsed_data
+    agg_over_trial %?<-% local_data$agg_over_trial
+    analysis_window %?<-% local_data$analysis_window
+    
     shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
 
-    sample_size = local_data$collapsed_data %>% do_aggregate(Power ~ Group, length) %$% {
+    sample_size = collapsed_data %>% do_aggregate(Power ~ Group, length) %$% {
         names(Power) = Group
         Power
     }
     
-    lpd <- local_data$agg_over_trial %>% split((.)$Group) %>% lapply(function(aot) {
+    lpd <- agg_over_trial %>% split((.)$Group) %>% lapply(function(aot) {
         res = list(
             x = aot$Time,
             data = aot$Power,
@@ -225,7 +231,7 @@ power_over_time <- function() {
     time_series_plot(plot_data = lpd)
     axis_label_decorator(lpd)
     
-    abline(v=input$analysis_window, lty=2)
+    abline(v=analysis_window, lty=2)
     
     legend_decorator(lpd, include = c('name', 'N'))
 }
@@ -281,8 +287,6 @@ lmer_diagnosis = function(){
     
     # 4. Boxplot of residuals vs Electrodes
 }
-
-
 
 ..old_code_for_visualize_lmer_results <- function() {
     tbl = shiny::isolate(local_data$analysis_data_filtered)
@@ -345,6 +349,80 @@ lmer_diagnosis = function(){
     }
     
 }
+
+download_all_results <- function() {
+    lmer_results = local_data$lmer_results
+    if(is.null(lmer_results))  return()
+
+    tagList(tags$p(' ', style='margin-top:20px'),
+            downloadLink(ns('btn_download_all_results'),
+                         'Download All Results'),
+            tags$p(' ', style='margin-top:20px'))
+}
+
+
+# call_with_local_data <- function(what) {
+#     shiny::isolate({
+#         args=shiny::reactiveValuesToList(local_data) [(names(formals(what)))]
+#         do.call(what,args)
+#     }) 
+# }
+
+
+output$btn_download_all_results <- downloadHandler(
+    filename=function(...) {
+        paste0('results_output_',
+               format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.zip')
+    },
+    content = function(conn) {
+        tmp_dir = tempdir()
+        wrp <- function(nm) sprintf('across_electrodes_%s.csv', nm)
+        wcsv <- function(v, f, rn=T) write.csv(v, file=file.path(tmp_dir, f), row.names=rn)
+        
+        f1 <- 'by_electrode_results.csv'
+        wcsv(local_data$by_electrode_results, f1, rn=FALSE)
+        fnames <- c(f1,
+                    wrp("lmer_coefficients"), 
+                    wrp('lmer_omnibus'),
+                    wrp('compare_conditions_to_0'),
+                    wrp('pairwise_comparisons'), 
+                    'windowed_activity.pdf',
+                    'power_over_time.pdf')
+        
+        wcsv(local_data$lmer_summary_coefficients, fnames[2])
+        
+        wcsv(local_data$anova_summary, fnames[3])
+        
+        wcsv(local_data$test_conditions, fnames[4])
+        wcsv(local_data$compare_conditions, fnames[5])
+        
+        #trying to set the width of the plot based on the number of groups in the data
+        H=6
+        WFAC = 8/H
+        .w = WFAC * nlevels(local_data$collapsed_data$Group)
+        as_pdf(file.path(tmp_dir, fnames[6]), w=.w, h=H, {
+            par(mar=.1 + c(5,4,1,1))
+            # call_with_local_data(windowed_activity)
+            windowed_activity()
+        })
+        
+        as_pdf(file.path(tmp_dir, fnames[7]), w=8, h=4, {
+            par(mar=.1 + c(5,4,1,1))
+            # call_with_local_data(power_over_time)
+            power_over_time()
+        })
+        
+        
+        wd = getwd()
+        on.exit({setwd(wd)}, add = TRUE)
+        
+        setwd(tmp_dir)
+        
+        zip(conn, fnames, flags='-r5X')
+    }
+)
+
+
 
 
 # 3D viewer, takes 3 args
