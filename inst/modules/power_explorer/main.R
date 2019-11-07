@@ -36,7 +36,7 @@ if(shiny_is_running()) {
       local_data$calculate_flag = do_calculate_btn
   }
 }
-requested_electrodes = rutabaga::parse_svec(ELECTRODE_TEXT, sep=',|;', connect  = ':-')
+requested_electrodes = dipsaus::parse_svec(ELECTRODE_TEXT, sep=',|;', connect  = ':-')
 requested_electrodes %<>% get_by(`%in%`, electrodes)
 
 # this will be NA if the only requested electrodes are not available

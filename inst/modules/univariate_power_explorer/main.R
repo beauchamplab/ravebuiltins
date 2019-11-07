@@ -13,7 +13,7 @@ if(FALSE) {
 }
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
-# requested_electrodes = rutabaga::parse_svec(ELECTRODE_TEXT, sep = ':-')
+# requested_electrodes = dipsaus::parse_svec(ELECTRODE_TEXT, sep = ':-')
 # requested_electrodes %<>% get_by(`%in%`, electrodes)
 
 # this will be NA if the only requested electrodes are not available

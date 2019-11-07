@@ -390,7 +390,7 @@ define_input(
   init_args = c('label', 'value'),
   init_expr = {
     last_input = cache_input('electrode_text', val = as.character(electrodes[1]))
-    e = rutabaga::parse_svec(last_input)
+    e = dipsaus::parse_svec(last_input)
     e = e[e %in% electrodes]
     if(!length(e)){
       e = electrodes[1]

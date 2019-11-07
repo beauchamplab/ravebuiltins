@@ -124,7 +124,7 @@ output[['elec_loc']] <- threeBrain::renderBrain({
 
     lev = factor(c('Current Group', 'Bad Electrode'))
     values = rep(lev[1], length(electrodes))
-    bad_electrodes = rave:::parse_selections(input[[('ref_bad')]])
+    bad_electrodes = dipsaus:::parse_svec(input[[('ref_bad')]])
     values[electrodes %in% bad_electrodes] = lev[2]
 
 
@@ -180,7 +180,7 @@ observeEvent(input[[('cur_save')]], {
         return()
     }
     electrodes = group_info$electrodes
-    bad_electrodes = rave:::parse_selections(input[[('ref_bad')]])
+    bad_electrodes = dipsaus::parse_svec(input[[('ref_bad')]])
 
     ref_table = get_ref_table()
     sel = ref_table$Electrode %in% electrodes
@@ -209,7 +209,7 @@ cur_group_ui = function(){
         group_info = ref_group[[group_number]]
         group_type = group_info$rg_type
         group_name = group_info$rg_name
-        electrodes = rave:::parse_selections(group_info$rg_electrodes)
+        electrodes = dipsaus::parse_svec(group_info$rg_electrodes)
         if(length(electrodes) == 0){
             return(tagList(
                 hr(),
@@ -269,7 +269,7 @@ cur_group_ui = function(){
             ),
             column(
                 width = 5,
-                textInput(ns('ref_bad'), 'Bad Electrodes:', value = rave:::deparse_selections(ref_tbl$Electrode[sel & ref_tbl$Reference == ''])),
+                textInput(ns('ref_bad'), 'Bad Electrodes:', value = dipsaus::deparse_svec(ref_tbl$Electrode[sel & ref_tbl$Reference == ''])),
                 div(
                     style = 'float: right',
                     actionButton(ns('cur_save'), 'Save Group')
@@ -288,10 +288,10 @@ cur_group_ui = function(){
 # })
 
 output[[('bad_electrodes_out')]] = renderText({
-    bad_electrodes = rave:::parse_selections(input[[('ref_bad')]])
+    bad_electrodes = dipsaus:::parse_svec(input[[('ref_bad')]])
     bad_electrodes = subject$filter_all_electrodes(bad_electrodes)
     if(length(bad_electrodes)){
-        bad_electrodes = rave:::deparse_selections(bad_electrodes)
+        bad_electrodes = dipsaus:::deparse_svec(bad_electrodes)
         bad_electrodes
     }else{
         'No bad electrode'
@@ -305,7 +305,7 @@ current_group = function(){
         return()
     }
     group_info = ref_group[[group_number]]
-    electrodes = rave:::parse_selections(group_info$rg_electrodes)
+    electrodes = dipsaus::parse_svec(group_info$rg_electrodes)
     electrodes = subject$filter_all_electrodes(electrodes)
     if(!length(electrodes)){
         return()
@@ -413,7 +413,7 @@ load_reference = function(){
                 updateTextInput(
                     session,
                     (sprintf('%s_%s_%d', 'ref_group', 'rg_electrodes', i)),
-                    value = rave:::deparse_selections(merged$Electrode)
+                    value = dipsaus:::deparse_svec(merged$Electrode)
                 )
 
                 updateCompoundInput(session, ('ref_group'), to = nn)
@@ -427,11 +427,11 @@ load_reference = function(){
         for(ii in seq_len(length(ref_group))){
             sub_group = ref_group[[ii]]
             sub_es = sub_group$rg_electrodes
-            sub_es = rave:::parse_selections(sub_es)
+            sub_es = dipsaus:::parse_svec(sub_es)
             if(any(sub_es %in% all_es)){
                 dup_es = sub_es[sub_es %in% all_es]
                 showNotification(
-                    p('Group [', sub_group$rg_name, '(', ii, ')] has duplicated electrode(s): ', rave:::deparse_selections(dup_es)),
+                    p('Group [', sub_group$rg_name, '(', ii, ')] has duplicated electrode(s): ', dipsaus::deparse_svec(dup_es)),
                     type = 'warning'
                 )
             }
@@ -456,12 +456,12 @@ gen_reference_blockwise = function(blockwise_table){
     blocks = blockwise_table$Block
     refs = blockwise_table$Reference
 
-    involved_es = rave:::parse_selections(refs)
+    involved_es = dipsaus::parse_svec(refs)
     if(length(involved_es) == 0){
         showNotification(p('No electrodes used. Why not use "noref"?'), type = 'error', session = session)
         return(FALSE)
     }
-    fname = 'ref_0,' %&% rave:::deparse_selections(involved_es) %&% '.h5'
+    fname = 'ref_0,' %&% dipsaus::deparse_svec(involved_es) %&% '.h5'
 
     f = file.path(dirs$channel_dir, 'reference', fname)
     unlink(f)
@@ -475,7 +475,7 @@ gen_reference_blockwise = function(blockwise_table){
         b = blocks[[ii]]
         subprogress$reset()
         progress$inc('Loading data from block ' %&% b)
-        es = rave:::parse_selections(refs[ii])
+        es = dipsaus::parse_svec(refs[ii])
 
         ref_data[[b]] = new.env()
         ref_data[[b]][['volt']] = 0
@@ -532,8 +532,8 @@ gen_reference = function(electrodes){
         return()
     }
     dirs = module_tools$get_subject_dirs()
-    fname_h5 = sprintf('ref_%s.h5', rave:::deparse_selections(electrodes))
-    fname_fst = sprintf('ref_%s.fst', rave:::deparse_selections(electrodes))
+    fname_h5 = sprintf('ref_%s.h5', dipsaus::deparse_svec(electrodes))
+    fname_fst = sprintf('ref_%s.fst', dipsaus::deparse_svec(electrodes))
     f = file.path(dirs$channel_dir, 'reference', fname_h5)
     # generate reference
     # Step 0: chunk matrix
@@ -661,7 +661,7 @@ get_refs = function(){
         return(list())
     }
     es = str_split_fixed(refs, '(ref_)|(\\.h5)', n = 3)[,2]
-    re = lapply(es, rave:::parse_selections)
+    re = lapply(es, dipsaus::parse_svec)
     names(re) = 'ref_' %&% es
     re
 }
@@ -704,7 +704,7 @@ write_ref_table = function(){
 
 load_refchan = function(r, subject_channel_dir, blocks, ram = T){
     es = stringr::str_extract(r, '[0-9,\\-]+')
-    es = rave:::parse_selections(es)
+    es = dipsaus::parse_svec(es)
 
     ref_file = file.path(subject_channel_dir, 'reference', sprintf('%s.h5', r))
     if(!file.exists(ref_file)){
@@ -970,10 +970,10 @@ observeEvent(input$ref_modal_tbl_cell_edit, {
     if(is_invalid(v, .invalids = c('null', 'na', 'blank'))){
         v = 'Zeros'
     }else{
-        v = rave:::parse_selections(v)
+        v = dipsaus::parse_svec(v)
         v = subject$filter_all_electrodes(v)
         if(length(v)){
-            v = rave:::deparse_selections(v)
+            v = dipsaus::deparse_svec(v)
         }else{
             v = 'Zeros'
         }
@@ -995,12 +995,12 @@ observeEvent(input$ref_modal_ok, {
 
 observe({
     ref_calc_label = 'Generate Reference'
-    ref_es = rave:::parse_selections(input$ref_electrodes)
+    ref_es = dipsaus::parse_svec(input$ref_electrodes)
     if(length(ref_es)){
         ref_es = subject$filter_all_electrodes(ref_es)
 
         if(length(ref_es)){
-            ref_calc_label = 'Generate [ref_' %&% rave:::deparse_selections(ref_es) %&% "]"
+            ref_calc_label = 'Generate [ref_' %&% dipsaus::deparse_svec(ref_es) %&% "]"
         }
     }
 
@@ -1008,7 +1008,7 @@ observe({
 })
 
 observeEvent(input$ref_calc, {
-    ref_es = rave:::parse_selections(isolate(input$ref_electrodes))
+    ref_es = dipsaus::parse_svec(isolate(input$ref_electrodes))
     ref_es = subject$filter_all_electrodes(ref_es)
 
     if(length(ref_es) == 0){
@@ -1017,7 +1017,7 @@ observeEvent(input$ref_calc, {
         # check conditions if we need to create reference
         old_files = list.files(env$ref_dir, pattern = 'ref_.*\\.h5')
         old_files = str_split_fixed(old_files, '(ref_)|(\\.h5)', 3)[,2]
-        new_file = rave:::deparse_selections(ref_es)
+        new_file = dipsaus::deparse_svec(ref_es)
         if(new_file %in% old_files){
             showNotification(p('Reference [ref_', new_file, '.h5] already exists.'), type = 'message')
         }else{

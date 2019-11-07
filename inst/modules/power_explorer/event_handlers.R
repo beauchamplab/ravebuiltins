@@ -116,7 +116,7 @@ observeEvent(input$synch_with_trial_selector, {
 })
 
 
-rave::sync_shiny_inputs(
+dipsaus::sync_shiny_inputs(
     input = input, session = session, inputIds = c(
         'ELECTRODE_TEXT', 'electrode_category_selector_choices'
     ), uniform = list(

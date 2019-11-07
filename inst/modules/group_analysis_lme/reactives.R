@@ -259,7 +259,7 @@ collect_model = function(..., exclude = NULL){
 # }
 
 observeEvent(input$run_analysis, {
-    cond_group <- rave::dropNulls(lapply(input$cond_group, function(g){
+    cond_group <- dipsaus::drop_nulls(lapply(input$cond_group, function(g){
         if(length(g$group_conditions) == 0) return( NULL )
         return(g)
     }))

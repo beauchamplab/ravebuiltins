@@ -100,7 +100,7 @@ load_ref = function(ref){
 
 
     es = stringr::str_extract(ref, '[0-9\\-,]+'); if(is.na(es)){es = ''}
-    e = rave:::parse_selections(es)
+    e = dipsaus:::parse_svec(es)
     e = subject$filter_all_electrodes(e)
 
     if(length(e) == 0){
@@ -222,7 +222,7 @@ observe({
     local_data$parallel_plt_block = block = input$parallel_plt_block
     local_data$parallel_plt_space = input$parallel_plt_space
     local_data$parallel_plt_duration = duration = input$parallel_plt_duration
-    local_data$parallel_plt_excl = rave:::parse_selections(input$parallel_plt_excl)
+    local_data$parallel_plt_excl = dipsaus::parse_svec(input$parallel_plt_excl)
     local_data$parallel_plt_refed_hidden = input$parallel_plt_refed_hidden
 
     try({
@@ -287,7 +287,7 @@ parallel_plot_ui = function(){
                          choiceNames = c('Show all', 'Show original signals only', 'Show referenced signals only'),
                          choiceValues = c('all', 'raw', 'ref'),
                          selected = parallel_plt_refed_hidden),
-            textInput(ns('parallel_plt_excl'), 'Hide Electrodes', value = rave:::deparse_selections(parallel_plt_excl))
+            textInput(ns('parallel_plt_excl'), 'Hide Electrodes', value = dipsaus::deparse_svec(parallel_plt_excl))
         )
     )
 }
@@ -335,7 +335,7 @@ channel_plot = function(){
         if(is.na(r)){
             return(rep(0, n_electrode_total))
         }
-        s = rave:::parse_selections(r)
+        s = dipsaus:::parse_svec(r)
         s = ref_tbl$Electrode %in% s
         s / sum(s)
     }) ->
@@ -354,7 +354,7 @@ channel_plot = function(){
         if(!length(r)){
             s_mean = s_na
         }else{
-            s_mean = colMeans(s[ref_tbl$Electrode %in% rave:::parse_selections(r), , drop = F])
+            s_mean = colMeans(s[ref_tbl$Electrode %in% dipsaus::parse_svec(r), , drop = F])
         }
     }
 

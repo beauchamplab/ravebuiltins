@@ -67,7 +67,7 @@ define_output_3d_viewer <- function(
       )
     }, envir = environment())
     local({
-      `%?<-%` <- rave::`%?<-%`
+      `%?<-%` <- dipsaus::`%?<-%`
       input = getDefaultReactiveInput()
       output = getDefaultReactiveOutput()
       session = getDefaultReactiveDomain()
@@ -127,7 +127,7 @@ define_output_3d_viewer <- function(
           
           # get render function
           f = get0(!!output_fun, envir = ..runtime_env, ifnotfound = function(...){
-            rutabaga::cat2('3D Viewer', !!outputId,  'cannot find function', !!output_fun, level = 'INFO')
+            dipsaus::cat2('3D Viewer', !!outputId,  'cannot find function', !!output_fun, level = 'INFO')
           })
           
           # get client size
@@ -158,7 +158,7 @@ define_output_3d_viewer <- function(
           # if( length(local_signal) && local_signal > .env$local_signal ){
           #   .env$local_signal = local_signal
           #   f = get0(!!output_fun, envir = ..runtime_env, ifnotfound = function(...){
-          #     rutabaga::cat2('3D Viewer', !!outputId,  'cannot find function', !!output_fun, level = 'INFO')
+          #     dipsaus::cat2('3D Viewer', !!outputId,  'cannot find function', !!output_fun, level = 'INFO')
           #   })
           # 
           #   tryCatch({

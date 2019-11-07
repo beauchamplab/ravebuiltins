@@ -115,7 +115,7 @@ get_summary <- function() {
   }) %>% names
 
   # rutabaga over Freq and Time
-  # by_elec <- rutabaga::collapse(.power$data, keep=c(1,4)) / prod(.power$dim[2:3])
+  # by_elec <- dipsaus::collapse(.power$data, keep=c(1,4)) / prod(.power$dim[2:3])
   by_elec <- .power$collapse(keep = c(1,4), method = 'mean')
 
   data.frame('subject_id' = subject$id,

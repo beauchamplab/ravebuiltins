@@ -73,7 +73,7 @@ if(FALSE) {
   }
   # print.aaa =
   
-  rave::eval_dirty(quo, env=.env)
+  dipsaus::eval_dirty(quo, env=.env)
   
   make_graph_options <- function(...) {
     vals <- list(

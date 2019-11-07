@@ -3,6 +3,7 @@
 #' @import rutabaga
 #' @import rave
 #' @import shiny
+#' @import dipsaus
 #' @importFrom magrittr %>%
 #' @import stringr
 #' @importFrom magrittr %<>%
@@ -207,7 +208,7 @@ debug_module <- function(module_id, interactive = FALSE, check_dependencies = TR
             ..tmp[['..packages']] = str_match(search(), '^package:(.+)$')[,2]
             ..tmp[['..packages']] = unique(..tmp[['..packages']][!is.na(..tmp[['..packages']])])
             ..tmp[['..rave_future_obj']] = future::future({
-                rave::eval_dirty(..async_quo)#, env = async_env)
+                dipsaus::eval_dirty(..async_quo)#, env = async_env)
                 if(is.null(..async_var)){
                     return(environment())
                 }else{

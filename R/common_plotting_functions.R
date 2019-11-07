@@ -704,7 +704,7 @@ title_decorator <- function(plot_data, results,
             el <- results$get_value('ELECTRODE', ifNotFound = NULL)
             if(is.null(el)) {
                 # using requested_electrodes here rather than ELECTRODE_TEXT because of parsing issues in ELECTRODE_TEXT
-                el <- rutabaga::deparse_svec(results$get_value('requested_electrodes', ifNotFound = '?'), max_lag=1)
+                el <- dipsaus::deparse_svec(results$get_value('requested_electrodes', ifNotFound = '?'), max_lag=1)
             } 
             # print('EL: ' %&% el)
             conditional_sep(title_string) = 'E' %&% el
