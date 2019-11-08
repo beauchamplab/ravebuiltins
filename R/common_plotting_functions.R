@@ -20,7 +20,7 @@
 #' @seealso draw_img
 draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
                                 show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
-                                PANEL.FIRST=NULL, PANEL.LAST=NULL, axes=c(TRUE, TRUE), xrange=NULL, ...) {
+                                PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), xrange=NULL, ...) {
 
     k <- sum(hmaps %>% get_list_elements('has_trials'))
     orig.pars <- layout_heat_maps(k)
@@ -35,7 +35,8 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
         # trying to be smart about the size of the margin to accomodate the angular text. R doesn't auto adjust :(
         max_char_count = max(sapply(hmaps, function(h) ifelse(h$has_trials, max(nchar(h$conditions)), 1)))
         
-        par(mar = c(5.1, 5.1 + max(0,(max_char_count - 5)*0.75),
+        par(mar = c(5.1,
+                    5.1 + max(0,(max_char_count - 5)*0.75),
                     2, 2))
     }
 
@@ -73,10 +74,10 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
             if(log_scale == 'y') {
                 dy <- (y[2]-y[1])/2 + min(y)
                 #FIXME I think this may be making the edge boxes too small cf. the else block where we pad 0.5
-                plot_clean(x,y+dy, xlab=xlab, ylab=ylab, cex.lab=rave_cex.axis, log='y')
+                rutabaga::plot_clean(x,y+dy, xlab=xlab, ylab=ylab, cex.lab=rave_cex.axis, log='y')
             } else {
                 pad = c(-0.5, 0.5)
-                plot_clean(xlim=range(x) + pad,
+                rutabaga::plot_clean(xlim=range(x) + pad,
                            ylim=range(y) + pad)#, xlab=xlab, ylab=ylab, cex.lab=rave_cex.axis, log='y')
             }
             
@@ -106,8 +107,14 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
     })
     
     if(show_color_bar){
-        par(mar=c(5.1, 4.5, 2, 2),
-            mai = c(0.6732, 0.5412, 0.5412, 0.2772))
+        .mar <- c(5.1, 4.5, 2, 2)
+        if(is.function(PANEL.COLOR_BAR)) {
+            .mar[3] = 4
+        }
+        
+        
+        # par(mar=c(5.1, 4.5, 4, 2),
+        #     mai = c(0.6732, 0.5412, 1, 0.2772))
         
         .ylab = ''
         ii = 1
@@ -118,9 +125,12 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
             }
             ii = ii + 1
         }
-        rave_color_bar(max_zlim, actual_lim, ylab=.ylab)
+        rave_color_bar(max_zlim, actual_lim, ylab=.ylab, mar=.mar)
+        if(is.function(PANEL.COLOR_BAR)) {
+            PANEL.COLOR_BAR(hmaps)
+        }
     }
-
+    
     invisible(hmaps)
 }
 
@@ -300,17 +310,33 @@ spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=f
         
         axis_label_decorator(plot_data)
         
+        # check if the analysis and baseline windows are fully contained within the plotting window. If not, switch baseline type 
+        # to just be a label. This can, of course, be turned off using the regular options.
+        if(!all(plot_data$baseline_window %within% plot_data$x)) {
+            btype = 'label'
+        }
+        
+        if(!all(plot_data$analysis_window %within% plot_data$x)) {
+            atype = 'label'
+        }
+        
         windows <- list(
             'Baseline'=list(
-                window = Xmap(plot_data$baseline_window),#results$get_value('BASELINE_WINDOW')),
+                window = if(btype == 'label') {
+                    plot_data$baseline_window    
+                }else {
+                    Xmap(plot_data$baseline_window)
+                },
                 type=btype
             ),
             'Analysis'=list(
                 window = if(atype=='box') {
-                    list(x=Xmap(plot_data$analysis_window),#results$get_value('ANALYSIS_WINDOW')),
-                         y=Ymap(plot_data$frequency_window))#results$get_value('FREQUENCY')))
-                } else {
-                    Xmap(plot_data$analysis_window)#results$get_value('ANALYSIS_WINDOW'))
+                    list(x=Xmap(plot_data$analysis_window),
+                         y=Ymap(plot_data$frequency_window))
+                } else if(atype == 'label') {
+                    plot_data$analysis_window    
+                }else {
+                    Xmap(plot_data$analysis_window)
                 },
                 type=atype
             )
@@ -321,7 +347,8 @@ spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=f
                 with(windows[[nm]],
                      window_decorator(
                          window=window, type=type,
-                         text=ifelse(results$get_value('draw_decorator_labels'), nm, '')
+                         text=ifelse(results$get_value('draw_decorator_labels'), nm, ''),
+                         label_placement_offset = ifelse(all('label' == c(btype,atype), nm == 'Analysis'), 0.8, 0.9)
                      )
                 )
             }
@@ -655,9 +682,18 @@ axis_label_decorator <- function(plot_data, col) {
     if(missing(col)) {
         col = get_foreground_color()
     }
+    
+    cex_multiplier <- 1
+    if(shiny::isRunning()) {
+        if(any(par('mfrow') > 2)) {
+            cex_multiplier = 1/0.66
+        }# else if (any(par('mfrow')) > 1)
+        # cex_multiplier <- 
+    }
+    
     title(xlab=attr(pd$data, 'xlab'),
           ylab=attr(pd$data, 'ylab'),
-          cex.lab=rave_cex.lab, col.lab=col)
+          cex.lab=rave_cex.lab*cex_multiplier, col.lab=col)
 }
 
 
@@ -806,12 +842,12 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
     invisible(plot_data)
 }
 
-window_decorator <- function(window, type=c('line', 'box', 'shaded'),
-                             line.col, shade.col='gray60',
+window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
+                             line.col, shade.col='gray60', label_placement_offset=0.9,
                              text=FALSE, text.col, lwd, lty) {
     type <- match.arg(type)
     text.x <- window[1]
-    text.y <- par('usr')[4] * .9
+    text.y <- par('usr')[4] * label_placement_offset
     
     
     line.col %?<-% get_foreground_color()
@@ -843,6 +879,15 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded'),
                    yfac <- diff(par('usr')[4] * c(.975,1))
                    text.y <- min(par('usr')[4]*.9, window$y[2] + yfac)
                }
+           },
+           label = {
+               text.col %?<-% shade.col
+               if(is.character(text) && nchar(text) > 1) {
+                   text = paste0(text, ':')
+               } else {
+                   text = ''
+               }
+               text = bquote(.(text) ~ .(window[1]) %->% .(window[2]))
            },
            shaded = {
                text.col %?<-% shade.col

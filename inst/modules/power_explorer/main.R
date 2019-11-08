@@ -299,8 +299,8 @@ get_data_per_electrode <- function()  {
   
   return(res)
 }
-get_data_per_electrode_alt <- function(){
-  trial_numbers = epoch_data$Trial[epoch_data$Condition %in% all_trial_types]
+get_data_per_electrode_alt <- function(ttypes){
+  trial_numbers = epoch_data$Trial[epoch_data$Condition %in% ttypes]
   
   # Do not baseline them all, otherwise memory will explode
   res = rave::lapply_async(electrodes, function(e){
@@ -312,7 +312,7 @@ get_data_per_electrode_alt <- function(){
                    from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
                    hybrid = FALSE, mem_optimize = FALSE)
     bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
-    pow <- bl$collapse(keep = c(1,4))
+    pow <- bl.analysis$collapse(keep = c(1,4))
     m = colMeans(pow)
     
     t = m / .fast_column_se(pow)
@@ -330,8 +330,10 @@ omnibus_results <- cache(
   key = list(subject$id, BASELINE_WINDOW, FREQUENCY,all_trial_types,
              ANALYSIS_WINDOW, combine_method, preload_info$epoch_name,
              preload_info$reference_name, trial_outliers_list),
-  val = get_data_per_electrode_alt()
+  val = get_data_per_electrode_alt(all_trial_types)
 )
+
+# omnibus_results <- get_data_per_electrode_alt(all_trial_types)
 
 # calculate the statistics here so that we can add them to plot output -- eventually this goes away?
 # if there are > 1 groups in the data, then do linear model, otherwise one-sample t-test
@@ -366,22 +368,23 @@ mount_demo_subject(force_reload_subject = T)
 module = ravebuiltins:::debug_module('power_explorer')
 
 
-eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
+# eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
 
 result = module(ELECTRODE_TEXT = '14',
   GROUPS = list(list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
                               # putting in an empty group to test our coping mechanisms
-                              list(group_name='YY', group_conditions=c()),
+                              list(group_name='YY', group_conditions=c('drive_av', 'last_av')),
                               list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
-                background_plot_color_hint='white', BASELINE_WINDOW = c(-1,-.1), plot_time_range = c(-1,1.5),
+                background_plot_color_hint='white', BASELINE_WINDOW = c(-1,-.4),
+  plot_time_range = c(-0.5,1.25),
                 FREQUENCY = c(70,150), max_zlim = 0, show_outliers_on_plots = TRUE,
                 sort_trials_by_type = T, combine_method = 'none')
 results = result$results
 # results$get_value('omnibus_results')
-result$across_electrodes_corrected_pvalue()
-
+# result$across_electrodes_corrected_pvalue()
 # attachDefaultDataRepository()
 # get_summary()
+
 
 result$heat_map_plot()
 result$windowed_comparison_plot()

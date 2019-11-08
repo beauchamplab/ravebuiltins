@@ -14,7 +14,6 @@ over_time_plot <- function(results, ...) {
                      PANEL.FIRST = time_series_decorator(results = results))
 }
 
-
 #' @title Histogram of F-tests per electrode
 #' @param results results returned by module
 #' @param ... other parameters passed to module output
@@ -275,7 +274,8 @@ heat_map_plot <- function(results, ...){
                         log_scale = results$get_value('log_scale'),
                         max_zlim = results$get_value('max_zlim'),
                         xrange = results$get_value('plot_time_range'),
-                        PANEL.LAST = spectrogram_heatmap_decorator(results=results)
+                        PANEL.LAST = spectrogram_heatmap_decorator(results=results),
+                        PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator,0)
     )
 }
 
@@ -291,8 +291,22 @@ by_electrode_heat_map <- function(results) {
     draw_many_heat_maps(by_electrode_heat_map_data,
                         max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
                         xrange = results$get_value('plot_time_range'),
-                        PANEL.LAST=by_electrode_heat_map_decorator(results=results))
-    
+                        PANEL.LAST=by_electrode_heat_map_decorator(results=results),
+                        PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator, 0)
+                        )
+}
+
+pretty_round <- function(x) {
+    max_x <- max(abs(x))
+    dig = 0
+    if(max_x < 1) {
+        dig = abs(round(log10(max_x)))
+    } 
+    round(x, dig)
+}
+
+color_bar_title_decorator <- function(m) {
+    rave_title(paste0('Range\n[', paste0(pretty_round(get_data_range(m)), collapse = ':'), ']'), font=1, cex = rave_cex.main*.8)
 }
 
 # the only difference between this plot and the time x freq heat_map_plot
@@ -328,6 +342,7 @@ by_trial_heat_map <- function(results) {
                         max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
                         wide = sort_trials_by_type,
                         PANEL.LAST=decorator,
+                        PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator,0),
                         xrange = results$get_value('plot_time_range'),
                         # we always want the x axis, but we only want the y axis if we are NOT sorting by type
                         axes=c(TRUE, !sort_trials_by_type))

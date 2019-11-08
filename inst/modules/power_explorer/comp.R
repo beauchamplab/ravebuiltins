@@ -107,9 +107,6 @@ define_input_frequency(inputId = 'FREQUENCY', initial_value = c(70,150))
 define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis', initial_value = c(0,1))
 define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline', initial_value = c(-1,0))
 
-
-
-
 # define_input_analysis_file_chooser('analysis_settings', read_source = c('Analysis Settings' = 'analysis_yamls'))
 define_input_analysis_yaml_chooser(
   'analysis_settings', name_prefix = 'power_explorer_settings_', 
@@ -152,16 +149,21 @@ define_input(
   definition = checkboxInput('show_outliers_on_plots', 'Show outliers on plots', value = TRUE))
 
 define_input(
-  definition = numericInput('max_zlim', 'Heatmap Max (0 means data range)', value = 0, min = 0, step = 1))
-
+  definition = numericInput('max_zlim', 'Heat map range (0: data range)', value = 0, min = 0, step = 1))
 define_input(
-  definition = checkboxInput('log_scale', 'Log Freq (NI)'))
+  definition = checkboxInput('show_heatmap_range', 'Show data range on heat maps', value=TRUE))
+
+# define_input(
+#   definition = checkboxInput('log_scale', 'Log Freq (NI)'))
 
 define_input(
   definition = checkboxInput('sort_trials_by_type', 'Sort Trials'))
 
-define_input(
-    definition = checkboxInput('collapse_using_median', 'Collapse w/ Median (NI)'))
+# define_input(
+#     definition = checkboxInput('collapse_using_median', 'Collapse w/ Median (NI)'))
+
+
+
 
 
 # let people decide how much information to include in the plots. It's up to the individual plot to actually make
@@ -381,7 +383,7 @@ render_inputs <- c(
   'tval_filter', 'pval_filter', 'mean_filter',
   'tval_operator', 'pval_operator', 'mean_operator', 
   'tval_operand', 'pval_operand', 'mean_operand', 'analysis_filter_elec_2', 'analysis_filter_elec',
-  'analysis_filter_variable', 'analysis_filter_variable_2'
+  'analysis_filter_variable', 'analysis_filter_variable_2', 'show_heatmap_range'
 )
 
 define_input(
@@ -407,11 +409,11 @@ input_layout = list(
     c('electrode_category_selector', 'electrode_category_selector_choices'),
     'ELECTRODE_TEXT',
     'download_electrodes_csv',
-    #, c('combine_method'),
     #c('reference_type', 'reference_group'),
     'FREQUENCY',
     'BASELINE_WINDOW',
     'ANALYSIS_WINDOW',
+     c('combine_method'),
     'do_calculate_btn', 'auto_calculate'
   ),
   #[#99ccff]
@@ -425,7 +427,7 @@ input_layout = list(
     'draw_decorator_labels',
     c('color_palette', 'background_plot_color_hint',
     'invert_colors_in_palette', 'reverse_colors_in_palette'),
-    c('max_zlim'),
+    c('max_zlim', 'show_heatmap_range'),
     # 'heatmap_color_palette',
     c('sort_trials_by_type')
     #FIXME collapse_using_median should be in Analysis Settings???
