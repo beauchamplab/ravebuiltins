@@ -211,7 +211,7 @@ itpc_time_plot = function(results, ...){
         }
     })
 
-    cols = dropNulls(cols)
+    cols = dipsaus::drop_nulls(cols)
     mar = c(5.1, 5.1, 2, 2)
     par(mar = mar)
 

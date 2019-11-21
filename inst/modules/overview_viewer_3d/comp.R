@@ -66,7 +66,7 @@ define_input(
 
 define_input(definition = shiny::checkboxInput(inputId = 'use_template', label = 'Use Template Brain', value = FALSE))
 
-define_input(definition = rave::actionButtonStyled(inputId = 'viewer_result_btn2', type = 'success', 'Update Viewer', width = '100%'))
+define_input(definition = dipsaus::actionButtonStyled(inputId = 'viewer_result_btn2', type = 'success', 'Update Viewer', width = '100%'))
 
 
 # Add csv file

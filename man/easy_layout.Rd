@@ -4,9 +4,16 @@
 \alias{easy_layout}
 \title{Create a easy layout for multiple plots sharing the same x,y and legend}
 \usage{
-easy_layout(K, nrows = 1, legend, legend_size = lcm(3),
-  legend_side = 4, s_margin = par("mar"), b_margin = par("oma"),
-  l_margin)
+easy_layout(
+  K,
+  nrows = 1,
+  legend,
+  legend_size = lcm(3),
+  legend_side = 4,
+  s_margin = par("mar"),
+  b_margin = par("oma"),
+  l_margin
+)
 }
 \arguments{
 \item{K}{number of plots to be made}

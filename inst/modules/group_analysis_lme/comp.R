@@ -141,7 +141,7 @@ define_input(
 # )
 
 define_input(
-    actionButtonStyled('run_analysis', 'Run Analysis', type = 'primary', width = '100%')
+    dipsaus::actionButtonStyled('run_analysis', 'Run Analysis', type = 'primary', width = '100%')
 )
 
 define_input(

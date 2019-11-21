@@ -111,3 +111,7 @@ eval_when_ready <- function(f){
   }
 }
 
+trigger_recalculate <- function(){
+  cat2('Re-calculate will be triggered.')
+}
+

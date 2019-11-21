@@ -201,7 +201,7 @@ observeEvent(input[[('cur_save')]], {
 # Customized UI
 cur_group_ui = function(){
     refresh = local_data$refresh
-    logger('cur_group_ui')
+    cat2('cur_group_ui')
     new_ref = local_data$has_new_ref
 
     if(length(cur_group) && cur_group <= length(ref_group)){
@@ -401,23 +401,31 @@ load_reference = function(){
         unique_refs = ref_tbl[!duplicated(ref_tbl[,c('Group', 'Type')]), ]
         nn = nrow(unique_refs)
         if(nn > 0){
-            lapply(seq_len(nn), function(i){
+            value <- lapply(seq_len(nn), function(i){
                 # Group i
                 row = unique_refs[i, ]
-                # name
-                updateTextInput(session, (sprintf('%s_%s_%d', 'ref_group', 'rg_name', i)), value = row$Group)
-                # ref Method
-                updateSelectInput(session, (sprintf('%s_%s_%d', 'ref_group', 'rg_type', i)), selected = row$Type)
+                
+                # # name
+                # updateTextInput(session, (sprintf('%s_%s_%d', 'ref_group', 'rg_name', i)), value = row$Group)
+                # # ref Method
+                # updateSelectInput(session, (sprintf('%s_%s_%d', 'ref_group', 'rg_type', i)), selected = row$Type)
                 # Electrodes
                 merged = merge(ref_tbl, row, by = c('Group', 'Type'), suffixes = c('', 'y'))
-                updateTextInput(
-                    session,
-                    (sprintf('%s_%s_%d', 'ref_group', 'rg_electrodes', i)),
-                    value = dipsaus:::deparse_svec(merged$Electrode)
+                # updateTextInput(
+                #     session,
+                #     (sprintf('%s_%s_%d', 'ref_group', 'rg_electrodes', i)),
+                #     value = dipsaus::deparse_svec(merged$Electrode)
+                # )
+                
+                list(
+                    rg_name = row$Group,
+                    rg_type = row$Type,
+                    rg_electrodes = dipsaus::deparse_svec(merged$Electrode)
                 )
 
-                updateCompoundInput(session, ('ref_group'), to = nn)
             })
+            
+            dipsaus::updateCompoundInput2(session, ('ref_group'), ncomp = nn, value = value)
 
         }
 

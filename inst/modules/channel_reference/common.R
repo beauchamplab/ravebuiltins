@@ -9,7 +9,7 @@ observe({
 electrode_plot_ui = function(){
     ref_tbl = local_data$ref_tbl
     local_data$refresh
-    logger('electrode_plot_ui')
+    cat2('electrode_plot_ui')
 
     group_info = current_group()
     if(is.null(group_info) || !is.data.frame(ref_tbl)){
@@ -238,7 +238,7 @@ observe({
 parallel_plot_ui = function(){
     ref_tbl = local_data$ref_tbl
     local_data$refresh
-    logger('parallel_plot_ui')
+    cat2('parallel_plot_ui')
 
     group_info = current_group()
     if(is.null(group_info) || !is.data.frame(ref_tbl)){

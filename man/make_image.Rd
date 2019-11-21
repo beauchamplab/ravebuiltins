@@ -4,8 +4,17 @@
 \alias{make_image}
 \title{RAVE custom image plotter}
 \usage{
-make_image(mat, x, y, zlim, col, log = "", useRaster = TRUE,
-  clip_to_zlim = TRUE, add = TRUE)
+make_image(
+  mat,
+  x,
+  y,
+  zlim,
+  col,
+  log = "",
+  useRaster = TRUE,
+  clip_to_zlim = TRUE,
+  add = TRUE
+)
 }
 \arguments{
 \item{mat}{z-matrix}

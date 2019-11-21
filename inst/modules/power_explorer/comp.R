@@ -216,7 +216,7 @@ define_input(
     })
   
   define_input(
-    definition = actionButtonStyled(inputId = 'synch_with_trial_selector',
+    definition = dipsaus::actionButtonStyled(inputId = 'synch_with_trial_selector',
                                     label='Synch with trial selector', icon = shiny::icon('refresh')))
 
   define_input(
@@ -291,11 +291,11 @@ define_input(
     definition = checkboxInput('export_also_download', 'Also download data', value = FALSE)
   )
   # define_input(
-  #   definition = actionButtonStyled('export_data', label='Export data for group analysis', icon=shiny::icon('download'),
+  #   definition = dipsaus::actionButtonStyled('export_data', label='Export data for group analysis', icon=shiny::icon('download'),
   #                                   type = 'primary'))
   
   define_input(
-    definition = actionButtonStyled('select_good_electrodes',label='Visualize Active Electrodes',
+    definition = dipsaus::actionButtonStyled('select_good_electrodes',label='Visualize Active Electrodes',
                                     icon=shiny::icon('magic'), type = 'default'))
   
   define_input(
@@ -303,7 +303,7 @@ define_input(
   
   
   # define_input(
-  #   definition = actionButtonStyled('export_plots_and_data', label='Export Plots and Data', icon=shiny::icon('download'),
+  #   definition = dipsaus::actionButtonStyled('export_plots_and_data', label='Export Plots and Data', icon=shiny::icon('download'),
   #                                   type = 'primary', width = '50%', style='margin-left: 25%; margin-right:25%')
   # )
   
@@ -384,13 +384,27 @@ render_inputs <- c(
   'analysis_filter_variable', 'analysis_filter_variable_2'
 )
 
-define_input(
-  definition = checkboxInput('auto_calculate', label = 'Automatically recalculate analysis', value = FALSE)
-)
+# define_input(
+#   definition = checkboxInput('auto_calculate', label = 'Automatically recalculate analysis', value = FALSE)
+# )
+# 
+# define_input(
+#   definition = dipsaus::actionButtonStyled('do_calculate_btn', 'Recalculate analysis for all selected electrodes', width = '100%', type = 'primary')
+# )
 
-define_input(
-  definition = actionButtonStyled('do_calculate_btn', 'Recalculate analysis for all selected electrodes', width = '100%', type = 'primary')
-)
+define_input_auto_recalculate(
+  inputId = 'do_calculate_btn', label = 'Recalculate analysis for all selected electrodes',
+  type = 'button', button_type = 'primary')
+
+define_input_auto_recalculate(
+  inputId = 'do_auto_calculate', label = 'Same as auto-recalculate',
+  type = 'button', button_type = 'warning')
+
+
+define_input_auto_recalculate(
+  inputId = 'auto_calculate', label = 'Automatically recalculate analysis',
+  type = 'checkbox', default_on = FALSE)
+
 
 #
 # determine which variables only need to be set, not triggering rendering nor executing
@@ -417,7 +431,8 @@ input_layout = list(
   #[#99ccff]
   'Compare trial types' = list(
     'GROUPS',
-    'analysis_settings'
+    'analysis_settings',
+    'do_auto_calculate'
   ),
   '[-]Set plot options' = list(
     'plot_time_range',

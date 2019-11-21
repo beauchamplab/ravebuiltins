@@ -23,26 +23,30 @@ if(FALSE) {
 # }
 
 # these are only needed when shiny is running (e.g., module debug mode)
-if(shiny_is_running()) {
-  calc_flag = shiny::isolate(local_data$calculate_flag)
-
-  if( !auto_calculate && calc_flag >= do_calculate_btn ){
-    # Not auto calculation
-    session$sendCustomMessage(type = 'rave_enable_button', message = list( element_id = ns('do_calculate_btn') ))
-    local_data$calculate_flag = do_calculate_btn
-    return()
-  }else{
-      session$sendCustomMessage(type = 'rave_disable_button', message = list( element_id = ns('do_calculate_btn') ))
-      local_data$calculate_flag = do_calculate_btn
-  }
-}
+# if(shiny_is_running()) {
+#   calc_flag = shiny::isolate(local_data$calculate_flag)
+# 
+#   if( !auto_calculate && calc_flag >= do_calculate_btn ){
+#     # Not auto calculation
+#     dipsaus::updateActionButtonStyled(session, 'do_calculate_btn', disabled = FALSE)
+#     # session$sendCustomMessage(type = 'rave_enable_button', message = list( element_id = ns('do_calculate_btn') ))
+#     local_data$calculate_flag = do_calculate_btn
+#     return()
+#   }else{
+#     dipsaus::updateActionButtonStyled(session, 'do_calculate_btn', disabled = TRUE)
+#     # session$sendCustomMessage(type = 'rave_disable_button', message = list( element_id = ns('do_calculate_btn') ))
+#     local_data$calculate_flag = do_calculate_btn
+#   }
+# }
 requested_electrodes = dipsaus::parse_svec(ELECTRODE_TEXT, sep=',|;', connect  = ':-')
 requested_electrodes %<>% get_by(`%in%`, electrodes)
 
 # this will be NA if the only requested electrodes are not available
 # electrode <- requested_electrodes[1]
-assertthat::assert_that(length(requested_electrodes) >= 1 &&
-                          all(not_NA(requested_electrodes)), msg = 'No electrode selected')
+if(!(length(requested_electrodes) >= 1 &&
+     all(not_NA(requested_electrodes)))){
+  rave::rave_failure('No electrode selected', level = 'WARNING')
+}
 
 # grab the subject code so it can be used later
 subject_code = subject$subject_code
@@ -77,12 +81,14 @@ bl_power <- cache(
              any_trials, preload_info$epoch_name, preload_info$reference_name),
   val = baseline(power$subset(Electrode = Electrode %in% requested_electrodes),
                  from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
-                 hybrid = FALSE, mem_optimize = FALSE)
+                 hybrid = FALSE, mem_optimize = FALSE), 
+  name = 'power_baseline'
 )
 
 jitter_seed <- cache(
   key = 'jitter_seed',
-  val = sample(1:100, 1)
+  val = sample(1:100, 1),
+  name = 'jitter_seed'
 )
 
 # Prepare plot datasets
@@ -98,6 +104,7 @@ flat_data <- data.frame()
 #relies on .transform as defined above
 if(combine_method != 'none') {
   transformed_power <- cache(
+    name = 'transformed_power',
     key = list(combine_method, subject$id, ELECTRODE_TEXT, BASELINE_WINDOW, preload_info$time_points,
                any_trials, preload_info$epoch_name, preload_info$reference_name),
     
@@ -330,7 +337,8 @@ omnibus_results <- cache(
   key = list(subject$id, BASELINE_WINDOW, FREQUENCY,all_trial_types,
              ANALYSIS_WINDOW, combine_method, preload_info$epoch_name,
              preload_info$reference_name, trial_outliers_list),
-  val = get_data_per_electrode_alt()
+  val = get_data_per_electrode_alt(),
+  name = 'omnibus_results'
 )
 
 # calculate the statistics here so that we can add them to plot output -- eventually this goes away?

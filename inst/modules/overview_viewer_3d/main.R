@@ -88,7 +88,7 @@ combined_table = combined_table[, table_headers]
 
 
 # Step 4. collect freesurfer data
-progress = rave::progress('Importing from FreeSurfer files', max = length(subject_codes) + 1)
+progress = dipsaus::progress2('Importing from FreeSurfer files', max = length(subject_codes) + 1)
 on.exit({ progress$close() })
 
 progress$inc('Initializing...')
@@ -104,7 +104,7 @@ brain = lapply(subject_codes, function(subject_code){
 })
 
 # Step 5. if template, use it
-brain = rave::dropNulls(brain)
+brain = dipsaus::drop_nulls(brain)
 if( isTRUE(use_template) || length(brain) > 1 ){
   brain = threeBrain::merge_brain(.list = brain)
 }else if(length(brain)){

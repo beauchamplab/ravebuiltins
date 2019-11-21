@@ -8,9 +8,9 @@ power_3d_fun = function(need_calc, side_width, daemon_env){
   shiny::validate(shiny::need(!is.null(brain), message = 'No surface/volume file found!'))
   re = NULL
   if( need_calc ){
-    dat = rave::cache(key = list(
+    dat = cache(key = list(
       list(BASELINE_WINDOW, preload_info)
-    ), val = get_summary())
+    ), val = get_summary(), name = 'power_summary')
     
     # for each electrode, we want to test the different conditions
     .FUN <- if(length(levels(dat$condition)) > 1) {
@@ -319,7 +319,7 @@ export_data_ui <- function(){
            href = '', target='_blank', download='',
            shiny::icon('download'), 'Export data for group analysis')
   }else{
-    actionButtonStyled(ns('export_data_only'), 
+    dipsaus::actionButtonStyled(ns('export_data_only'), 
                        label = 'Export data for group analysis', 
                        icon=shiny::icon('save'),
                        type = 'primary')

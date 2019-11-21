@@ -67,7 +67,7 @@ define_input(
 )
 
 define_input(
-    definition = compoundInput(
+    definition = dipsaus::compoundInput2(
         'ref_group', label = 'Reference Group', max_ncomp = 20, components = {
             textInput('rg_name', 'Name', value = '')
             selectInput('rg_type', 'Type', choices = c(

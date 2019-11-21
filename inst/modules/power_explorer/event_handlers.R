@@ -22,7 +22,7 @@ local_data = reactiveValues(
 #         textInput(ns('modal_analysis_settings_name'), label = 'Settings Name', value = paste0('power_explorer_settings_', tstmp)),
 #         tags$small('Will overwrite settings with the same name currently in RAVE settings folder'),
 #         footer = tagList(
-#             rave::actionButtonStyled(ns('btn_do_save_analysis'), 'Save'),
+#             dipsaus::actionButtonStyled(ns('btn_do_save_analysis'), 'Save'),
 #             shiny::modalButton("Cancel")
 #         )
 #     ))
@@ -50,7 +50,7 @@ observeEvent(input$analysis_settings_load, {
     f_path = do.call(file.path, as.list(c(roots[[fdata$root]], f_name)))
     conf = yaml::read_yaml(f_path)
     
-    updateCheckboxInput(session, inputId = 'auto_calculate', value = FALSE)
+    # auto_recalculate( FALSE, temporary = TRUE ) 
     lapply(1:10, function(ii){
         gc_id = sprintf('GROUPS_group_conditions_%d', ii)
         gc = conf[[gc_id]]
@@ -259,13 +259,16 @@ observeEvent(input$analysis_filter_variable_2, {
 observeEvent(input$select_good_electrodes, {
     if(!is.null(input$current_active_set)) {
         updateTextInput(session, 'ELECTRODE_TEXT', value = parse_svec(input$current_active_set))
-        
-        if(! input$auto_calculate) {
-            print('a calc is off, auto click')
-            shinyjs::click('do_calculate_btn')
-        } else {
-            print('a calc is on, no click')
+        if(!auto_recalculate()){
+            trigger_recalculate( force = TRUE )
         }
+        # if(! input$auto_calculate) {
+        #     print('a calc is off, auto click')
+        #     # shinyjs::click('do_calculate_btn')
+        #     trigger_recalculate()
+        # } else {
+        #     print('a calc is on, no click')
+        # }
     }
 })
 

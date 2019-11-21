@@ -9,7 +9,7 @@ define_input_3d_viewer_generator <- function(
   input_download = paste0(inputId, '_download')
   outputId = paste0(inputId, '_out')
   quo = rlang::quo({
-    define_input( definition = actionButtonStyled(
+    define_input( definition = dipsaus::actionButtonStyled(
       inputId = !!inputId, label = !!label, width = '100%', type = !!button_types[[1]]
     ) )
     define_input( definition = rave::customizedUI(!!input_ui) )
@@ -408,7 +408,7 @@ define_input_condition_groups <- function(
   label_color = rep('black', max_group), init_args, init_expr, quoted = FALSE, ...){
   
   if(missing(init_args)){
-    init_args = c('initialize', 'value')
+    init_args = c('initialization', 'value')
   }
   # dipsaus::registerCompoundInput2()
   
@@ -424,7 +424,7 @@ define_input_condition_groups <- function(
       default_val = list(
         list(
           group_name = 'All Conditions',
-          group_conditions = list(cond)
+          group_conditions = cond
         )
       )
       value = cache_input(!!inputId, default_val)
@@ -450,7 +450,7 @@ define_input_condition_groups <- function(
       
       init_args = !!init_args,
       
-      init_expr = eval(!!init_expr)
+      init_expr = !!init_expr
     )
   })
   
@@ -506,7 +506,7 @@ define_input_analysis_data_csv <- function(
           ),
           htmltools::div(
             style = 'flex-basis: 100%',
-            actionButtonStyled(inputId = ns(!!input_btn), label = 'Load analysis data', width = '100%', type = 'primary')
+            dipsaus::actionButtonStyled(inputId = ns(!!input_btn), label = 'Load analysis data', width = '100%', type = 'primary')
           ),
           uploader_tag
         )
@@ -1097,3 +1097,5 @@ define_input_analysis_yaml_chooser <- function(
   parent_env = parent.frame()
   dipsaus::eval_dirty(quo, env = parent_env)
 }
+
+

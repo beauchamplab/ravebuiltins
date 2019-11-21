@@ -151,3 +151,47 @@ htmltable_coefmat <- function(
   
   re
 }
+
+
+is_invalid <- function(x, any = F, .invalids = c('null', 'na')){
+  if('null' %in% .invalids){
+    if(is.null(x) || !length(x)){
+      return(TRUE)
+    }
+  }
+  for(func in paste0('is.', .invalids)){
+    res = do.call(func, args = list(x))
+    if(length(res) > 1){
+      if(any){
+        res = any(res)
+      }else{
+        res = all(res)
+      }
+    }
+    if(res){
+      return(TRUE)
+    }
+  }
+  return(FALSE)
+}
+
+get_val <- function(x, key = NULL, ..., .invalids = c('null', 'na')){
+  
+  if(is.null(key)){
+    val = x
+  }else{
+    val = x[[key]]
+  }
+  if(is_invalid(val, .invalids = .invalids)){
+    args = list(...)
+    len = length(args)
+    if(len){
+      if(len == 1){
+        val = args[[1]]
+      }else{
+        val = args
+      }
+    }
+  }
+  return(val)
+}
