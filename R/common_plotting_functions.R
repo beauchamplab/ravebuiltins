@@ -74,11 +74,11 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
             if(log_scale == 'y') {
                 dy <- (y[2]-y[1])/2 + min(y)
                 #FIXME I think this may be making the edge boxes too small cf. the else block where we pad 0.5
-                rutabaga::plot_clean(x,y+dy, xlab=xlab, ylab=ylab, cex.lab=rave_cex.axis, log='y')
+                rutabaga::plot_clean(x,y+dy, xlab=xlab, ylab=ylab, cex.lab=rave_cex.axis*get_cex_for_multifigure(), log='y')
             } else {
                 pad = c(-0.5, 0.5)
                 rutabaga::plot_clean(xlim=range(x) + pad,
-                           ylim=range(y) + pad)#, xlab=xlab, ylab=ylab, cex.lab=rave_cex.axis, log='y')
+                           ylim=range(y) + pad)
             }
             
             if(is.function(PANEL.FIRST)) {
@@ -424,14 +424,16 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
         }
     }
     
-    col %?<-% if(par('bg') == 'black') {
-        rave_heat_map_dark_colors
-    } else if(par('bg') == '#1E1E1E') {
-        rave_heat_map_gray_colors
-    }else {
-        rave_heat_map_colors
-    }
     
+    col %?<-% get_currently_active_heatmap()
+    # col %?<-% if(par('bg') == 'black') {
+    #     rave_heat_map_dark_colors
+    # } else if(par('bg') == '#1E1E1E') {
+    #     rave_heat_map_gray_colors
+    # }else {
+    #     rave_heat_map_colors
+    # }
+    # 
     image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
           add=add, axes=F, xlab='', ylab='', main='')
 
@@ -490,20 +492,23 @@ str_rng <- function(rng) sprintf('[%s]', paste0(rng, collapse=':'))
 
 rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change',
                            mar=c(5.1, 5.1, 2, 2)) {
-    
-    clrs %?<-% if(par('bg') == 'black') {
-        rave_heat_map_dark_colors
-    } else if(par('bg') == '#1E1E1E') {
-        rave_heat_map_gray_colors
-    }else {
-        rave_heat_map_colors
-    }
+
+    clrs %?<-% get_currently_active_heatmap()
+        # clrs %?<-% if(par('bg') == 'black') {
+    #     rave_heat_map_dark_colors
+    # } else if(par('bg') == '#1E1E1E') {
+    #     rave_heat_map_gray_colors
+    # }else {
+    #     rave_heat_map_colors
+    # }
     
     cbar <- matrix(seq(-zlim, zlim, length=length(clrs))) %>% t
     par(mar=mar)
     image(cbar,
           col=clrs, axes=F, ylab=ylab, main='', col.lab = get_foreground_color(),
-          cex.main=rave_cex.main*.8, cex.lab=rave_cex.lab, cex.axis=rave_cex.axis)
+          cex.main=rave_cex.main*.8*get_cex_for_multifigure(),
+          cex.lab=rave_cex.lab*get_cex_for_multifigure(),
+          cex.axis=rave_cex.axis*get_cex_for_multifigure())
 
     # rave_main(str_rng(actual_lim %>% round))
     rave_axis(2, at=0:2/2, labels = c(-zlim, 0, zlim) %>% round, tcl=0.3)
@@ -600,6 +605,32 @@ trial_type_boundaries_hm_decorator <- function(map, ...) {
     invisible(map)
 }
 
+# here we're overriding the rutabaga do_poly because we can't update rutabaga without getting dipsaus...
+do_poly <- function(x, y, col, alpha=50/255, border=NA, ...) {
+    if(alpha>1) alpha/255
+    
+    polygon(c(x,rev(x)), rep(y, each=2),
+            col=adjustcolor(col, alpha), border=border, ...)
+}
+
+heatmap_outlier_highlighter_decorator <- function(map, Xmap=force, Ymap=force, ...) {
+    with(map, {
+        sapply(which(!is_clean), function(ti) {
+            do_poly(Xmap(range(x)), y=ti %+-% 0.5, border=NA, lty=1, alpha=0.3,
+                    col=rave_colors$TRIAL_TYPE_SEPARATOR, lwd=2)
+            # 
+            # do_poly(Xmap(range(x)), y=ti %+-% 0.5, border='yellow', lty=2, alpha=0.0,
+            #         col=rave_colors$TRIAL_TYPE_SEPARATOR, lwd=2)
+                
+            mtext(text = bquote('' %=>% "" ), at = ti, side=2, line=-2, cex=2, las=1, col='goldenrod2', adj = c(0,0))
+            mtext(text = bquote("" %<=% ''), at = ti, side=4, line=-4, cex=2, las=1, col='goldenrod2')
+        })
+    })
+    invisible(map)
+}
+
+
+
 window_highlighter <- function(ylim, draw_labels=TRUE, window, window_name) {
     do_wh <- function(ylim, draw_labels) {
             clr <- rave_colors[[toupper(window_name %&% '_window')]]
@@ -683,17 +714,10 @@ axis_label_decorator <- function(plot_data, col) {
         col = get_foreground_color()
     }
     
-    cex_multiplier <- 1
-    if(shiny::isRunning()) {
-        if(any(par('mfrow') > 2)) {
-            cex_multiplier = 1/0.66
-        }# else if (any(par('mfrow')) > 1)
-        # cex_multiplier <- 
-    }
     
     title(xlab=attr(pd$data, 'xlab'),
           ylab=attr(pd$data, 'ylab'),
-          cex.lab=rave_cex.lab*cex_multiplier, col.lab=col)
+          cex.lab=rave_cex.lab*get_cex_for_multifigure(), col.lab=col)
 }
 
 
@@ -837,7 +861,7 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
 
     legend(location, legend=legend_text, ncol=ceiling(length(ii)/3),
            inset=c(.025,.075), bty='n',
-           text.col=ii, cex=rave_cex.lab)
+           text.col=ii, cex=rave_cex.lab*get_cex_for_multifigure())
 
     invisible(plot_data)
 }
@@ -907,7 +931,7 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
            })
     
     if(!isFALSE(text)) {
-        text(text.x, text.y, labels = text, pos=4, col=text.col, cex=rave_cex.lab)
+        text(text.x, text.y, labels = text, pos=4, col=text.col, cex=rave_cex.lab*get_cex_for_multifigure())
     }
 }
 
@@ -996,7 +1020,7 @@ tf_hm_decorator <- function(hmap, results, ...)
             abline(v=BASELINE, lty=3, lwd=2, col=label.col)
 
             # label baseline region
-            text(median(BASELINE), quantile(y, .7), 'baseline', col=label.col, cex=rave_cex.lab, pos=3)
+            text(median(BASELINE), quantile(y, .7), 'baseline', col=label.col, cex=rave_cex.lab*get_cex_for_multifigure(), pos=3)
             arrows(BASELINE[1], quantile(y, .7), BASELINE[2], col=label.col, length=.1, code=3)
         }
     }
@@ -1150,16 +1174,18 @@ hist.circular <- function(x, ymax, nticks=3, digits=1, breaks=20, col='black', .
 #' @param get_palettes ignored
 #' @export
 get_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
-    # Some of these are from:
-    # https://colorhunt.co/
+    # from:
+    # http://colorbrewer2.org/
     .palettes <- list(
-        'OrBlGrRdBrPr' = c("orange", "dodgerblue3", "darkgreen", "orangered", "brown", 
-                           "purple3"),
-        'Dark IV' = c('#11144c', '#3a9679', '#fabc60', '#e16262'),
-        'Pastel IV' = c('#7fe7cc', '#dfe38e', '#efca8c', '#f17e7e'),
-        'Twilight IV' = c('#e7eaf6', '#a2a8d3', '#38598b', '#113f67'),
-        'Blues then Orange IV' = c('#070d59', '#1f3c88', '#5893d4', '#f7b633'),
-        'Bright IV' = c('#ff62a5', '#ffe5ae', '#6b76ff', '#dee0d9')
+        'Beautiful Field' = c("orange", "dodgerblue3", "darkgreen", "orangered", "brown",  "purple3"),
+        'Accent' = c('#7fc97f','#beaed4','#fdc086','#ffff99','#386cb0','#f0027f','#bf5b17','#666666'),
+        'Dark2' = c('#1b9e77','#d95f02','#7570b3','#e7298a','#66a61e','#e6ab02','#a6761d','#666666'),
+        'Paired' = c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00'),
+        'Pastel1' = c('#fbb4ae','#b3cde3','#ccebc5','#decbe4','#fed9a6','#ffffcc','#e5d8bd','#fddaec'),
+        'Pastel2' = c('#b3e2cd','#fdcdac','#cbd5e8','#f4cae4','#e6f5c9','#fff2ae','#f1e2cc','#cccccc'),
+        'Set1' = c('#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf'),
+        'Set2' = c('#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854','#ffd92f','#e5c494','#b3b3b3'),
+        'Set3' = c('#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5')
     )
     
     if(missing(pname)) {
@@ -1178,41 +1204,117 @@ get_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
     return (pal)
 }
 
+cache_heatmap_palette <- function(pname, pal) {
+    # usually people will call the set_heatmap_palette_helper, this function is provided in case we
+    # need to subvert the usual route
+    cache('current_rave_heatmap_palette_name', pname, replace=TRUE)
+    cache('current_rave_heatmap_palette', pal, replace=TRUE)
+}
+
+expand_heatmap <- function(pal, results, ncolors) {
+    # interpolate_type=c('linear', 'spline'), color_space = c('Lab', 'rgb'),
+    if(!missing(results)) {
+        ncolors <- results$get_value('heatmap_number_color_values', 101)
+        pal %?<-% results$get_value('heatmap_color_palette')
+    }
+    
+    colorRampPalette(pal, space='Lab')(ncolors)
+}
+
+
+# here we take care of the dark mode business, as well as reversing, inverting, and inside-out for the color scale
+# Dark mode does an inside out by default ?
+# please call set_palette_helper BEFORE calling this function so that we don't have to worry about setting
+# the background plot color again
+set_heatmap_palette_helper <- function(results) {
+    requested_palette_name = paste(results$get_value('heatmap_color_palette'),
+                                   par('bg'),
+                                 results$get_value('heatmap_number_color_values'),
+                                 results$get_value('invert_colors_in_heatmap_palette'),
+                                 results$get_value('reverse_colors_in_heatmap_palette'),
+                                 sep = '_')
+
+    cached_palette_name = cache('current_rave_heatmap_palette_name', 'none')
+    
+    if(cached_palette_name != requested_palette_name) {
+        if(par('bg') %in% c('#1E1E1E', 'black')) {
+            pal = get_dark_mode_heatmap_palette(get_heatmap_palette(results$get_value('heatmap_color_palette')))
+        } else {
+            pal = get_heatmap_palette(results$get_value('heatmap_color_palette'))
+        }
+        
+        if(results$get_value('invert_colors_in_heatmap_palette', FALSE)) {
+            pal %<>% invert_palette
+        }
+        
+        if(results$get_value('reverse_colors_in_heatmap_palette', FALSE)) {
+            pal %<>% rev
+        }
+        
+        pal = expand_heatmap(pal, results = results)
+        
+        cache_heatmap_palette(requested_palette_name, pal)
+    }
+}
+
+get_currently_active_heatmap <- function() {
+    pal = cache('current_rave_heatmap_palette', 1)
+    if(pal[1] == 1) {
+        cat2('No heatmap is active, using default', level = 'WARNING')
+        
+        pal = expand_heatmap(get_heatmap_palette('BlueWhiteRed'), ncolors = 101)
+    }
+    return(pal)
+}
+
+
+get_dark_mode_heatmap_palette <- function(pal, mid_color = par('bg')) {
+    if(length(pal)==1) {
+        pal %<>% get_heatmap_palette
+    }
+    
+    c(pal[5:1], mid_color, pal[11:7])
+}
+
 
 get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
     # Some of these are from:
-    # https://colorhunt.co/
-    rave_color_ramp_palette <- colorRampPalette(c('navy', 'white', 'red'), interpolate='linear', space='Lab')
-    rave_color_ramp_dark_palette <- colorRampPalette(c('#13547a', 'black', '#ff758c'), interpolate='linear', space='Lab')
+    # http://colorbrewer2.org
     
-    
-    ..dark_blue_to_red <- rev(c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#ffffff", 
-                                "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061"))
-    ..light_blue_to_light_red <- c(..dark_blue_to_red[5:1], 'black', ..dark_blue_to_red[11:7])
-    
-    
-    rave_color_ramp_palette <- colorRampPalette(..dark_blue_to_red, interpolate='linear', space='Lab')
-    rave_heat_map_colors <- rave_color_ramp_palette(1001)
-    
-    rave_color_ramp_dark_palette <- colorRampPalette(..light_blue_to_light_red, interpolate='linear', space='Lab')
-    
-    rave_heat_map_dark_colors <- rave_color_ramp_dark_palette(1001)
-    
-    # put this here for legacy, but we need to exterminate these references
-    crp <- rave_heat_map_colors
-    
+    .heatmap_palettes <- list(
+        BlueWhiteRed = c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#ffffff", 
+                             "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061") %>% rev,
+        Spectral = c('#9e0142','#d53e4f','#f46d43','#fdae61','#fee08b','#ffffbf',
+                     '#e6f598','#abdda4','#66c2a5','#3288bd','#5e4fa2') %>% rev,
+        BrownWhiteGreen = c('#543005','#8c510a','#bf812d','#dfc27d','#f6e8c3','#f5f5f5',
+                       '#c7eae5','#80cdc1','#35978f','#01665e','#003c30'),
+        PinkWhiteGreen =c('#8e0152','#c51b7d','#de77ae','#f1b6da','#fde0ef','#f7f7f7',
+                          '#e6f5d0','#b8e186','#7fbc41','#4d9221','#276419'),
+        PurpleWhiteGreen = c('#40004b','#762a83','#9970ab','#c2a5cf','#e7d4e8','#f7f7f7',
+                             '#d9f0d3','#a6dba0','#5aae61','#1b7837','#00441b'),
+        OrangeWhitePurple = c('#7f3b08','#b35806','#e08214','#fdb863','#fee0b6','#f7f7f7',
+                              '#d8daeb','#b2abd2','#8073ac','#542788','#2d004b'),
+        BlackWhiteRed = c('#67001f','#b2182b','#d6604d','#f4a582','#fddbc7','#ffffff',
+                           '#e0e0e0','#bababa','#878787','#4d4d4d','#1a1a1a') %>% rev,
+        BlueYellowRed = c('#a50026','#d73027','#f46d43','#fdae61','#fee090','#ffffbf',
+                          '#e0f3f8','#abd9e9','#74add1','#4575b4','#313695') %>% rev,
+        GreenYellowRed = c('#a50026','#d73027','#f46d43','#fdae61','#fee08b','#ffffbf',
+                           '#d9ef8b','#a6d96a','#66bd63','#1a9850','#006837') %>% rev
+    )
     if(missing(pname)) {
         if(get_palette_names)
-            return (names(.palettes))
+            return (names(.heatmap_palettes))
         
-        return (.palettes)
+        return (.heatmap_palettes)
     }
     
-    pal <- .palettes[[pname]]
+    pal <- .heatmap_palettes[[pname]]
     if(is.null(pal)) {
         warning("Invalid palette requested: ", pname, ". Returning random palette")
-        pal <- .palettes[[sample(seq_along(.palettes), 1)]]
+        pname = sample(names(.heatmap_palettes), 1)
+        pal <- .heatmap_palettes[[pname]]
     }
+    attr(pal, 'name') = pname
     
     return (pal)
 }

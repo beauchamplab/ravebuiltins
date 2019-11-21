@@ -70,9 +70,6 @@ define_initialization({
 # Define inputs
 
 # Select from multiple choices,
-define_input(
-  definition = customizedUI(inputId = 'input_customized')
-)
 
 # , label='Download copy of electrode meta data')
 # )
@@ -201,15 +198,21 @@ define_input(
     init_expr = {
       value = sprintf('%s_pow_by_cond', subject$subject_code)
     })
-  define_input(
-    definition = checkboxInput('analysis_mask_export',value = FALSE,
-                               label = 'Export Electrode Mask'))
+  # define_input(
+  #   definition = checkboxInput('analysis_mask_export',value = FALSE,
+  #                              label = 'Export Electrode Mask'))
   
   define_input_time(inputId = 'export_time_window', label='Export time window', initial_value = c(0,1))
-  define_input(
-    definition = checkboxInput('filter_3d_viewer', "Filter 3D Viewer Results (requires viewer reload)", value=FALSE))
+  # define_input(
+  #   definition = checkboxInput('filter_3d_viewer', "Filter 3D Viewer Results (requires viewer reload)", value=FALSE))
   
   define_input(
+    definition = checkboxInput('include_outliers_in_export', "Include outliers in export", value=FALSE)
+  )
+  
+  
+  
+    define_input(
     definition = selectInput('trial_type_filter', label=HTML('<br/>Trials to include in export file'), choices=NULL, selected=NULL, multiple =TRUE),
     init_args = c('choices', 'selected'),
     init_expr = {
@@ -287,7 +290,7 @@ define_input(
     definition = textInput('mean_operand', label= ' '))
   
   define_input(
-    definition = customizedUI('export_data_ui')
+    definition = customizedUI('write_out_data_ui')
   )
   define_input(
     definition = checkboxInput('export_also_download', 'Also download data', value = FALSE)
@@ -314,30 +317,8 @@ define_input(
 
 ### COLOR PALETTE
 {
-# define_input(
-#   definition = selectInput(inputId = 'color_palette', label='Color palette', multiple=FALSE, 
-#                            choices = list('Matlab'=get_palette(get_palette_names = TRUE),
-#                                           'RAVE'=c('redish', 'bluish'),
-#                                           'RColorBrewer'=c('redish', 'bluish'),),
-#                            selected = get_palette(get_palette_names = TRUE)[1])
-# )
-
-
-
-# define_input(
-#   definition = selectInput(inputId = 'heatmap_color_palette', label='Heatmap Colors', multiple=FALSE, 
-#                            choice=get_heatmap_palette(get_palette_names = TRUE),
-#                            selected = get_heatmap_palette(get_palette_names = TRUE)[1]),
-#   
-#   # cache the color palette across data reloads. needs init_args and init_expr
-#   init_args = c('selected'),
-#   init_expr = {
-#     selected = cache_input('heatmap_color_palette', val = get_heatmap_palette(get_palette_names = TRUE)[1])
-#   }
-# )
-  
 define_input(
-  definition = selectInput(inputId = 'color_palette', label='Color palette', multiple=FALSE, 
+  definition = selectInput(inputId = 'color_palette', label='Lines color palette', multiple=FALSE, 
                            choice=get_palette(get_palette_names = TRUE),
                            selected = get_palette(get_palette_names = TRUE)[1]),
   
@@ -347,19 +328,60 @@ define_input(
     selected = cache_input('color_palette', val = get_palette(get_palette_names = TRUE)[1])
   }
 )
+  define_input(
+    definition = checkboxInput('invert_colors_in_palette', "Invert Colors", value=FALSE)
+  )
+  
+  define_input(
+    definition = checkboxInput('reverse_colors_in_palette', "Reverse Palette", value=FALSE)
+  )
+  
+  define_input(
+    definition = selectInput(inputId = 'heatmap_color_palette', label='Heatmap color palette', multiple=FALSE, 
+                             choice=get_heatmap_palette(get_palette_names = TRUE),
+                             selected = get_heatmap_palette(get_palette_names = TRUE)[1]),
+    
+    # cache the color palette across data reloads. needs init_args and init_expr
+    init_args = c('selected'),
+    init_expr = {
+      selected = cache_input('heatmap_color_palette', val = get_heatmap_palette(get_palette_names = TRUE)[1])
+    }
+  )
+  
+  define_input(
+    definition = numericInput(inputId = 'heatmap_number_color_values', label='Unique Color Values',
+                              value = 101, min=2, max=1001)
+  )
+  
+  define_input(
+    definition = checkboxInput('invert_colors_in_heatmap_palette', "Invert Colors", value=FALSE)
+  )
+  
+  define_input(
+    definition = checkboxInput('reverse_colors_in_heatmap_palette', "Reverse Palette", value=FALSE)
+  )
+  
+  
+  
+  # 
+  # define_input(
+  #   definition = numericInput(inputId = 'heatmap_truncate_less_than', label='Heat map min (0: data range)', min=0)
+  # )
+  
+  define_input(
+    definition = numericInput('max_zlim', 'Heat map max (0: data range)', value = 0, min = 0, step = 1))
+  
+  
+  # define_input(
+  #   definition = numericInput('heatmap_truncate_greater_than', 'Heat map max (0: data range)', value = 0, min = 0, step = 1))
+  # 
 
 define_input(
-  definition = selectInput(inputId = 'background_plot_color_hint', label = 'Background color', multiple=FALSE,
+  definition = selectInput(inputId = 'background_plot_color_hint', label = 'Plot background color', multiple=FALSE,
                            choices = c('White', 'Black', 'Gray'), selected = 'White')
 )
 
-define_input(
-  definition = checkboxInput('invert_colors_in_palette', "Inverse Palette Colors", value=FALSE)
-)
 
-define_input(
-  definition = checkboxInput('reverse_colors_in_palette', "Reverse Palette Order", value=FALSE)
-)
 
 define_input(
   definition = customizedUI('graph_export')
@@ -379,7 +401,9 @@ define_input(
 # deterime which varibles only need to trigger a render, not an exectute
 render_inputs <- c(
   'sort_trials_by_type', 'draw_decorator_labels', 'PLOT_TITLE', 'plots_to_export', 'show_outliers_on_plots', 'background_plot_color_hint',
-  'invert_colors_in_palette', 'reverse_colors_in_palette', 'color_palette', 'max_zlim','plot_time_range',
+  'invert_colors_in_palette', 'reverse_colors_in_palette', 'color_palette', 'heatmap_color_palette', 'heatmap_number_color_values',
+  'max_zlim','plot_time_range', 'invert_colors_in_heatmap_palette', 'reverse_colors_in_heatmap_palette',
+  # 'heatmap_truncate_less_than',
   'tval_filter', 'pval_filter', 'mean_filter',
   'tval_operator', 'pval_operator', 'mean_operator', 
   'tval_operand', 'pval_operand', 'mean_operand', 'analysis_filter_elec_2', 'analysis_filter_elec',
@@ -397,14 +421,14 @@ define_input(
 #
 # determine which variables only need to be set, not triggering rendering nor executing
 manual_inputs <- c(
-  'graph_export', 'filter_3d_viewer', 'trial_type_filter', 'synch_with_trial_selector', 'download_electrodes_csv',
-  'btn_save_analysis_settings', 'btn_load_analysis_settings',
-  'export_what', 'analysis_prefix', 'analysis_mask_export', 'export_data', 'current_active_set', 'export_also_download', 'export_time_window'
+  'graph_export', 'trial_type_filter', 'synch_with_trial_selector', 'download_electrodes_csv',
+  'btn_save_analysis_settings', 'btn_load_analysis_settings', 'include_outliers_in_export',
+  'export_what', 'analysis_prefix', 'export_data', 'current_active_set', 'export_also_download', 'export_time_window'
 )
 
 # Define layouts if exists
 input_layout = list(
-  #'[#cccccc]
+  # '[#cccccc]
   'Configure analysis settings' = list(
     c('electrode_category_selector', 'electrode_category_selector_choices'),
     'ELECTRODE_TEXT',
@@ -425,10 +449,14 @@ input_layout = list(
     'plot_time_range',
     c('PLOT_TITLE'),
     'draw_decorator_labels',
-    c('color_palette', 'background_plot_color_hint',
-    'invert_colors_in_palette', 'reverse_colors_in_palette'),
-    c('max_zlim', 'show_heatmap_range'),
-    # 'heatmap_color_palette',
+    c('color_palette',
+    'reverse_colors_in_palette', 'invert_colors_in_palette'),
+    c('heatmap_color_palette', 'heatmap_number_color_values',
+      'reverse_colors_in_heatmap_palette', 'invert_colors_in_heatmap_palette'),
+      c('max_zlim', 
+        # 'heatmap_truncate_less_than',
+        'show_heatmap_range'),
+    c('background_plot_color_hint'),
     c('sort_trials_by_type')
     #FIXME collapse_using_median should be in Analysis Settings???
     # c('log_scale', , 'collapse_using_median')
@@ -445,8 +473,6 @@ input_layout = list(
     # 'export_plots_and_data'#
     c('graph_export')
   ),
-    # 'filter_3d_viewer',
-    # 'analysis_mask_export',
   '[-]Export data from all electrodes for group analysis' = list(
     c('pval_filter', 'pval_operator', 'pval_operand'),
     c('tval_filter', 'tval_operator', 'tval_operand'),
@@ -457,9 +483,10 @@ input_layout = list(
     'select_good_electrodes',
     'trial_type_filter', 'synch_with_trial_selector',
     'export_time_window',
+    'include_outliers_in_export',
     'analysis_prefix',
     # 'export_data'
-    'export_data_ui',
+    'write_out_data_ui',
     'export_also_download'
   )
 )

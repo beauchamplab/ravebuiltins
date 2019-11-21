@@ -5,7 +5,7 @@
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
 mount_demo_subject(force_reload_subject = T,
-                   subject_code = 'YAB',project_name = 'congruency', electrodes=13:20, epoch='YABa')
+                   subject_code = 'YAB',project_name = 'congruency', electrodes=13:17, epoch='YABa')
 
 init_module(module_id = 'power_explorer', debug = TRUE)
 # attachDefaultDataRepository()
@@ -333,8 +333,6 @@ omnibus_results <- cache(
   val = get_data_per_electrode_alt(all_trial_types)
 )
 
-# omnibus_results <- get_data_per_electrode_alt(all_trial_types)
-
 # calculate the statistics here so that we can add them to plot output -- eventually this goes away?
 # if there are > 1 groups in the data, then do linear model, otherwise one-sample t-test
 if(length(unique(flat_data$group)) > 1) {
@@ -394,14 +392,13 @@ result$by_electrode_heat_map()
 
 ravebuiltins::dev_ravebuiltins(expose_functions = TRUE)
 
-
 # dev layout has red theme
 dev_layout <- function(module_id, sidebar_width = 5, launch.browser = rstudio_viewer){
   # Always reload the package to the newest status and preview
   env = reload_this_package()
   
   m = env$to_module(module_id = module_id, sidebar_width = sidebar_width)
-  rave::init_app(m, launch.browser = launch.browser, disable_sidebar = T, simplify_header = T, theme='red')
+  rave::init_app(m, launch.browser = launch.browser, disable_sidebar = T, simplify_header = F, theme='red')
 }
 
 # view_layout('power_explorer', sidebar_width = 3, launch.browser = T)

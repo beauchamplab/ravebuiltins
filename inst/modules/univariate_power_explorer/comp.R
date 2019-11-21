@@ -168,7 +168,7 @@ define_input(
 )
 
 define_input(
-  definition = checkboxInput('invert_colors_in_palette', "Inverse Palette Colors", value=FALSE)
+  definition = checkboxInput('invert_colors_in_palette', "Invert Palette Colors", value=FALSE)
 )
 
 define_input(

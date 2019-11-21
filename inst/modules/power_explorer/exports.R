@@ -126,29 +126,29 @@ get_summary <- function() {
   )
 }
 
-export_stats = function(conn=NA, lbl='stat_out', dir, ...){
-  out_dir <- dir #module_tools$get_subject_dirs()$module_data_dir %&% '/power_explorer/'
-
-  if(!dir.exists(out_dir))    {
-    dir.create(out_dir, recursive = TRUE)
-  }
-
-  if(is.na(conn)) {
-    fout <- out_dir %&% lbl %&% '.RDS'
-  } else {
-    fout <- conn #out_dir %&% conn
-  }
-
-
-  # run through all the active electrodes and get the data
-  # out_data <- lapply_async(electrodes, process_for_stats)
-
-  out_data <- get_summary()
-
-  saveRDS(out_data, file = fout)
-
-  invisible(out_data)
-}
+# export_stats = function(conn=NA, lbl='stat_out', dir, ...){
+#   out_dir <- dir #module_tools$get_subject_dirs()$module_data_dir %&% '/power_explorer/'
+# 
+#   if(!dir.exists(out_dir))    {
+#     dir.create(out_dir, recursive = TRUE)
+#   }
+# 
+#   if(is.na(conn)) {
+#     fout <- out_dir %&% lbl %&% '.RDS'
+#   } else {
+#     fout <- conn #out_dir %&% conn
+#   }
+# 
+# 
+#   # run through all the active electrodes and get the data
+#   # out_data <- lapply_async(electrodes, process_for_stats)
+# 
+#   out_data <- get_summary()
+# 
+#   saveRDS(out_data, file = fout)
+# 
+#   invisible(out_data)
+# }
 
 
 ## modified from downloadButton
@@ -210,7 +210,7 @@ output$btn_graph_download <- downloadHandler(
     
     # to speed this up, we'll open all the files and write an electrodes contents into each, then iterate
     # mapply(
-    export_graphs(conns=file.path(tmp_dir, tmp_files), plot_functions=fnames)
+    write_out_graphs(conns=file.path(tmp_dir, tmp_files), plot_functions=fnames)
     
     wd = getwd()
     on.exit({setwd(wd)}, add = TRUE)
@@ -221,7 +221,7 @@ output$btn_graph_download <- downloadHandler(
   }
 )
 
-export_graphs <- function(conns=NA, plot_functions, ...) {
+write_out_graphs <- function(conns=NA, plot_functions, ...) {
   
   # which_plot <-  match.arg(which_plot)
   
@@ -305,14 +305,8 @@ export_graphs <- function(conns=NA, plot_functions, ...) {
 
 }
 
-
-
-
-
 # Export data options
-
-
-export_data_ui <- function(){
+write_out_data_ui <- function(){
   download = isTRUE(input$export_also_download)
   if( download ){
     tags$a(id = ns('export_data_and_download'), class = 'btn btn-primary shiny-download-link',
@@ -332,14 +326,14 @@ output$export_data_and_download <- downloadHandler(
     paste0(analysis_prefix, '.csv')
   },
   content = function(con){
-    res_path = export_data_function()
+    res_path = write_out_data_function()
     # R.utils::gzip(res_path, destname = con)
     file.copy(res_path, to=con)
   }
 )
 
 observeEvent(input$export_data_only, {
-  export_data_function()
+  write_out_data_function()
   showNotification(p('Done saving'), duration = 3, type = 'message')
 })
 
@@ -361,7 +355,7 @@ save_inputs <- function(yaml_path, variables_to_export){
 }
 
 # export data for group analysis
-export_data_function <- function(){
+write_out_data_function <- function(){
   
   project_name = subject$project_name
   subject_code = subject$subject_code
@@ -379,6 +373,12 @@ export_data_function <- function(){
   conditions = conditions[conditions %in% preload_info$condition]
   trials = module_tools$get_meta('trials')
   trial_number = trials$Trial[trials$Condition %in% conditions]
+  
+  # check if they want to include outliers
+  .trial_outlier_list = input$trial_outliers_list
+  if(length(.trial_outlier_list) > 0 && (!input$include_outliers_in_export)) {
+      trial_number <- trial_number[!(trial_number %in% .trial_outlier_list)]
+  }
   
   # Get timepoints,frequency range
   time_points = preload_info$time_points
@@ -452,6 +452,13 @@ export_data_function <- function(){
   res = do.call('rbind', res)
   res$Project = project_name
   res$Subject = subject_code
+  
+  # flag outliers as needed
+  res$TrialIsOutlier = FALSE
+  if(!is.null(.trial_outlier_list)) {
+    res$TrialIsOutlier[res$Trial %in% .trial_outlier_list] = TRUE
+  }
+  
   # Write out results
   progress$inc('Writing out on server, preparing...')
   # write to server _project_data/power_explorer/file
@@ -463,11 +470,7 @@ export_data_function <- function(){
   dir.create(dirname, showWarnings = FALSE, recursive = TRUE)
   data.table::fwrite(res, file.path(dirname, fname), append = FALSE)
   
-  
-  
-  
   save_inputs(file.path(dirname, paste0(fname, '.yaml')))
-  
   
   # Collapse Trial and save to 3D viewer
   collapsed_trial = reshape2::dcast(res, Project+Subject+Electrode+Time~Condition, mean, value.var = 'Power')

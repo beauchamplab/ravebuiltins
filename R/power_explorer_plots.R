@@ -26,9 +26,9 @@ across_electrodes_f_histogram <- function(results, ...) {
     
     omnibus_results <- results$get_value('omnibus_results')
     ts <- omnibus_results[2,]
-    
+    par('mar'=.1 + c(5,4,1,2))
     hist(ts, xlab='', ylab='', col='gray50', main='', border=get_foreground_color(),
-         las=1, cex.axis=rave_cex.axis, axes=F)
+         las=1, cex.axis=rave_cex.axis*get_cex_for_multifigure(), axes=F)
     rave_axis(1, at=axTicks(1))
     rave_axis(2, at=axTicks(2) %>% round %>% unique)
     rave_axis_labels(xlab='T-test for mean response', ylab='# of Electrodes')
@@ -51,7 +51,7 @@ across_electrodes_beta_histogram <- function(results, ...) {
     
     omnibus_results <- results$get_value('omnibus_results')
     ms <- omnibus_results[1,]
-    
+    par('mar'=.1 + c(5,4,1,2))
     hist(ms, main='', col='gray50', border=get_foreground_color(),
          las=1, axes=F, xlab='', ylab='')
     rave_axis(1, at=axTicks(1))
@@ -68,7 +68,7 @@ across_electrodes_beta_histogram <- function(results, ...) {
 rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.lab, ...) {
     col %?<-% get_foreground_color()
 
-    title(xlab=xlab, ylab=ylab, cex.lab=cex.lab, col.lab=col, ...)
+    title(xlab=xlab, ylab=ylab, cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, ...)
 }
 
 
@@ -143,15 +143,17 @@ determine_passing_electrodes <- function(results, ...) {
 }
 
 shiny_is_running <- function() {
-    cls <- class(getDefaultReactiveDomain())
-    any(cls %in% c('ShinySession', 'session_proxy'))
+    return(shiny::isRunning())
+    
+    # cls <- class(getDefaultReactiveDomain())
+    # any(cls %in% c('ShinySession', 'session_proxy'))
 }
 
 across_electrodes_corrected_pvalue <- function(results, ...) {
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
     set_palette_helper(results)
-    
+    par('mar'=.1 + c(5,4,1,2))
     omnibus_results <- results$get_value('omnibus_results')
     ps <- omnibus_results[3,]
     
@@ -183,7 +185,7 @@ across_electrodes_corrected_pvalue <- function(results, ...) {
     points(nl10(ps), pch=16, col=ifelse(passing_els, 'gray10', 'gray70'))
     
     title(xlab='Electrode #', ylab=results$get_value('pval_filter'),
-          col.lab = .col, cex.lab=rave_cex.lab, main = '')
+          col.lab = .col, cex.lab=rave_cex.lab*get_cex_for_multifigure(), main = '')
     rave_axis(1, at=seq_along(omnibus_results[2,]), labels=colnames(omnibus_results))
     
     axt <- axTicks(2)
@@ -191,7 +193,7 @@ across_electrodes_corrected_pvalue <- function(results, ...) {
     # not sure how to vectorize an expression involving bquote :(
     rave_axis(2, at=axt, labels = F, tcl=0)
     for(ii in seq_along(axt)) {
-        rave_axis(2, at=axt[ii], labels=bquote(10**-.(axt[ii])), cex.axis = rave_cex.axis*.9)
+        rave_axis(2, at=axt[ii], labels=bquote(10**-.(axt[ii])), cex.axis = rave_cex.axis*.9*get_cex_for_multifigure())
     }
     print(omnibus_results[3,])
 }
@@ -204,6 +206,15 @@ get_foreground_color <- function() {
            'gray' = '#A5A5A5'
     ) 
 }
+
+invert_palette <- function(pal) {
+    # pal = c('white', 'black', 'white', 'black')
+    
+    .alpha <- col2rgb(pal, alpha=TRUE)[4,]
+    pal = apply(col2rgb(pal), 2, function(rgb) 255-rgb)
+    rgb(t(pal), alpha=.alpha, maxColorValue = 255)
+}
+
 
 #works by side effect to change the palette used by the current graphics device
 set_palette_helper <- function(results, ...) {
@@ -219,9 +230,7 @@ set_palette_helper <- function(results, ...) {
     pal <- get_palette(results$get_value('color_palette'))
     
     if(results$get_value('invert_colors_in_palette', FALSE)) {
-        .alpha <- col2rgb(pal, alpha=TRUE)[4,]
-        pal = apply(col2rgb(pal), 2, function(rgb) 255-rgb)
-        pal %<>% rgb(alpha=.alpha, maxColorValue = 255)
+        pal %<>% invert_palette
     }
     
     if(results$get_value('reverse_colors_in_palette', FALSE)) {
@@ -269,6 +278,7 @@ heat_map_plot <- function(results, ...){
     validate(need(has_data, message="No Condition Specified"))
 
     set_palette_helper(results)
+    set_heatmap_palette_helper(results)
     
     draw_many_heat_maps(hmaps = results$get_value('heat_map_data'),
                         log_scale = results$get_value('log_scale'),
@@ -306,7 +316,8 @@ pretty_round <- function(x) {
 }
 
 color_bar_title_decorator <- function(m) {
-    rave_title(paste0('Range\n[', paste0(pretty_round(get_data_range(m)), collapse = ':'), ']'), font=1, cex = rave_cex.main*.8)
+    rave_title(paste0('Range\n[', paste0(pretty_round(get_data_range(m)), collapse = ':'), ']'),
+               font=1, cex = rave_cex.lab*.8)
 }
 
 # the only difference between this plot and the time x freq heat_map_plot
@@ -334,6 +345,11 @@ by_trial_heat_map <- function(results) {
         # add a decorator that can draw the trial labels
         decorator %<>% add_decorator(trial_type_boundaries_hm_decorator)
     }
+    
+    if(results$get_value('show_outliers_on_plots', FALSE)) {
+        decorator %<>% add_decorator(heatmap_outlier_highlighter_decorator)
+    }
+    
 
     # the y variable is changing each time,
     # so we provide a function that will be used to calculate the

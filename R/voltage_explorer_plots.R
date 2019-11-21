@@ -124,7 +124,7 @@ by_condition_welch <- function(results, ...) {
         plot_clean(.xlim, c(0,.ylim), log='', ylab='dB', asp=1)
         legend('topright', bty='n', inset=c(0.1, 0.1),
                text.col = c(grDevices::palette()[ii], 'black'), c(.group_data[[ii]]$name, 'baseline'),
-               cex = rave_cex.lab)
+               cex = rave_cex.lab*get_cex_for_multifigure())
         with(.pws[[ii]], {
             ebar_polygon(baseline$x, baseline$y[,1], baseline$y[,2], type='o', pch=16)
             ebar_polygon(analysis$x, analysis$y[,1], analysis$y[,2], type='o', pch=16, col=grDevices::palette()[ii])

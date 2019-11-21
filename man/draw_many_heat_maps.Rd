@@ -4,10 +4,20 @@
 \alias{draw_many_heat_maps}
 \title{Draw several heatmaps in a row and (optionally) a color bar}
 \usage{
-draw_many_heat_maps(hmaps, max_zlim = 0, log_scale = FALSE,
-  show_color_bar = TRUE, useRaster = TRUE, wide = FALSE,
-  PANEL.FIRST = NULL, PANEL.LAST = NULL, PANEL.COLOR_BAR = NULL,
-  axes = c(TRUE, TRUE), xrange = NULL, ...)
+draw_many_heat_maps(
+  hmaps,
+  max_zlim = 0,
+  log_scale = FALSE,
+  show_color_bar = TRUE,
+  useRaster = TRUE,
+  wide = FALSE,
+  PANEL.FIRST = NULL,
+  PANEL.LAST = NULL,
+  PANEL.COLOR_BAR = NULL,
+  axes = c(TRUE, TRUE),
+  xrange = NULL,
+  ...
+)
 }
 \arguments{
 \item{hmaps}{data to draw heatmaps}

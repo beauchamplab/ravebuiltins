@@ -314,6 +314,20 @@ crp <- rave_heat_map_colors
 
 group_colors <- c('orange', 'dodgerblue3', 'darkgreen', 'orangered', 'brown', 'purple3')
 
+# thos function is aware of shiny status and always returns 1.0 if shiny is not running
+get_cex_for_multifigure <- function() {
+  cex_multiplier <- 1
+  if(shiny::isRunning()) {
+    if(any(par('mfrow') > 2)) {
+      cex_multiplier = 1/0.66
+    } else if (all(par('mfrow') == 2)) {
+     cex_multiplier <- 1/0.88
+    }
+  }
+  return (cex_multiplier)
+}
+
+
 # Internal use, not exported
 rave_axis <- function(side, at, tcl=-0.3, labels=at, las=1, cex.axis=rave_cex.axis,
                       cex.lab=rave_cex.lab, mgpy=c(3, .6, 0), mgpx=c(3, .75, 0), col, col.axis, ...) {
@@ -329,8 +343,8 @@ rave_axis <- function(side, at, tcl=-0.3, labels=at, las=1, cex.axis=rave_cex.ax
     tcl = tcl,
     labels = labels,
     las = las,
-    cex.axis = cex.axis,
-    cex.lab = cex.lab,
+    cex.axis = cex.axis*get_cex_for_multifigure(),
+    cex.lab = cex.lab*get_cex_for_multifigure(),
     mgpy = mgpy,
     mgpx = mgpx,
     col=col, col.axis=col.axis,
@@ -428,5 +442,5 @@ rave_title <- function(main, cex=rave_cex.main, col, font=1) {
     }
   }
   
-  title(main=list(main, cex=cex, col=col, font=font))
+  title(main=list(main, cex=cex*get_cex_for_multifigure(), col=col, font=font))
 }

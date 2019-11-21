@@ -8,7 +8,9 @@ local_data = reactiveValues(
     by_trial_heat_map_click_location = NULL,
     windowed_by_trial_click_location = NULL,
     click_info = NULL,
-    calculate_flag = 0
+    calculate_flag = 0,
+    
+    autocalc_disclaimer = "<div style='margin-top:10px'><b>Auto-calculate is currently off.</b>&nbsp;Outliers are only removed during a calculate cycle.</div>"
 )
 
 
@@ -42,15 +44,29 @@ local_data = reactiveValues(
 observeEvent(input$analysis_settings_load, {
     fdata = input$analysis_settings_load
     if(!is.list(fdata) || !length(fdata$files)){ return() }
-    # assign('fdata', fdata, envir = globalenv())
-    f_name = unlist(fdata$files); names(f_name) = NULL
     
+    # assign('fdata', fdata, envir = globalenv())
+    
+    f_name = unlist(fdata$files); names(f_name) = NULL
+    # attachDefaultDataRepository()
     roots = c('RAVE Home' = normalizePath(subject$dirs$data_dir), 'root' = '/')
     
     f_path = do.call(file.path, as.list(c(roots[[fdata$root]], f_name)))
     conf = yaml::read_yaml(f_path)
     
     updateCheckboxInput(session, inputId = 'auto_calculate', value = FALSE)
+    
+    # bindings = dipsaus::getInputBinding('shiny::selectInput')
+    # update_function = eval(str2lang(bindings$update_function))
+    # formals(update_function)
+    # as.call(list(
+    #     str2lang(bindings$update_function),
+    #     session = quote(session),
+    #     inputId = 'asd',
+    #     value = 
+    # ))
+    
+    
     lapply(1:10, function(ii){
         gc_id = sprintf('GROUPS_group_conditions_%d', ii)
         gc = conf[[gc_id]]
@@ -62,6 +78,11 @@ observeEvent(input$analysis_settings_load, {
         if(length(gc) != 1){ gc = '' }
         updateTextInput(session, gc_id, value = gc)
     })
+    
+    
+    
+    
+    
 })
 
 
@@ -259,7 +280,6 @@ observeEvent(input$analysis_filter_variable_2, {
 observeEvent(input$select_good_electrodes, {
     if(!is.null(input$current_active_set)) {
         updateTextInput(session, 'ELECTRODE_TEXT', value = parse_svec(input$current_active_set))
-        
         if(! input$auto_calculate) {
             print('a calc is off, auto click')
             shinyjs::click('do_calculate_btn')
@@ -362,9 +382,15 @@ output$trial_click <- renderUI({
     #         local_data$instruction_string
     #     )
     # )
+    
+    .disc = ''
+    if(!input$auto_calculate) {
+        .disc = local_data$autocalc_disclaimer
+    }
+    
     HTML("<div style='margin-left: 5px; min-height:375px'>Nearest Trial: " %&% .click$trial %&% '<br/> Value: ' %&% .click$value %&%
              '<br/> Trial Type: ' %&% .click$trial_type %&%
-             "<p style='margin-top:20px'>&mdash;<br/>" %&% local_data$instruction_string %&% '</p></div>'
+             "<p style='margin-top:20px'>&mdash;<br/>" %&% local_data$instruction_string %&% '</p>' %&% .disc %&% '</div>'
     )
 })
 
@@ -373,7 +399,12 @@ click_output = function() {
         return(htmlOutput(ns('trial_click')))
     }
     
+    .disc = ''
+    if(!input$auto_calculate) {
+        .disc = local_data$autocalc_disclaimer
+    }
+    
     return(HTML("<div style='margin-left: 5px; min-height:360px'>" %&%
-    "<p style='margin-top:20px'>" %&% local_data$instruction_string %&% '</p></div>'))
+    "<p style='margin-top:5px'>" %&% local_data$instruction_string %&% '</p>' %&% .disc %&% '</div>'))
 }
 

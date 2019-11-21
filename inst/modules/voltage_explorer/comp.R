@@ -107,7 +107,7 @@ define_input(
 )
 
 define_input(
-    definition = checkboxInput('invert_colors_in_palette', "Inverse Palette Colors", value=FALSE)
+    definition = checkboxInput('invert_colors_in_palette', "Invert Palette Colors", value=FALSE)
 )
 
 define_input(
@@ -146,7 +146,7 @@ input_layout = list(
         c('PLOT_TITLE'),
         'draw_decorator_labels',
         c('color_palette', 'background_plot_color_hint',
-        'invert_colors_in_palette', 'reverse_colors_in_palette'),
+        'reverse_colors_in_palette', 'invert_colors_in_palette'),
         c('max_zlim'),
         c('log_scale', 'sort_trials_by_type', 'collapse_using_median')
     ),

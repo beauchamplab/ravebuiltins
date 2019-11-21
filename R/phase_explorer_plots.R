@@ -16,7 +16,7 @@ phase_rave_color_bar <- function(zlim, actual_lim, clrs=rave_heat_map_colors, yl
     par(mar=mar)
     image(cbar[, sel, drop = F],
           col=clrs[sel], axes=F, ylab=ylab, main='',
-          cex.main=rave_cex.main, cex.lab=rave_cex.lab, cex.axis=rave_cex.axis, ...)
+          cex.main=rave_cex.main*get_cex_for_multifigure(), cex.lab=rave_cex.lab*get_cex_for_multifigure(), cex.axis=rave_cex.axis*get_cex_for_multifigure(), ...)
 
     rave_title(sprintf(
         '[%s]',
