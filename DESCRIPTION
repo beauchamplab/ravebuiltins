@@ -22,6 +22,7 @@ Imports:
     car,
     utils,
     data.table,
+    dipsaus,
     yaml (>= 2.2.0),
     shiny (>= 1.2.0),
     rlang (>= 0.3.0),

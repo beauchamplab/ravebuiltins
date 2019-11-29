@@ -45,7 +45,7 @@ define_input_3d_viewer_generator <- function(
         ...fun = function(){
           re = NULL
           f = get0(!!input_fun, envir = ..runtime_env, ifnotfound = function(...){
-            rutabaga::cat2('3D Viewer', !!outputId,  'cannot find function', !!input_fun, level = 'INFO')
+            cat2('3D Viewer', !!outputId,  'cannot find function', !!input_fun, level = 'INFO')
           })
           tryCatch({
             re = f()
@@ -133,7 +133,7 @@ define_input_3d_viewer_generator <- function(
   
   parent_frame = parent.frame()
   
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
 
 
@@ -159,7 +159,7 @@ define_input_multiple_electrodes <- function(inputId, label = 'Electrodes'){
   })
 
   parent_frame = parent.frame()
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
 
 
@@ -184,7 +184,7 @@ define_input_single_electrode <- function(inputId, label = 'Electrode'){
 
   parent_frame = parent.frame()
 
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
 
 
@@ -227,7 +227,7 @@ define_input_frequency <- function(inputId, label = 'Frequency', is_range = TRUE
 
   parent_frame = parent.frame()
 
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
 
 define_srate_input_slider <- function(inputId, label) {
@@ -245,7 +245,7 @@ define_srate_input_slider <- function(inputId, label) {
   })
   parent_frame = parent.frame()
   
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
 
 
@@ -280,7 +280,7 @@ define_input_time <- function(inputId, label = 'Time Range', is_range = TRUE, ro
 
   parent_frame = parent.frame()
 
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
 
 define_input_condition_groups <- function(
@@ -334,7 +334,7 @@ define_input_condition_groups <- function(
 
   parent_frame = parent.frame()
 
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 
 }
 
@@ -399,7 +399,7 @@ define_input_condition_groups2 <- function(
   
   parent_frame = parent.frame()
   
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
   
 }
 
@@ -620,7 +620,7 @@ define_input_analysis_data_csv <- function(
   })
   
   parent_frame = parent.frame()
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
 
 
@@ -928,7 +928,7 @@ define_input_table_filters <- function(
   })
   
   parent_frame = parent.frame()
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
 
 
@@ -1039,5 +1039,5 @@ define_input_analysis_yaml_chooser <- function(
   })
 
   parent_env = parent.frame()
-  rave::eval_dirty(quo, env = parent_env)
+  eval_dirty(quo, env = parent_env)
 }

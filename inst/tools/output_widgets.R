@@ -127,7 +127,7 @@ define_output_3d_viewer <- function(
           
           # get render function
           f = get0(!!output_fun, envir = ..runtime_env, ifnotfound = function(...){
-            rutabaga::cat2('3D Viewer', !!outputId,  'cannot find function', !!output_fun, level = 'INFO')
+            cat2('3D Viewer', !!outputId,  'cannot find function', !!output_fun, level = 'INFO')
           })
           
           # get client size
