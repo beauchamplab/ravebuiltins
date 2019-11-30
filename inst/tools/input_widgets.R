@@ -547,12 +547,12 @@ define_input_analysis_data_csv <- function(
               header = names(dat)
             )
           })
-          metas = rave::dropNulls(metas)
+          metas = dipsaus::drop_nulls(metas)
           headers = unique(unlist(lapply(metas, '[[', 'header')))
           
           # Read all data
           project_name = subject$project_name
-          tbls = rave::dropNulls(lapply(metas, function(x){
+          tbls = dipsaus::drop_nulls(lapply(metas, function(x){
             progress$inc('Loading...')
             tbl = data.table::fread(file = x$fpath, stringsAsFactors = FALSE, header = TRUE)
             tbl = tbl[tbl$Project %in% project_name, ]

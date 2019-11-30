@@ -1,5 +1,6 @@
 local_env = new.env(parent = emptyenv())
 input = getDefaultReactiveInput()
+output = getDefaultReactiveOutput()
 session = getDefaultReactiveDomain()
 local_data = reactiveValues()
 

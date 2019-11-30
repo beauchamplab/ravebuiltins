@@ -1,9 +1,9 @@
 package_name: ravebuiltins
 dev_subject:
   project_name: demo
-  subject_code: sub_large
+  subject_code: YAB
   electrodes: '14,15'
-  epoch: Auditory
+  epoch: YABaOutlier
   time_range:
     pre: 1.0
     post: 2.0

@@ -1,5 +1,12 @@
 # outputs
 
+output_needs_update <- function(){
+    ctx = rave_context()
+    if(!is.null(ctx$instance)){
+        ctx$instance$local_reactives$show_results
+    }
+}
+
 electrode_table_ui <- function(){
     # shiny::validate(
     #   shiny::need(exists('combined_table') && is.data.frame(combined_table),
@@ -37,17 +44,15 @@ output$electrode_table <- DT::renderDataTable({
         tbl = combined_table[combined_table$Electrode %in% elec & combined_table$Subject %in% sub, ]
     }
     
-    DT::datatable(tbl, options = list(
+    dt = DT::datatable(tbl, options = list(
         scrollX = TRUE,
         lengthMenu = c(10, 25, 100)
-    ))
+    ), selection = 'none')
+    DT::formatRound(dt, names(tbl), digits = 4)
 })
 
-
-
-
-viewer_result_fun <- function(...){
-    
+viewer_result_fun <- function(){
+    output_needs_update()
     # Assume brain is given
     shiny::validate(
         shiny::need(length(brain), message = 'Cannot find any Brain object')
@@ -56,18 +61,15 @@ viewer_result_fun <- function(...){
     client_size = get_client_size()
     side_width = ceiling((client_size$available_size[[2]] - 300) / 3)
     
-    brain$plot(side_width = min(side_width, 300), debug = DEBUG)
+    brain$plot(side_width = min(side_width, 300))
 }
 
-viewer_result_out_ui <- function(){
-    client_size = get_client_size()
-    client_height = client_size$available_size[[2]] - 200
-    client_height = sprintf('%.0fpx', client_height)
-    htmltools::div(
-        style = 'margin:-10px;',
-        threeBrain::threejsBrainOutput(ns('viewer_result_out'), width = '100%', height = client_height)
-    )
-}
+output$viewer_result_out <- threeBrain::renderBrain({
+    viewer_result_fun()
+})
+
+
+
 
 electrode_details <- function(){
     # listen to dblclick information
@@ -151,6 +153,7 @@ get_electrode_info <- function(brain, subject_code, electrode, keyframe){
 }
 
 output$detail_plot <- renderPlot({
+    set_rave_theme()
     dtype = local_data$detail_type
     click_info = local_data$click_info
     if( length(dtype) != 1 || !is.list(click_info) ){

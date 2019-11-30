@@ -81,7 +81,7 @@ combined_table = do.call('rbind', lapply(c('#$..^', selected_paths), function(pa
   re
 }))
 
-print(names(local_env$tables))
+# print(names(local_env$tables))
 
 # Step 3. generate combined csv tables
 combined_table = combined_table[, table_headers]
@@ -104,7 +104,7 @@ brain = lapply(subject_codes, function(subject_code){
 })
 
 # Step 5. if template, use it
-brain = rave::dropNulls(brain)
+brain = dipsaus::drop_nulls(brain)
 if( isTRUE(use_template) || length(brain) > 1 ){
   brain = threeBrain::merge_brain(.list = brain)
 }else if(length(brain)){
