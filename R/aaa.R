@@ -244,3 +244,8 @@ rave_title <- function(main, cex=rave_cex.main, col, font=1) {
   
   title(main=list(main, cex=cex*get_cex_for_multifigure(), col=col, font=font))
 }
+
+
+is.blank <- function(x){
+  isTRUE(x == '')
+}

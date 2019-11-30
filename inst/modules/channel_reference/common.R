@@ -9,7 +9,7 @@ observe({
 electrode_plot_ui = function(){
     ref_tbl = local_data$ref_tbl
     local_data$refresh
-    logger('electrode_plot_ui')
+    # dipsaus::cat2('electrode_plot_ui')
 
     group_info = current_group()
     if(is.null(group_info) || !is.data.frame(ref_tbl)){
@@ -100,7 +100,7 @@ load_ref = function(ref){
 
 
     es = stringr::str_extract(ref, '[0-9\\-,]+'); if(is.na(es)){es = ''}
-    e = rave:::parse_selections(es)
+    e = dipsaus:::parse_svec(es)
     e = subject$filter_all_electrodes(e)
 
     if(length(e) == 0){
@@ -141,6 +141,7 @@ load_ref = function(ref){
 }
 
 output$electrode_plot_raw = renderPlot({
+    set_rave_theme()
     ref_tbl = local_data$ref_tbl
 
 
@@ -222,7 +223,7 @@ observe({
     local_data$parallel_plt_block = block = input$parallel_plt_block
     local_data$parallel_plt_space = input$parallel_plt_space
     local_data$parallel_plt_duration = duration = input$parallel_plt_duration
-    local_data$parallel_plt_excl = rave:::parse_selections(input$parallel_plt_excl)
+    local_data$parallel_plt_excl = dipsaus:::parse_svec(input$parallel_plt_excl)
     local_data$parallel_plt_refed_hidden = input$parallel_plt_refed_hidden
 
     try({
@@ -238,7 +239,7 @@ observe({
 parallel_plot_ui = function(){
     ref_tbl = local_data$ref_tbl
     local_data$refresh
-    logger('parallel_plot_ui')
+    # dipsaus::cat2('parallel_plot_ui')
 
     group_info = current_group()
     if(is.null(group_info) || !is.data.frame(ref_tbl)){
@@ -287,7 +288,7 @@ parallel_plot_ui = function(){
                          choiceNames = c('Show all', 'Show original signals only', 'Show referenced signals only'),
                          choiceValues = c('all', 'raw', 'ref'),
                          selected = parallel_plt_refed_hidden),
-            textInput(ns('parallel_plt_excl'), 'Hide Electrodes', value = rave:::deparse_selections(parallel_plt_excl))
+            textInput(ns('parallel_plt_excl'), 'Hide Electrodes', value = dipsaus:::deparse_svec(parallel_plt_excl))
         )
     )
 }
@@ -295,11 +296,14 @@ parallel_plot_ui = function(){
 channel_plot = function(){
     # Set par
     mai = par('mai')
+    set_rave_theme()
     on.exit({par(mai = mai)})
     par(mai = local({
         mai[3:4] = 0.01;
         mai
     }))
+    
+    fgcol = par('fg')
 
 
     group_info = current_group()
@@ -335,7 +339,7 @@ channel_plot = function(){
         if(is.na(r)){
             return(rep(0, n_electrode_total))
         }
-        s = rave:::parse_selections(r)
+        s = dipsaus:::parse_svec(r)
         s = ref_tbl$Electrode %in% s
         s / sum(s)
     }) ->
@@ -354,7 +358,7 @@ channel_plot = function(){
         if(!length(r)){
             s_mean = s_na
         }else{
-            s_mean = colMeans(s[ref_tbl$Electrode %in% rave:::parse_selections(r), , drop = F])
+            s_mean = colMeans(s[ref_tbl$Electrode %in% dipsaus:::parse_svec(r), , drop = F])
         }
     }
 
@@ -369,7 +373,7 @@ channel_plot = function(){
                 rave::plot_signals(
                     rbind(s_mean, s_ref[!sel_hide, ]),
                     sample_rate = srate,
-                    col = c('black', col2[!sel_hide]),
+                    col = c(fgcol, col2[!sel_hide]),
                     space = space,
                     space_mode = ifelse(space <= 1, 'quantile', 'abs'),
                     channel_names = c('REF', group_info$electrodes[!sel_hide]),
@@ -381,7 +385,7 @@ channel_plot = function(){
                 rave::plot_signals(
                     rbind(s_na, s[sel, , drop = F][!sel_hide, ]),
                     sample_rate = srate,
-                    col = c('black', col[!sel_hide]),
+                    col = c(fgcol, col[!sel_hide]),
                     space = re$space,
                     space_mode = 'abs',
                     time_shift = start, new_plot = F
@@ -391,7 +395,7 @@ channel_plot = function(){
                 rave::plot_signals(
                     rbind(s_mean, s[sel, , drop = F][!sel_hide, ]),
                     sample_rate = srate,
-                    col = c('black', col[!sel_hide]),
+                    col = c(fgcol, col[!sel_hide]),
                     space = space,
                     space_mode = ifelse(space <= 1, 'quantile', 'abs'),
                     channel_names = c('REF', group_info$electrodes[!sel_hide]),
@@ -405,7 +409,7 @@ channel_plot = function(){
                 rave::plot_signals(
                     rbind(s_mean, s_ref[!sel_hide, ]),
                     sample_rate = srate,
-                    col = c('black', col2[!sel_hide]),
+                    col = c(fgcol, col2[!sel_hide]),
                     space = space,
                     space_mode = ifelse(space <= 1, 'quantile', 'abs'),
                     channel_names = c('REF', group_info$electrodes[!sel_hide]),
@@ -436,6 +440,7 @@ channel_plot = function(){
 }
 
 output$parallel_plot = renderPlot({
+    
     group_info = current_group()
     ref_tbl = local_data$ref_tbl
     local_data$do_parallel_plot

@@ -1,12 +1,13 @@
 # File defining module inputs, outputs
 
 # ----------------------------------- Debug ------------------------------------
+require(rave)
 require(ravebuiltins)
 
-env = dev_ravebuiltins(T)
+dev_ravebuiltins(T)
 
 ## Load subject for debugging
-env$mount_demo_subject()
+mount_demo_subject()
 
 module_id <- 'channel_reference'
 
@@ -67,14 +68,16 @@ define_input(
 )
 
 define_input(
-    definition = compoundInput(
-        'ref_group', label = 'Reference Group', max_ncomp = 20, components = {
-            textInput('rg_name', 'Name', value = '')
+    definition = dipsaus::compoundInput2(
+        'ref_group', label = 'Reference Group', max_ncomp = 20, min_ncomp = 1, 
+        components = tagList(
+            textInput('rg_name', 'Name', value = ''),
             selectInput('rg_type', 'Type', choices = c(
                 'Common Average Reference', 'Bipolar Reference',
-                'White Matter Reference', 'No Reference'), selected = 'No Reference')
+                'White Matter Reference', 'No Reference'), selected = 'No Reference'),
             textInput('rg_electrodes', 'Electrodes', value = '', placeholder = 'e.g. 1-12,14')
-        })
+        )
+    )
 )
 
 
@@ -90,8 +93,16 @@ define_input(
     definition = customizedUI('cur_group_ui')
 )
 
+
 define_input(
-    definition = customizedUI('ref_generator_ui')
+    textInput('ref_electrodes', label = 'Electrodes', value = '', 
+              placeholder = 'e.g. 1-3,5'), 
+    update_level = 0
+)
+
+define_input(
+    actionButton('ref_calc', label = 'Generate Reference', width = '100%'), 
+    update_level = 0
 )
 
 
@@ -102,7 +113,10 @@ input_layout = list(
     '[-] Group Inspection' = list('cur_group',
                                   'elec_loc_ui',
                                   'cur_group_ui'),
-    '[-] Reference Generator' = list('ref_generator_ui')
+    '[-] Reference Generator' = list(
+        'ref_electrodes',
+        'ref_calc'
+    )
 )
 
 
@@ -150,6 +164,5 @@ output_layout = list(
 
 # -------------------------------- View layout ---------------------------------
 module_id <- 'channel_reference'
-quos = env$parse_components(module_id)
 
 view_layout(module_id, launch.browser = T, sidebar_width = 3)
