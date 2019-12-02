@@ -86,7 +86,7 @@ jitter_seed <- cache(
 )
 
 # Prepare plot datasets
-scatter_bar_data <- line_plot_data <- by_electrode_heat_map_data <- 
+scatter_bar_data <- over_time_data <- by_electrode_heat_map_data <- 
   by_trial_heat_map_data <- heat_map_data <- group_data
 flat_data <- data.frame()
 
@@ -216,18 +216,18 @@ for(ii in which(has_trials)){
   # 3. Time only
   # coll freq and trial for line plot w/ ebar. Because we're doing error bars, we have to know whether we have 1 vs. >1 electrodes
   # Single electrode, mean and mse for each time points
-  line_plot_data[[ii]] = wrap_data(t(
+  over_time_data[[ii]] = wrap_data(t(
     apply(.power_freq_clean$collapse(keep = 3:4, method = 'mean'), 1, .fast_mse)),
     xlab='Time (s)', ylab='auto', N=dim(.power_freq_clean)[4L], x=.power_freq_clean$dimnames$Time
   )
   
   # set NA (divide by zero) error bars to 0  
-  line_plot_data[[ii]]$data[is.na(line_plot_data[[ii]]$data[,2]),2] <- 0
+  over_time_data[[ii]]$data[is.na(over_time_data[[ii]]$data[,2]),2] <- 0
   
   
   # we want to make a special range for the line plot data that takes into account mean +/- SE
-  line_plot_data[[ii]]$range <- .fast_range(plus_minus(line_plot_data[[ii]]$data[,1],
-                                                       line_plot_data[[ii]]$data[,2]))
+  over_time_data[[ii]]$range <- .fast_range(plus_minus(over_time_data[[ii]]$data[,1],
+                                                       over_time_data[[ii]]$data[,2]))
   
   # scatter bar data -- here we want all of the data because we are going to highlight (or not) the outliers -- same for by-trial heatmap
   # if(show_outliers_on_plots) {
@@ -378,6 +378,9 @@ result = module(ELECTRODE_TEXT = '14',
                 FREQUENCY = c(70,150), max_zlim = 0, show_outliers_on_plots = TRUE,
                 sort_trials_by_type = T, combine_method = 'none')
 results = result$results
+
+# jsonlite::serializeJSON(result$results$get_value('line_plot_data'))
+
 # results$get_value('omnibus_results')
 # result$across_electrodes_corrected_pvalue()
 # attachDefaultDataRepository()

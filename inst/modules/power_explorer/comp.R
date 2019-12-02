@@ -502,7 +502,7 @@ define_output(
 )
 
 define_output(
-  definition = plotOutput('by_trial_heat_map'),
+  definition = plotOutput('by_trial_heat_map_plot'),
                           # click = clickOpts(shiny::NS('power_explorer')('by_trial_heat_map_click'), clip = FALSE)),
   title = 'Activity over time by trial',
   width = 12,

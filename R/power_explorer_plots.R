@@ -9,7 +9,7 @@ over_time_plot <- function(results, ...) {
     
     set_palette_helper(results)
     
-    time_series_plot(plot_data = results$get_value('line_plot_data'),
+    time_series_plot(plot_data = results$get_value('over_time_data'),
                      xrange = results$get_value('plot_time_range'),
                      PANEL.FIRST = time_series_decorator(results = results))
 }
@@ -324,7 +324,7 @@ color_bar_title_decorator <- function(m) {
 # is the data and the decoration. Use the core heatmap function
 # to enforce consistent look/feel
 # expects by_trial_heat_map_data to exist
-by_trial_heat_map <- function(results) {
+by_trial_heat_map_plot <- function(results) {
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
 
@@ -350,7 +350,6 @@ by_trial_heat_map <- function(results) {
         decorator %<>% add_decorator(heatmap_outlier_highlighter_decorator)
     }
     
-
     # the y variable is changing each time,
     # so we provide a function that will be used to calculate the
     # y variable on a per map basis

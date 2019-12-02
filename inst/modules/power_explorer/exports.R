@@ -183,9 +183,6 @@ output$btn_electrodes_meta_download <- downloadHandler(
   }
 )
 
-# observeEvent(input$btn_graph_export, {
-#   export_graphs(conn = '~/Desktop/hmp_e.pdf')
-# })
 
 output$btn_graph_download <- downloadHandler(
   filename = function(...) {
@@ -197,34 +194,37 @@ output$btn_graph_download <- downloadHandler(
     
     # map the human names to the function names
     function_map <- list('Spectrogram' = 'heat_map_plot',
-                         'By Trial Power' = 'by_trial_heat_map',
+                         'By Trial Power' = 'by_trial_heat_map_plot',
                          'Over Time Plot' = 'over_time_plot', 
                          'Windowed Average' = 'windowed_comparison_plot')
 
-    to_export <- function_map[plots_to_export]
-    prefix <- sprintf('%s_%s_%s_', subject$subject_code, subject$project_name, format(Sys.time(), "%b_%d_%Y_%H_%M_%S"))
+    # plots_to_export is a selectInput that has the graphs requested for ouput
+    prefix <- sprintf('%s_%s_%s_',
+                      subject$subject_code, subject$project_name, format(Sys.time(), "%b_%d_%Y_%H_%M_%S"))
         
+    # to_export <- function_map[plots_to_export]
     fnames <- function_map[plots_to_export]
     
     tmp_files <- prefix %&% str_replace_all(names(fnames), ' ', '_') %&% '.pdf'
     
     # to speed this up, we'll open all the files and write an electrodes contents into each, then iterate
-    # mapply(
-    write_out_graphs(conns=file.path(tmp_dir, tmp_files), plot_functions=fnames)
+    write_out_graphs(conns=file.path(tmp_dir, tmp_files), plot_functions=fnames,
+                     dir=tmp_dir, prefix=prefix)
     
+    
+    # now let's write out the data backing those graphs
     wd = getwd()
     on.exit({setwd(wd)}, add = TRUE)
     
     setwd(tmp_dir)
     
-    zip(conn, files = tmp_files, flags='-r2X')
+    zip(conn, files = list.files(pattern = prefix %&% '+.+(pdf|json)'), flags='-r2X')
   }
 )
 
-write_out_graphs <- function(conns=NA, plot_functions, ...) {
+write_out_graphs <- function(conns=NA, plot_functions, dir, prefix, ...) {
   
   # which_plot <-  match.arg(which_plot)
-  
   args = isolate(reactiveValuesToList(input))
   
   electrodes_loaded = preload_info$electrodes
@@ -239,11 +239,11 @@ write_out_graphs <- function(conns=NA, plot_functions, ...) {
   on.exit({progress$close()}, add=TRUE)
   progress$inc(message = 'Initializing')
   
-    module = rave::get_module('ravebuiltins', 'power_explorer', local = TRUE)
-    formal_names = names(formals(module))
-    # args = sapply(formal_names, get)
-    args = args[formal_names]
-    names(args) = formal_names
+  module = rave::get_module('ravebuiltins', 'power_explorer', local = TRUE)
+  formal_names = names(formals(module))
+  # args = sapply(formal_names, get)
+  args = args[formal_names]
+  names(args) = formal_names
   
   # so we want to open all the PDFs initially
   # based on the number of groups we should scale the plots
@@ -256,14 +256,23 @@ write_out_graphs <- function(conns=NA, plot_functions, ...) {
   # having issues here with the size of the plots being too large for the font sizes
   # we can't (easily) change the cex being used by the plots. So maybe we can 
   # just change the size of the output PDF. people can then resize but keep the relative sizes correct
-  #TODO get the names of the open devices, iterate only on the newly opened graphcsi devices
+  # FIXME the sizes of these outputs aren't very pretty. we should probably just hard code a list for common sizes, say
+  # ngroup <= 4... then apply a scale factor after that? We also need to take care of the font cex... could maybe set some hint
+  # such that the rave_cex is sent to pdf mode... We should be able to query the current graphics device to see if it is a window or 
+  # a pdf?
+  
+  # yes!
+  # > dev.cur()
+  # pdf 
+  # 4 
+  
   fin = mapply(function(conn, pf) {
     w_scale = h_scale = 1
     if(pf == 'windowed_comparison_plot') {
       w_scale = ngroups / 2.25
     }
     
-    if(pf %in% c('by_trial_heat_map', 'heat_map_plot')) {
+    if(pf %in% c('by_trial_heat_map_plot', 'heat_map_plot')) {
       w_scale = ngroups*1.25
       h_scale = ngroups*1.05
     }
@@ -274,12 +283,11 @@ write_out_graphs <- function(conns=NA, plot_functions, ...) {
     pdf(conn, width = .w, height = .h, useDingbats = FALSE)
   }, conns, plot_functions)
   
-  
   on.exit({
     replicate(length(conns), dev.off())
   }, add = TRUE)
   
-  plot_for_el <- function(etext) {
+  plot_for_el <- function(etext, write_out_data=FALSE) {
     
     if(length(etext) > 1) {
       etext %<>% deparse_svec
@@ -291,18 +299,24 @@ write_out_graphs <- function(conns=NA, plot_functions, ...) {
     for(g in plot_functions) {
       dev.set()
       result[[g]]()
+      
+      if(write_out_data) {
+        fname <- file.path(dir, paste0(prefix, g, '.json'))
+        # print("writing to: " %&% fname)
+        data_var = stringr::str_replace(g, '_plot', '_data')
+        cat(jsonlite::serializeJSON(result$results$get_value(data_var, 'NODATA')),
+            file=fname)
+      }
     }
   }
   
   # first write into the graphs the aggregate functions
-  plot_for_el(electrodes_loaded)
+  plot_for_el(electrodes_loaded, write_out_data = TRUE)
   
   # now for the individual electrodes
   lapply(electrodes_loaded, plot_for_el)
   
-  # progress$close()
   showNotification(p('Exports finished!'))
-
 }
 
 # Export data options
