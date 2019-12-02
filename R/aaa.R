@@ -79,7 +79,7 @@ dev_ravebuiltins <- function(expose_functions = FALSE, reload = TRUE){
     }
     rave::load_rave_module_package(env, 'rave_module_debug')
   }
-  rave:::rave_context(spos = 1L, tenv = globalenv())
+  rave::rave_context(spos = 1L, tenv = globalenv())
   env
 }
 

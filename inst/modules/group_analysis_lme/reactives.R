@@ -25,13 +25,13 @@ local_filters = reactiveValues(
     filter_observers = 0
 )
 
-cond_group_ui = function(){
-    rave::compoundInput(
-        inputId = ns('cond_group'), prefix= 'Condition Group', inital_ncomp = 1, components = {
-            textInput('group_name', 'Name', value = '', placeholder = 'Condition Name')
-            selectInput('group_conditions', ' ', choices = '', multiple = TRUE, selected = character(0))
-        }, max_ncomp = 10)
-}
+# cond_group_ui = function(){
+#     dipsaus::compoundInput2(
+#         inputId = ns('cond_group'), prefix= 'Condition Group', inital_ncomp = 1, components = {
+#             textInput('group_name', 'Name', value = '', placeholder = 'Condition Name')
+#             selectInput('group_conditions', ' ', choices = '', multiple = TRUE, selected = character(0))
+#         }, max_ncomp = 20)
+# }
 
 
 # Sync all group_names
@@ -65,7 +65,7 @@ observe({
     conditions = unique(raw$data$Condition); if(!length(conditions)){ conditions = '' }
     time_range = range(raw$data$Time, na.rm = TRUE)
     analysis_window = time_range
-    confs = rave::dropNulls(raw$confs)
+    confs = dipsaus::drop_nulls(raw$confs)
     groups = list()
     if(length(confs)){
         confs = confs[[1]]
@@ -76,29 +76,36 @@ observe({
     # store this in local_data so that we have everything in one place
     local_data$analysis_window = analysis_window
     
-    rave::updateCompoundInput(session, 'cond_group', to = length(groups))
-    # Update cond_group 
-    lapply(seq_len(20), function(ii){
-        g = list(group_name = '', group_conditions = character(0))
-        if( length(groups) >= ii ){
-            g = groups[[ii]]
-        }
-        updateSelectInput(session, inputId = sprintf('%s_%d', 'cond_group_group_conditions', ii),
-                          choices = conditions, selected = g$group_conditions)
-        updateTextInput(session, inputId = sprintf('%s_%d', 'cond_group_group_name', ii),
-                        value = g$group_name)
-    })
+    dipsaus::updateCompoundInput2(session, 'cond_group', ncomp = length(groups), 
+                                  initialization = list(
+                                      group_conditions = list( choices = conditions )
+                                  ), value = groups)
+    # # Update cond_group 
+    # lapply(seq_len(20), function(ii){
+    #     g = list(group_name = '', group_conditions = character(0))
+    #     if( length(groups) >= ii ){
+    #         g = groups[[ii]]
+    #     }
+    #     updateSelectInput(session, inputId = sprintf('%s_%d', 'cond_group_group_conditions', ii),
+    #                       choices = conditions, selected = g$group_conditions)
+    #     updateTextInput(session, inputId = sprintf('%s_%d', 'cond_group_group_name', ii),
+    #                     value = g$group_name)
+    # })
     
     updateSliderInput(session, 'analysis_window', min = time_range[[1]], 
                       max=time_range[[2]], value=analysis_window)
 })
 
+observeEvent(input$cond_group, {
+    assign('aaa', session, envir = globalenv())
     
+    print(input$cond_group)
+})
 
 # Get additional data
 observe({
     cond_groups = lapply(1:20, function(jj){input[[paste0('cond_group_group_conditions_', jj)]]})
-    cond_groups = rave::dropNulls(cond_groups)
+    cond_groups = dipsaus::drop_nulls(cond_groups)
     conditions = NULL
     
     if( is.list(local_data$analysis_data_raw) ){
@@ -259,7 +266,7 @@ collect_model = function(..., exclude = NULL){
 # }
 
 observeEvent(input$run_analysis, {
-    cond_group <- rave::dropNulls(lapply(input$cond_group, function(g){
+    cond_group <- dipsaus::drop_nulls(lapply(input$cond_group, function(g){
         if(length(g$group_conditions) == 0) return( NULL )
         return(g)
     }))
@@ -424,7 +431,7 @@ observeEvent(input$run_analysis, {
 #             header = names(dat)
 #         )
 #     })
-#     metas = rave::dropNulls(metas)
+#     metas = dipsaus::drop_nulls(metas)
 #     headers = unique(unlist(lapply(metas, '[[', 'header')))
 #     
 #     # Read all data

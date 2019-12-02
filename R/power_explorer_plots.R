@@ -218,14 +218,24 @@ invert_palette <- function(pal) {
 
 #works by side effect to change the palette used by the current graphics device
 set_palette_helper <- function(results, ...) {
+    rave_context()
+    
     .bg <- results$get_value('background_plot_color_hint', 'white')
     
-    # setting the background color here triggers a cascade of color changes
-    if(.bg == 'Gray') {
-        par('bg'='#1E1E1E')
-    } else {
-        par('bg'=.bg)
+    if(.bg == 'white'){
+        theme = set_rave_theme('light')
+    }else{
+        theme = set_rave_theme('dark')
     }
+    
+    # .bg <- results$get_value('background_plot_color_hint', 'white')
+    # 
+    # # setting the background color here triggers a cascade of color changes
+    # if(.bg == 'Gray') {
+    #     par('bg'='#1E1E1E')
+    # } else {
+    #     par('bg'=.bg)
+    # }
     
     pal <- get_palette(results$get_value('color_palette'))
     
@@ -274,6 +284,8 @@ windowed_comparison_plot <- function(results, ...){
 #' }
 #' @export
 heat_map_plot <- function(results, ...){
+    rave_context()
+    
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
 
@@ -291,6 +303,7 @@ heat_map_plot <- function(results, ...){
 
 
 by_electrode_heat_map <- function(results) {
+    rave_context()
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
     
@@ -325,6 +338,7 @@ color_bar_title_decorator <- function(m) {
 # to enforce consistent look/feel
 # expects by_trial_heat_map_data to exist
 by_trial_heat_map <- function(results) {
+    rave_context()
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
 

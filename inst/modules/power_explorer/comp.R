@@ -6,7 +6,7 @@ require(ravebuiltins)
 env = dev_ravebuiltins(T)
 
 ## Load subject for debugging
-env$mount_demo_subject()
+mount_demo_subject()
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
@@ -410,13 +410,17 @@ render_inputs <- c(
   'analysis_filter_variable', 'analysis_filter_variable_2', 'show_heatmap_range'
 )
 
-define_input(
-  definition = checkboxInput('auto_calculate', label = 'Automatically recalculate analysis', value = FALSE)
+
+define_input_auto_recalculate(
+  inputId = 'auto_calculate', label = 'Automatically recalculate analysis', 
+  type = 'checkbox', default_on = FALSE
 )
 
-define_input(
-  definition = actionButtonStyled('do_calculate_btn', 'Recalculate analysis for all selected electrodes', width = '100%', type = 'primary')
+define_input_auto_recalculate(
+  inputId = 'do_calculate_btn', label = 'Recalculate analysis for all selected electrodes', 
+  type = 'button', button_type = 'primary'
 )
+
 
 #
 # determine which variables only need to be set, not triggering rendering nor executing
@@ -584,6 +588,6 @@ define_output_3d_viewer(
 
 
 # -------------------------------- View layout ---------------------------------
-quos = env$parse_components(module_id = 'power_explorer')
+quos = rave:::parse_components(module_id = 'power_explorer', parse_context = 'rave_running_local')
 
-view_layout('power_explorer', launch.browser = T, sidebar_width = 3)
+view_layout('power_explorer')

@@ -10,7 +10,7 @@ power_3d_fun = function(need_calc, side_width, daemon_env){
   if( need_calc ){
     dat = rave::cache(key = list(
       list(BASELINE_WINDOW, preload_info)
-    ), val = get_summary())
+    ), val = get_summary(), name = 'get_summary')
     
     # for each electrode, we want to test the different conditions
     .FUN <- if(length(levels(dat$condition)) > 1) {
@@ -237,7 +237,7 @@ write_out_graphs <- function(conns=NA, plot_functions, ...) {
                             max = length(electrodes_loaded) + 2)
   
   on.exit({progress$close()}, add=TRUE)
-  progress$inc(message = 'Initializing')
+  progress$inc('Initializing')
   
     module = rave::get_module('ravebuiltins', 'power_explorer', local = TRUE)
     formal_names = names(formals(module))
@@ -285,7 +285,7 @@ write_out_graphs <- function(conns=NA, plot_functions, ...) {
       etext %<>% deparse_svec
     }
     
-    progress$inc(message = sprintf('Rendering graphs for %s', etext))
+    progress$inc(sprintf('Rendering graphs for %s', etext))
     args[['ELECTRODE_TEXT']] = etext
     result = do.call(module, args)
     for(g in plot_functions) {
@@ -361,7 +361,7 @@ write_out_data_function <- function(){
   subject_code = subject$subject_code
   
   # et electrodes to be exported
-  electrodes = parse_selections(current_active_set)
+  electrodes = parse_svec(current_active_set)
   electrodes = electrodes[electrodes %in% preload_info$electrodes]
   
   progress = progress('Exporting baselined data...', max = 3 + length(electrodes))

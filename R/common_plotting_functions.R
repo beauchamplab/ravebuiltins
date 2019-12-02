@@ -21,7 +21,7 @@
 draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
                                 show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
                                 PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), xrange=NULL, ...) {
-
+    rave_context()
     k <- sum(hmaps %>% get_list_elements('has_trials'))
     orig.pars <- layout_heat_maps(k)
     on.exit({
@@ -53,6 +53,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
         ''
     }
     lapply(hmaps, function(map){
+        # rave_context()
         if(map$has_trials){
             
             # check the plottable range, to make sure we're only plotting what the user has requested
@@ -411,6 +412,8 @@ by_electrode_heat_map_decorator <- function(plot_data=NULL, results, Xmap=force,
 #' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators.
 #' We are just plotting image(mat) Rather Than t(mat) as you might expect. The Rave_calculators know this so we can save a few transposes along the way.
 make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zlim=TRUE, add=TRUE) {
+    rave_context()
+    
     #xlab='Time (s)', ylab='Frequency (Hz)', zlim, log='', useRaster=TRUE, PANEL.FIRST=NULL, PANEL.LAST=NULL, ...) {
     # zmat %<>% clip_x(lim=zlim)
     
@@ -492,6 +495,7 @@ str_rng <- function(rng) sprintf('[%s]', paste0(rng, collapse=':'))
 
 rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change',
                            mar=c(5.1, 5.1, 2, 2)) {
+    rave_context()
 
     clrs %?<-% get_currently_active_heatmap()
         # clrs %?<-% if(par('bg') == 'black') {
@@ -764,7 +768,7 @@ title_decorator <- function(plot_data, results,
             el <- results$get_value('ELECTRODE', ifNotFound = NULL)
             if(is.null(el)) {
                 # using requested_electrodes here rather than ELECTRODE_TEXT because of parsing issues in ELECTRODE_TEXT
-                el <- rutabaga::deparse_svec(results$get_value('requested_electrodes', ifNotFound = '?'), max_lag=1)
+                el <- dipsaus::deparse_svec(results$get_value('requested_electrodes', ifNotFound = '?'), max_lag=1)
             } 
             # print('EL: ' %&% el)
             conditional_sep(title_string) = 'E' %&% el
@@ -1205,10 +1209,11 @@ get_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
 }
 
 cache_heatmap_palette <- function(pname, pal) {
+    rave_context()
     # usually people will call the set_heatmap_palette_helper, this function is provided in case we
     # need to subvert the usual route
-    cache('current_rave_heatmap_palette_name', pname, replace=TRUE)
-    cache('current_rave_heatmap_palette', pal, replace=TRUE)
+    cache('current_rave_heatmap_palette_name', pname, 'current_rave_heatmap_palette_name', replace=TRUE)
+    cache('current_rave_heatmap_palette', pal, 'current_rave_heatmap_palette', replace=TRUE)
 }
 
 expand_heatmap <- function(pal, results, ncolors) {
@@ -1227,6 +1232,8 @@ expand_heatmap <- function(pal, results, ncolors) {
 # please call set_palette_helper BEFORE calling this function so that we don't have to worry about setting
 # the background plot color again
 set_heatmap_palette_helper <- function(results) {
+    rave_context()
+    
     requested_palette_name = paste(results$get_value('heatmap_color_palette'),
                                    par('bg'),
                                  results$get_value('heatmap_number_color_values'),
@@ -1234,7 +1241,8 @@ set_heatmap_palette_helper <- function(results) {
                                  results$get_value('reverse_colors_in_heatmap_palette'),
                                  sep = '_')
 
-    cached_palette_name = cache('current_rave_heatmap_palette_name', 'none')
+    cached_palette_name = cache('current_rave_heatmap_palette_name', 'none', 
+                                'current_rave_heatmap_palette_name')
     
     if(cached_palette_name != requested_palette_name) {
         if(par('bg') %in% c('#1E1E1E', 'black')) {
@@ -1258,7 +1266,8 @@ set_heatmap_palette_helper <- function(results) {
 }
 
 get_currently_active_heatmap <- function() {
-    pal = cache('current_rave_heatmap_palette', 1)
+    rave_context()
+    pal = cache('current_rave_heatmap_palette', 1, name = 'current_rave_heatmap_palette')
     if(pal[1] == 1) {
         cat2('No heatmap is active, using default', level = 'WARNING')
         

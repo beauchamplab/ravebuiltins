@@ -67,7 +67,7 @@ define_output_3d_viewer <- function(
       )
     }, envir = environment())
     local({
-      `%?<-%` <- rave::`%?<-%`
+      `%?<-%` <- dipsaus::`%?<-%`
       input = getDefaultReactiveInput()
       output = getDefaultReactiveOutput()
       session = getDefaultReactiveDomain()

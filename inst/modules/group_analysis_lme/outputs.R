@@ -442,7 +442,7 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, ...){
             rave::rave_brain2(sprintf('%s/%s', by_electrode_results$Project[1], sub))
         }, error = function(e){ NULL })
     })
-    brains = rave::dropNulls(brains)
+    brains = dipsaus::drop_nulls(brains)
     brain = threeBrain::merge_brain(.list = brains, template_surface_types = c('pial', 'inf_200'))
     
     # set_palette()

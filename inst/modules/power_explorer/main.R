@@ -23,20 +23,7 @@ if(FALSE) {
 # }
 
 # these are only needed when shiny is running (e.g., module debug mode)
-if(shiny_is_running()) {
-  calc_flag = shiny::isolate(local_data$calculate_flag)
-
-  if( !auto_calculate && calc_flag >= do_calculate_btn ){
-    # Not auto calculation
-    session$sendCustomMessage(type = 'rave_enable_button', message = list( element_id = ns('do_calculate_btn') ))
-    local_data$calculate_flag = do_calculate_btn
-    return()
-  }else{
-      session$sendCustomMessage(type = 'rave_disable_button', message = list( element_id = ns('do_calculate_btn') ))
-      local_data$calculate_flag = do_calculate_btn
-  }
-}
-requested_electrodes = rutabaga::parse_svec(ELECTRODE_TEXT, sep=',|;', connect  = ':-')
+requested_electrodes = dipsaus::parse_svec(ELECTRODE_TEXT, sep=',|;', connect  = ':-')
 requested_electrodes %<>% get_by(`%in%`, electrodes)
 
 # this will be NA if the only requested electrodes are not available
@@ -77,12 +64,14 @@ bl_power <- cache(
              any_trials, preload_info$epoch_name, preload_info$reference_name),
   val = baseline(power$subset(Electrode = Electrode %in% requested_electrodes),
                  from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
-                 hybrid = FALSE, mem_optimize = FALSE)
+                 hybrid = FALSE, mem_optimize = FALSE),
+  name = 'bl_power'
 )
 
 jitter_seed <- cache(
   key = 'jitter_seed',
-  val = sample(1:100, 1)
+  val = sample(1:100, 1),
+  name = 'jitter_seed'
 )
 
 # Prepare plot datasets
@@ -114,7 +103,8 @@ if(combine_method != 'none') {
       }
       
       transformed_power
-    }
+    },
+    name = 'transformed_power'
   )
   bl_power$set_data(transformed_power)
 }
@@ -330,7 +320,8 @@ omnibus_results <- cache(
   key = list(subject$id, BASELINE_WINDOW, FREQUENCY,all_trial_types,
              ANALYSIS_WINDOW, combine_method, preload_info$epoch_name,
              preload_info$reference_name, trial_outliers_list),
-  val = get_data_per_electrode_alt(all_trial_types)
+  val = get_data_per_electrode_alt(all_trial_types),
+  name = 'omnibus_results'
 )
 
 # calculate the statistics here so that we can add them to plot output -- eventually this goes away?

@@ -3,10 +3,10 @@
 # ----------------------------------- Debug ------------------------------------
 require(ravebuiltins)
 
-env = dev_ravebuiltins(T)
+dev_ravebuiltins(T)
 
 ## Load subject for debugging
-env$mount_demo_subject()
+mount_demo_subject()
 
 module_id <- 'group_analysis_lme'
 
@@ -160,9 +160,20 @@ define_input(
 #         }, max_ncomp = 20)
 # )
 
-define_input(
-  definition = customizedUI('cond_group_ui')
+# define_input(
+#   definition = customizedUI('cond_group_ui')
+# )
+
+define_input_condition_groups(
+  inputId = 'cond_group', label = 'Condition Group', initial_groups = 2,
+  max_group = 20, min_group = 2, label_color = 'grey40', 
+  init_args = NULL, init_expr = NULL
 )
+# dipsaus::compoundInput2(
+  #         inputId = ns('cond_group'), prefix= 'Condition Group', inital_ncomp = 1, components = {
+  #             textInput('group_name', 'Name', value = '', placeholder = 'Condition Name')
+  #             selectInput('group_conditions', ' ', choices = '', multiple = TRUE, selected = character(0))
+  #         }, max_ncomp = 20)
 
 
 define_input(
@@ -189,6 +200,7 @@ input_layout = list(
         'analysis_data'
     ),
     'Analysis Settings' = list(
+      'cond_group',
       'cond_group_ui',
       'analysis_window'
       ),

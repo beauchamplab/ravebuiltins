@@ -24,7 +24,7 @@ local_data = reactiveValues(
 #         textInput(ns('modal_analysis_settings_name'), label = 'Settings Name', value = paste0('power_explorer_settings_', tstmp)),
 #         tags$small('Will overwrite settings with the same name currently in RAVE settings folder'),
 #         footer = tagList(
-#             rave::actionButtonStyled(ns('btn_do_save_analysis'), 'Save'),
+#             actionButtonStyled(ns('btn_do_save_analysis'), 'Save'),
 #             shiny::modalButton("Cancel")
 #         )
 #     ))
@@ -137,7 +137,7 @@ observeEvent(input$synch_with_trial_selector, {
 })
 
 
-rave::sync_shiny_inputs(
+sync_shiny_inputs(
     input = input, session = session, inputIds = c(
         'ELECTRODE_TEXT', 'electrode_category_selector_choices'
     ), uniform = list(
@@ -277,17 +277,6 @@ observeEvent(input$analysis_filter_variable_2, {
     }
 })
 
-observeEvent(input$select_good_electrodes, {
-    if(!is.null(input$current_active_set)) {
-        updateTextInput(session, 'ELECTRODE_TEXT', value = parse_svec(input$current_active_set))
-        if(! input$auto_calculate) {
-            print('a calc is off, auto click')
-            shinyjs::click('do_calculate_btn')
-        } else {
-            print('a calc is on, no click')
-        }
-    }
-})
 
 observeEvent(input$clear_outliers, {
     updateSelectInput(session, 'trial_outliers_list', selected=character(0))
@@ -384,7 +373,7 @@ output$trial_click <- renderUI({
     # )
     
     .disc = ''
-    if(!input$auto_calculate) {
+    if(!isTRUE(input$auto_calculate)) {
         .disc = local_data$autocalc_disclaimer
     }
     
@@ -400,7 +389,7 @@ click_output = function() {
     }
     
     .disc = ''
-    if(!input$auto_calculate) {
+    if(!isTRUE(input$auto_calculate)) {
         .disc = local_data$autocalc_disclaimer
     }
     

@@ -140,14 +140,18 @@ output[['elec_loc']] <- threeBrain::renderBrain({
     brain$set_electrode_values( tbl )
     
     if( isTRUE(local_data$load_mesh) ){
-        brain$plot(volumes = FALSE, surfaces = TRUE, side_canvas = FALSE, control_panel = FALSE, palettes = list(
-            'Type' = c('red', 'navy')
-        ))
+        brain$plot(
+            volumes = FALSE, surfaces = TRUE, side_canvas = FALSE, 
+            control_panel = FALSE, palettes = list(
+                'Type' = c('red', 'navy')
+            ), side_display = FALSE, control_display = FALSE)
     }else{
         # Maybe load N27 brain if not exists
-        brain$plot(volumes = FALSE, surfaces = FALSE, side_canvas = FALSE, control_panel = FALSE, palettes = list(
-            'Type' = c('red', 'navy')
-        ))
+        brain$plot(
+            volumes = FALSE, surfaces = FALSE, side_canvas = FALSE, 
+            control_panel = FALSE, palettes = list(
+                'Type' = c('red', 'navy')
+            ), side_display = FALSE, control_display = FALSE)
     }
     
     # brain$view(value_range = c(-1,1), control_panel = F)
@@ -163,9 +167,6 @@ observeEvent(input$load_mesh, {
 
 elec_loc_ui = function(){
     div(
-        tags$style(
-            '.threejs-control, .threejs-control * {pointer-events: none !important; max-width: 150px !important; font-size: x-small !important;}'
-        ),
         actionLink(ns('load_mesh'), 'Hide Mesh'),
         threeBrain::threejsBrainOutput(ns('elec_loc'), height = '300px')
         # threejsr::threejsOutput(ns('elec_loc'), height = '300px')

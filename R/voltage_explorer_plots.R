@@ -23,6 +23,7 @@ erp_over_time_plot <- function(results, ...) {
 #' @param ... other parameters passed to module output
 #' @export
 by_trial_erp_map <- function(results, ...){
+    rave_context()
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
     

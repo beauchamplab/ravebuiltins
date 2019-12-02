@@ -134,7 +134,7 @@ phase_plot <- function(results, ...) {
         image(z=abs(.res), zlim=c(-pi,pi), col=rave_heat_map_colors %>% rev,
               x=time, xlab='Time',
               y=trials, ylab='Trial',
-              main = res$group_name %&% ' Abs Phase ' %&% deparse_selections(res$phase$dimnames$Frequency, max_lag = 10) %&% ' Hz',
+              main = res$group_name %&% ' Abs Phase ' %&% deparse_svec(res$phase$dimnames$Frequency, max_lag = 10) %&% ' Hz',
               bty='n', las=1, axes=F)
 
         rave_axis(1, pretty(time), tcl=0, lwd=0)
@@ -143,6 +143,7 @@ phase_plot <- function(results, ...) {
 }
 
 itpc_plot_heatmap = function(results, ...){
+    rave_context()
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
 
@@ -171,6 +172,7 @@ itpc_plot_heatmap = function(results, ...){
     # Plots
     # plot_data %>% sapply(function(x) x$data %>% class)
     lapply(plot_data, function(x){
+        # rave_context()
         x$has_trials %?<-% FALSE
         if(x$has_trials){
             make_image(x$full_data, x = time, y = frequency,
@@ -211,7 +213,7 @@ itpc_time_plot = function(results, ...){
         }
     })
 
-    cols = dropNulls(cols)
+    cols = dipsaus::drop_nulls(cols)
     mar = c(5.1, 5.1, 2, 2)
     par(mar = mar)
 

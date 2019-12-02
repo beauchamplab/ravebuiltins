@@ -16,7 +16,7 @@ if(F) {
 
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
-    # requested_electrodes = parse_selections(ELECTRODE_TEXT %>% str_replace_all(':', '-'))
+    # requested_electrodes = parse_svec(ELECTRODE_TEXT %>% str_replace_all(':', '-'))
     # requested_electrodes %<>% get_by(`%in%`, electrodes)
 
     # this will be NA if the only requested electrodes are not available
