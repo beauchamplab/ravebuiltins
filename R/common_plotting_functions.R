@@ -1267,11 +1267,7 @@ set_heatmap_palette_helper <- function(results) {
 
 get_currently_active_heatmap <- function() {
     rave_context()
-    pal = cache('current_rave_heatmap_palette', 
-                
-                1
-                
-                , ncolors = 101),name = 'current_rave_heatmap_palette')
+    pal = cache('current_rave_heatmap_palette', 1, name = 'current_rave_heatmap_palette')
     if(pal[1] == 1) {
         cat2('No heatmap is active, using default', level = 'WARNING')
         
