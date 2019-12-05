@@ -52,6 +52,7 @@ observeEvent(input$analysis_settings_load, {
     roots = c('RAVE Home' = normalizePath(subject$dirs$data_dir), 'root' = '/')
     
     f_path = do.call(file.path, as.list(c(roots[[fdata$root]], f_name)))
+    # f_path = '/Volumes/data/rave_data/ent_data/demo/_project_data/power_explorer/settings/power_explorer_settings_2019_Oct_18.yaml'
     conf = yaml::read_yaml(f_path)
     
     updateCheckboxInput(session, inputId = 'auto_calculate', value = FALSE)
@@ -66,21 +67,14 @@ observeEvent(input$analysis_settings_load, {
     #     value = 
     # ))
     
+    # Update group condition
+    dipsaus::updateCompoundInput2(session, 'GROUPS', value = conf$GROUPS, ncomp = length(conf$GROUPS))
     
-    lapply(1:10, function(ii){
-        gc_id = sprintf('GROUPS_group_conditions_%d', ii)
-        gc = conf[[gc_id]]
-        if(!length(gc)){ gc = character(0) }
-        updateSelectInput(session, gc_id, selected = gc)
-        
-        gc_id = sprintf('GROUPS_group_names_%d', ii)
-        gc = conf[[gc_id]]
-        if(length(gc) != 1){ gc = '' }
-        updateTextInput(session, gc_id, value = gc)
-    })
-    
-    
-    
+    # Update analysis parameters
+    updateSliderInput(session, 'ANALYSIS_WINDOW', value = conf$ANALYSIS_WINDOW)
+    updateSliderInput(session, 'BASELINE_WINDOW', value = conf$BASELINE_WINDOW)
+    updateSliderInput(session, 'FREQUENCY', value = conf$FREQUENCY)
+    updateSliderInput(session, 'combine_method', value = conf$combine_method)
     
     
 })
