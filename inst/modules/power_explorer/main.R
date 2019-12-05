@@ -259,6 +259,7 @@ flat_data$group %<>% factor
 # this can be used elsewhere
 has_data = sum(has_trials)
 
+
 # calculate some statistics across electrodes
 
 # because we're eventually going to be doing second-level stats, we're not too worried about
