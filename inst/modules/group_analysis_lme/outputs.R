@@ -227,7 +227,8 @@ power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analys
         attr(res$data, 'ylab') = 'Power'
         res
     })
-    set_palette('OrBlGrRdBrPr')
+    set_palette('Beautiful Field')
+    
     time_series_plot(plot_data = lpd)
     axis_label_decorator(lpd)
     

@@ -220,22 +220,23 @@ invert_palette <- function(pal) {
 set_palette_helper <- function(results, ...) {
     rave_context()
     
-    .bg <- results$get_value('background_plot_color_hint', 'white')
-    
-    if(.bg == 'white'){
+    .bg <- results$get_value('background_plot_color_hint', 'White')
+    # session = shiny::getDefaultReactiveDomain()
+    if(.bg %in%  c('white', 'White')) {
+        print("setting light theme")
         theme = set_rave_theme('light')
     }else{
+        print("setting dark theme")
         theme = set_rave_theme('dark')
     }
-    
-    # .bg <- results$get_value('background_plot_color_hint', 'white')
     # 
-    # # setting the background color here triggers a cascade of color changes
-    # if(.bg == 'Gray') {
-    #     par('bg'='#1E1E1E')
-    # } else {
-    #     par('bg'=.bg)
-    # }
+
+    # setting the background color here triggers a cascade of color changes
+    if(.bg == 'Gray') {
+        par('bg'='#1E1E1E')
+    } else {
+        par('bg'=.bg)
+    }
     
     pal <- get_palette(results$get_value('color_palette'))
     

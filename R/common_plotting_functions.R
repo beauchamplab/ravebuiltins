@@ -436,7 +436,7 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
     # }else {
     #     rave_heat_map_colors
     # }
-    # 
+
     image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
           add=add, axes=F, xlab='', ylab='', main='')
 
@@ -1267,7 +1267,11 @@ set_heatmap_palette_helper <- function(results) {
 
 get_currently_active_heatmap <- function() {
     rave_context()
-    pal = cache('current_rave_heatmap_palette', 1, name = 'current_rave_heatmap_palette')
+    pal = cache('current_rave_heatmap_palette', 
+                
+                1
+                
+                , ncolors = 101),name = 'current_rave_heatmap_palette')
     if(pal[1] == 1) {
         cat2('No heatmap is active, using default', level = 'WARNING')
         

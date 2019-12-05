@@ -9,8 +9,6 @@ env = dev_ravebuiltins(T)
 mount_demo_subject()
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
-
-
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
   'inst/modules/power_explorer/exports.R',
@@ -202,9 +200,7 @@ define_input(
   #   definition = checkboxInput('analysis_mask_export',value = FALSE,
   #                              label = 'Export Electrode Mask'))
   
-  define_input_time(inputId = 'export_time_window', label='Export time window', initial_value = c(0,1))
-  # define_input(
-  #   definition = checkboxInput('filter_3d_viewer', "Filter 3D Viewer Results (requires viewer reload)", value=FALSE))
+  define_input_time(inputId = 'export_time_window', label='Export time window')
   
   define_input(
     definition = checkboxInput('include_outliers_in_export', "Include outliers in export", value=FALSE)
@@ -222,7 +218,7 @@ define_input(
   
   define_input(
     definition = actionButtonStyled(inputId = 'synch_with_trial_selector',
-                                    label='Synch with trial selector', icon = shiny::icon('refresh')))
+                                    label='Synch from trial selector', icon = shiny::icon('refresh')))
 
   define_input(
     definition = selectInput('analysis_filter_variable', label='Anatomical Filter 1', choices=NULL, selected=NULL)

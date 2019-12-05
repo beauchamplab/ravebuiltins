@@ -354,26 +354,52 @@ attr(scatter_bar_data, 'stats') <- result_for_suma
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
 mount_demo_subject(force_reload_subject = T)
-module = ravebuiltins:::debug_module('power_explorer')
-
+reload_module_package()
+module = rave::get_module(module='power_explorer', package = 'ravebuiltins', local=TRUE)
 
 # eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
 
 result = module(ELECTRODE_TEXT = '14',
-  GROUPS = list(list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
+  GROUPS = list(list(group_name='A',
+                     group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
                               # putting in an empty group to test our coping mechanisms
                               list(group_name='YY', group_conditions=c('drive_av', 'last_av')),
                               list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
-                background_plot_color_hint='white', BASELINE_WINDOW = c(-1,-.4),
+                background_plot_color_hint='Gray', BASELINE_WINDOW = c(-1,-.4),
   plot_time_range = c(-0.5,1.25),
                 FREQUENCY = c(70,150), max_zlim = 0, show_outliers_on_plots = TRUE,
                 sort_trials_by_type = T, combine_method = 'none')
 results = result$results
+env = environment(result$results$get_value)
+r = jsonlite::serializeJSON(as.list(env))
+
+f = '~/Desktop/junk.json'; writeLines(r, f); f
+r = readLines('~/Desktop/junk.json')
+results = jsonlite::unserializeJSON(paste(r, collapse = ''))
+
+r = jsonlite::unserializeJSON(r)
+
+results$get_value = function(k, ifNotFound = NULL){
+  if(k %in% names(results)){
+    results[[k]]
+  }else{
+    ifNotFound
+  }
+}
+
+rave::rave_context('rave_module_debug')
+.__rave_package__. = 'ravebuiltins'
+.__rave_module__. = 'power_explorer'
+rave::set_rave_theme()
+ravebuiltins::heat_map_plot(results)
+
+results=r
+
+
 # results$get_value('omnibus_results')
 # result$across_electrodes_corrected_pvalue()
 # attachDefaultDataRepository()
 # get_summary()
-
 
 result$heat_map_plot()
 result$windowed_comparison_plot()
@@ -381,19 +407,7 @@ result$by_trial_heat_map()
 result$over_time_plot()
 result$by_electrode_heat_map()
 
-ravebuiltins::dev_ravebuiltins(expose_functions = TRUE)
-
-# dev layout has red theme
-dev_layout <- function(module_id, sidebar_width = 5, launch.browser = rstudio_viewer){
-  # Always reload the package to the newest status and preview
-  env = reload_this_package()
-  
-  m = env$to_module(module_id = module_id, sidebar_width = sidebar_width)
-  rave::init_app(m, launch.browser = launch.browser, disable_sidebar = T, simplify_header = F, theme='red')
-}
-
-# view_layout('power_explorer', sidebar_width = 3, launch.browser = T)
-dev_layout('power_explorer', sidebar_width = 3, launch.browser = T)
+view_layout('power_explorer', sidebar_width = 3, launch.browser = T)
 
 # m = to_module(module_id)
 # init_app(m)
@@ -406,7 +420,8 @@ env = reload_this_package(expose = FALSE, clear_env = TRUE)
 attachDefaultDataRepository()
 
 # Step 3: try to run from local session
-module = rave::get_module(package = 'ravebuiltins', module_id = 'power_explorer', local = T)
+module = rave::get_module(package = 'ravebuiltins',
+                          module_id = 'power_explorer', local = T)
 
 res = module()
 
