@@ -64,7 +64,7 @@ bl_power <- cache(
              any_trials, preload_info$epoch_name, preload_info$reference_name),
   val = baseline(power$subset(Electrode = Electrode %in% requested_electrodes),
                  from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
-                 hybrid = FALSE, mem_optimize = FALSE),
+                 hybrid = TRUE, mem_optimize = TRUE),
   name = 'bl_power'
 )
 
@@ -258,6 +258,7 @@ flat_data$group %<>% factor
 
 # this can be used elsewhere
 has_data = sum(has_trials)
+
 
 # calculate some statistics across electrodes
 

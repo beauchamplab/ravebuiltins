@@ -427,7 +427,6 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
         }
     }
     
-    
     col %?<-% get_currently_active_heatmap()
     # col %?<-% if(par('bg') == 'black') {
     #     rave_heat_map_dark_colors
@@ -1282,8 +1281,14 @@ set_heatmap_palette_helper <- function(results) {
 
 get_currently_active_heatmap <- function() {
     rave_context()
+    
     cache(key = 'current_rave_heatmap_palette', 
           val = {
+              # This happens when, for instance, we're called from the wrong context
+              # we get/set this heatmap in the function that has access to the 
+              # result object, then if the heatmap isn't cached, we can rebuild it 
+              # easily. Then we just pass along the heatmap just like we would 
+              # any other graphic's state item
               cat2('No heatmap is active, using default', level = 'WARNING')
               expand_heatmap(get_heatmap_palette('BlueWhiteRed'), ncolors = 101)
           },
