@@ -4,10 +4,10 @@
 # rm(list = ls(all.names=T)); rstudioapi::restartSession()
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
-mount_demo_subject(force_reload_subject = T,
-                   subject_code = 'YAB',project_name = 'congruency', electrodes=13:17, epoch='YABa')
+mount_demo_subject(force_reload_subject = T)#,
+                   #subject_code = 'YAB',project_name = 'congruency', electrodes=13:14, epoch='YABa')
 
-init_module(module_id = 'power_explorer', debug = TRUE)
+# init_module(module_id = 'power_explorer', debug = TRUE)
 # attachDefaultDataRepository()
 if(FALSE) {
   GROUPS = list(list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
@@ -360,46 +360,16 @@ module = rave::get_module(module='power_explorer', package = 'ravebuiltins', loc
 # eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
 
 result = module(ELECTRODE_TEXT = '14',
-  GROUPS = list(list(group_name='A',
-                     group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
-                              # putting in an empty group to test our coping mechanisms
-                              list(group_name='YY', group_conditions=c('drive_av', 'last_av')),
-                              list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
-                background_plot_color_hint='Gray', BASELINE_WINDOW = c(-1,-.4),
+  # GROUPS = list(list(group_name='A',
+  #                    group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
+  #                             # putting in an empty group to test our coping mechanisms
+  #                             list(group_name='YY', group_conditions=c('drive_av', 'last_av')),
+  #                             list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
+                background_plot_color_hint='White', BASELINE_WINDOW = c(-1,-.4),
   plot_time_range = c(-0.5,1.25),
                 FREQUENCY = c(70,150), max_zlim = 0, show_outliers_on_plots = TRUE,
-                sort_trials_by_type = T, combine_method = 'none')
+                sort_trials_by_type = F, combine_method = 'none')
 results = result$results
-env = environment(result$results$get_value)
-r = jsonlite::serializeJSON(as.list(env))
-
-f = '~/Desktop/junk.json'; writeLines(r, f); f
-r = readLines('~/Desktop/junk.json')
-results = jsonlite::unserializeJSON(paste(r, collapse = ''))
-
-r = jsonlite::unserializeJSON(r)
-
-results$get_value = function(k, ifNotFound = NULL){
-  if(k %in% names(results)){
-    results[[k]]
-  }else{
-    ifNotFound
-  }
-}
-
-rave::rave_context('rave_module_debug')
-.__rave_package__. = 'ravebuiltins'
-.__rave_module__. = 'power_explorer'
-rave::set_rave_theme()
-ravebuiltins::heat_map_plot(results)
-
-results=r
-
-
-# results$get_value('omnibus_results')
-# result$across_electrodes_corrected_pvalue()
-# attachDefaultDataRepository()
-# get_summary()
 
 result$heat_map_plot()
 result$windowed_comparison_plot()
@@ -430,3 +400,42 @@ res = module()
 m = rave::detect_modules('ravebuiltins')
 rave::start_rave()
 
+
+
+
+
+
+
+# env = environment(result$results$get_value)
+# r = jsonlite::serializeJSON(as.list(env))
+# 
+# f = '~/Desktop/junk.json'; writeLines(r, f); f
+# r = readLines('~/Desktop/junk.json')
+# results = jsonlite::unserializeJSON(paste(r, collapse = ''))
+# 
+# r = jsonlite::unserializeJSON(r)
+# 
+# results$get_value = function(k, ifNotFound = NULL){
+#   if(k %in% names(results)){
+#     results[[k]]
+#   }else{
+#     ifNotFound
+#   }
+# }
+# # 
+# rave::rave_context('rave_module_debug')
+# .__rave_package__. = 'ravebuiltins'
+# .__rave_module__. = 'power_explorer'
+# 
+# 
+# result$heat_map_plot()
+# rave::set_rave_theme()
+# ravebuiltins::heat_map_plot(results)
+# 
+# results=r
+
+
+# results$get_value('omnibus_results')
+# result$across_electrodes_corrected_pvalue()
+# attachDefaultDataRepository()
+# get_summary()

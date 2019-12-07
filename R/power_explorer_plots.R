@@ -179,7 +179,6 @@ across_electrodes_corrected_pvalue <- function(results, ...) {
         rave_axis(4, at=nl10(cut), labels=results$get_value('pval_operand'),
                   tcl=0, cex.axis = 1, lwd=0, mgpy=c(-3, -1, -0))
     }
-    
     # get_foreground_color()
     
     points(nl10(ps), pch=16, col=ifelse(passing_els, 'gray10', 'gray70'))
@@ -223,10 +222,8 @@ set_palette_helper <- function(results, ...) {
     .bg <- results$get_value('background_plot_color_hint', 'White')
     # session = shiny::getDefaultReactiveDomain()
     if(.bg %in%  c('white', 'White')) {
-        print("setting light theme")
         theme = set_rave_theme('light')
     }else{
-        print("setting dark theme")
         theme = set_rave_theme('dark')
     }
     # 
@@ -361,11 +358,30 @@ by_trial_heat_map <- function(results) {
         decorator %<>% add_decorator(trial_type_boundaries_hm_decorator)
     }
     
-    if(results$get_value('show_outliers_on_plots', FALSE)) {
+    show_outliers <- results$get_value('show_outliers_on_plots', FALSE)
+    if(show_outliers) {
+        print('showing outliers')
         decorator %<>% add_decorator(heatmap_outlier_highlighter_decorator)
+    } else {
+        print('not showing outliers, removing them, start with: ' %&% nrow(by_trial_heat_map_data[[1]]$data))
+        ##FIXME Is this an ok place to do this?
+        for(ii in seq_along(by_trial_heat_map_data)) {
+            .clean <- by_trial_heat_map_data[[ii]]$is_clean
+            if(sum(.clean) == 0) {
+                by_trial_heat_map_data[[ii]]$has_trials <- FALSE
+                print('no trials')
+            } else {
+                # note that data is perhaps the transpose of what you expect, that's because the image() function requires
+                # the transpose of what you might expect to plot what you might expect
+                by_trial_heat_map_data[[ii]]$data <- by_trial_heat_map_data[[ii]]$data[,.clean]
+                by_trial_heat_map_data[[ii]]$Trial_num <- by_trial_heat_map_data[[ii]]$Trial_num[.clean]
+                by_trial_heat_map_data[[ii]]$trials <- by_trial_heat_map_data[[ii]]$trials[.clean]
+                by_trial_heat_map_data[[ii]]$range <- .fast_range(c(by_trial_heat_map_data[[ii]]$data))
+                by_trial_heat_map_data[[1]]$y <- seq_along(by_trial_heat_map_data[[ii]]$Trial_num)
+            }
+        }
     }
     
-
     # the y variable is changing each time,
     # so we provide a function that will be used to calculate the
     # y variable on a per map basis

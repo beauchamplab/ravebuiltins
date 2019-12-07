@@ -28,7 +28,6 @@ src_data_snapshot <- function() {
         })
     }
     
-    
     tagList(
         tags$p(
             # 1. dimensions

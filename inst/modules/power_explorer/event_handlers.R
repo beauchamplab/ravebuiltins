@@ -360,20 +360,8 @@ observeEvent(input$windowed_by_trial_dbl_click, {
 
 output$trial_click <- renderUI({
     .click <- local_data$click_info
-    # div(
-    #     style='margin-left: 5px; min-height: 400px',
-    #     'Nearest Trial: ', .click$trial, br(),
-    #     'Value: ', .click$value, br(),
-    #     'Trial Type: ', .click$trial_type,
-    #     p(
-    #         style='margin-top:20px',
-    #         HTML('&mdash;'), br(),
-    #         local_data$instruction_string
-    #     )
-    # )
-    
     .disc = ''
-    if(!isTRUE(input$auto_calculate)) {
+    if(!auto_recalculate()){
         .disc = local_data$autocalc_disclaimer
     }
     
@@ -389,7 +377,7 @@ click_output = function() {
     }
     
     .disc = ''
-    if(!isTRUE(input$auto_calculate)) {
+    if(!auto_recalculate()){
         .disc = local_data$autocalc_disclaimer
     }
     

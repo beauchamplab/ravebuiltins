@@ -52,10 +52,10 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
     } else {
         ''
     }
+    
     lapply(hmaps, function(map){
         # rave_context()
         if(map$has_trials){
-            
             # check the plottable range, to make sure we're only plotting what the user has requested
             xrange %?<-% range(map$x)
 
@@ -515,7 +515,8 @@ rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change',
           cex.axis=rave_cex.axis*get_cex_for_multifigure())
 
     # rave_main(str_rng(actual_lim %>% round))
-    rave_axis(2, at=0:2/2, labels = c(-zlim, 0, zlim) %>% round, tcl=0.3)
+    rave_axis(2, at=0:1, labels = c(-zlim, zlim) %>% round, tcl=0)
+    rave_axis(2, at=0.5, labels = 0, tcl=0.3)
     box()
 
     invisible(zlim)
@@ -547,6 +548,8 @@ reorder_trials_by_type <- function(bthmd) {
     bthmd$lines <- cumsum(c(sapply(ind, length)))
     bthmd$ttypes <- names(ind)
     bthmd$trials <-  bthmd$trials[unlist(ind)]
+    bthmd$Trial_num <-  bthmd$Trial_num[unlist(ind)]
+    bthmd$is_clean <-  bthmd$is_clean[unlist(ind)]
 
     return(bthmd)
 }
@@ -620,6 +623,15 @@ do_poly <- function(x, y, col, alpha=50/255, border=NA, ...) {
 heatmap_outlier_highlighter_decorator <- function(map, Xmap=force, Ymap=force, ...) {
     with(map, {
         sapply(which(!is_clean), function(ti) {
+            
+            # because the data may be sorted by trial type
+            # we need to make sure ti (trial index) is actually where it should be
+            # this should handle non-squentiall trials
+            # ti = which(map$Trial_num == ti)
+            
+            ## We are now sorting the is_clean vector as well, so it should line up now without having
+            # to do this extra check
+            
             do_poly(Xmap(range(x)), y=ti %+-% 0.5, border=NA, lty=1, alpha=0.3,
                     col=rave_colors$TRIAL_TYPE_SEPARATOR, lwd=2)
             # 
@@ -1212,8 +1224,8 @@ cache_heatmap_palette <- function(pname, pal) {
     rave_context()
     # usually people will call the set_heatmap_palette_helper, this function is provided in case we
     # need to subvert the usual route
-    cache('current_rave_heatmap_palette_name', pname, 'current_rave_heatmap_palette_name', replace=TRUE)
-    cache('current_rave_heatmap_palette', pal, 'current_rave_heatmap_palette', replace=TRUE)
+    cache(key='current_rave_heatmap_palette_name', val=pname, 'current_rave_heatmap_palette_name', replace=TRUE)
+    cache(key='current_rave_heatmap_palette', val=pal, 'current_rave_heatmap_palette', replace=TRUE)
 }
 
 expand_heatmap <- function(pal, results, ncolors) {
@@ -1241,8 +1253,9 @@ set_heatmap_palette_helper <- function(results) {
                                  results$get_value('reverse_colors_in_heatmap_palette'),
                                  sep = '_')
 
-    cached_palette_name = cache('current_rave_heatmap_palette_name', 'none', 
-                                'current_rave_heatmap_palette_name')
+    ## FIXME reverting to old cache method 
+    cached_palette_name = cache(key='current_rave_heatmap_palette_name', val='none', 
+                                name='current_rave_heatmap_palette_name')
     
     if(cached_palette_name != requested_palette_name) {
         if(par('bg') %in% c('#1E1E1E', 'black')) {
@@ -1259,27 +1272,23 @@ set_heatmap_palette_helper <- function(results) {
             pal %<>% rev
         }
         
-        pal = expand_heatmap(pal, results = results)
+        cache_heatmap_palette(requested_palette_name, expand_heatmap(pal, results = results))
         
-        cache_heatmap_palette(requested_palette_name, pal)
+        # cache(key=requested_palette_name,
+        #       val=expand_heatmap(pal, results = results),
+        #       name='current_rave_heatmap_palette')
     }
 }
 
 get_currently_active_heatmap <- function() {
     rave_context()
-    pal = cache('current_rave_heatmap_palette', 
-                
-                1
-                
-                , ncolors = 101),name = 'current_rave_heatmap_palette')
-    if(pal[1] == 1) {
-        cat2('No heatmap is active, using default', level = 'WARNING')
-        
-        pal = expand_heatmap(get_heatmap_palette('BlueWhiteRed'), ncolors = 101)
-    }
-    return(pal)
+    cache(key = 'current_rave_heatmap_palette', 
+          val = {
+              cat2('No heatmap is active, using default', level = 'WARNING')
+              expand_heatmap(get_heatmap_palette('BlueWhiteRed'), ncolors = 101)
+          },
+          name = 'current_rave_heatmap_palette')
 }
-
 
 get_dark_mode_heatmap_palette <- function(pal, mid_color = par('bg')) {
     if(length(pal)==1) {
@@ -1323,7 +1332,8 @@ get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FAL
     
     pal <- .heatmap_palettes[[pname]]
     if(is.null(pal)) {
-        warning("Invalid palette requested: ", pname, ". Returning random palette")
+        cat2("Invalid palette requested: ", pname, ". Returning random palette",
+             level="WARNING")
         pname = sample(names(.heatmap_palettes), 1)
         pal <- .heatmap_palettes[[pname]]
     }
