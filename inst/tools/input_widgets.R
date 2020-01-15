@@ -364,6 +364,8 @@ define_input_condition_groups <- function(
         )
       )
       value = cache_input(!!inputId, default_val)
+      print('asdasdasd')
+      print(value)
       if( !length(value) || 
           !length(value[[1]]$group_conditions) || 
           !any(value[[1]]$group_conditions %in% cond)){

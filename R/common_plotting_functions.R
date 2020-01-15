@@ -36,7 +36,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
         max_char_count = max(sapply(hmaps, function(h) ifelse(h$has_trials, max(nchar(h$conditions)), 1)))
         
         par(mar = c(5.1,
-                    5.1 + max(0,(max_char_count - 5)*0.75),
+                    5.1 + max(0,(max_char_count - 5)*0.85),
                     2, 2))
     }
 
@@ -44,7 +44,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
     actual_lim = get_data_range(hmaps)
 
     if(max_zlim==0) {
-        max_zlim <- max(abs(actual_lim))
+        max_zlim <- max(abs(actual_lim), na.rm=TRUE)
     }
 
     log_scale <- if(isTRUE(log_scale)) {
@@ -426,6 +426,7 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
             mat %<>% clip_x(zlim)
         }
     }
+    
     
     col %?<-% get_currently_active_heatmap()
     # col %?<-% if(par('bg') == 'black') {
@@ -885,7 +886,7 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
                              line.col, shade.col='gray60', label_placement_offset=0.9,
                              text=FALSE, text.col, lwd, lty) {
     type <- match.arg(type)
-    text.x <- window[1]
+    text.x <- mean(window) # window[1]
     text.y <- par('usr')[4] * label_placement_offset
     
     
@@ -1281,14 +1282,8 @@ set_heatmap_palette_helper <- function(results) {
 
 get_currently_active_heatmap <- function() {
     rave_context()
-    
     cache(key = 'current_rave_heatmap_palette', 
           val = {
-              # This happens when, for instance, we're called from the wrong context
-              # we get/set this heatmap in the function that has access to the 
-              # result object, then if the heatmap isn't cached, we can rebuild it 
-              # easily. Then we just pass along the heatmap just like we would 
-              # any other graphic's state item
               cat2('No heatmap is active, using default', level = 'WARNING')
               expand_heatmap(get_heatmap_palette('BlueWhiteRed'), ncolors = 101)
           },

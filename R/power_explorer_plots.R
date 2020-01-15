@@ -9,7 +9,7 @@ over_time_plot <- function(results, ...) {
     
     set_palette_helper(results)
     
-    time_series_plot(plot_data = results$get_value('line_plot_data'),
+    time_series_plot(plot_data = results$get_value('over_time_data'),
                      xrange = results$get_value('plot_time_range'),
                      PANEL.FIRST = time_series_decorator(results = results))
 }
@@ -26,7 +26,7 @@ across_electrodes_f_histogram <- function(results, ...) {
     
     omnibus_results <- results$get_value('omnibus_results')
     ts <- omnibus_results[2,]
-    par('mar'=.1 + c(5,4,1,2))
+    # par('mar'=.1 + c(5,4,1,2))
     hist(ts, xlab='', ylab='', col='gray50', main='', border=get_foreground_color(),
          las=1, cex.axis=rave_cex.axis*get_cex_for_multifigure(), axes=F)
     rave_axis(1, at=axTicks(1))
@@ -38,6 +38,18 @@ across_electrodes_f_histogram <- function(results, ...) {
         abline(v=cut, lwd=2, col='orangered')
     }
 }
+
+across_electrode_statistics <- function(results, ...) {
+    validate(need(results$get_value('has_data', FALSE),
+                  message="No Condition Specified"))
+
+    par(mfrow = c(1,3), mar=c(5.1, 7.1, 4.1, 2.1))
+
+    across_electrodes_corrected_pvalue(results, ...)
+    across_electrodes_f_histogram(results, ...)
+    across_electrodes_beta_histogram(results,...)
+}
+
 
 #' @title Histogram of per-condition means, per electrode
 #' @param results results returned by module
@@ -51,12 +63,15 @@ across_electrodes_beta_histogram <- function(results, ...) {
     
     omnibus_results <- results$get_value('omnibus_results')
     ms <- omnibus_results[1,]
-    par('mar'=.1 + c(5,4,1,2))
+    # par('mar'=.1 + c(5,4,1,2))
     hist(ms, main='', col='gray50', border=get_foreground_color(),
          las=1, axes=F, xlab='', ylab='')
     rave_axis(1, at=axTicks(1))
     rave_axis(2, at=axTicks(2) %>% round %>% unique)
-    rave_axis_labels(xlab='Mean Response', ylab='# of Electrodes')
+    
+    unit_of_analysis = results$get_value('unit_of_analysis')
+    rave_axis_labels(xlab='Mean ' %&% unit_of_analysis, ylab='# of Electrodes')
+    rave_title(sprintf('Mean %s across trials', unit_of_analysis))
     
     cut <- as.numeric(results$get_value('mean_operand'))
     if(!is_null(cut)) {
@@ -153,7 +168,7 @@ across_electrodes_corrected_pvalue <- function(results, ...) {
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
     set_palette_helper(results)
-    par('mar'=.1 + c(5,4,1,2))
+    # par('mar'=.1 + c(5,4,1,2))
     omnibus_results <- results$get_value('omnibus_results')
     ps <- omnibus_results[3,]
     
@@ -181,20 +196,28 @@ across_electrodes_corrected_pvalue <- function(results, ...) {
     }
     # get_foreground_color()
     
+    xat = as.integer(pretty(seq_along(omnibus_results[2,])))
+    xat[xat==0] = 1 
+    xat %<>% unique
+    abline(v=xat, col='gray80', lwd=0.5)
     points(nl10(ps), pch=16, col=ifelse(passing_els, 'gray10', 'gray70'))
     
     title(xlab='Electrode #', ylab=results$get_value('pval_filter'),
           col.lab = .col, cex.lab=rave_cex.lab*get_cex_for_multifigure(), main = '')
-    rave_axis(1, at=seq_along(omnibus_results[2,]), labels=colnames(omnibus_results))
+    
+    
+    rave_axis(1, at=xat, labels=colnames(omnibus_results)[xat])
+    unit_of_analysis = results$get_value('unit_of_analysis')
+    rave_title('FDR(p) Mean ' %&% unit_of_analysis)
     
     axt <- axTicks(2)
     # rave_axis(2, at=axTicks(2), labels=lapply(lbl, expression) %>% unlist)
     # not sure how to vectorize an expression involving bquote :(
-    rave_axis(2, at=axt, labels = F, tcl=0)
+    rave_axis(2, at=axt, labels = F, tcl=0, mgpy=c(3, .75, 0))
     for(ii in seq_along(axt)) {
-        rave_axis(2, at=axt[ii], labels=bquote(10**-.(axt[ii])), cex.axis = rave_cex.axis*.9*get_cex_for_multifigure())
+        rave_axis(2, at=axt[ii], labels=bquote(10**-.(axt[ii])), cex.axis = rave_cex.axis*.5*get_cex_for_multifigure())
     }
-    print(omnibus_results[3,])
+    # print(omnibus_results[3,])
 }
 
 get_foreground_color <- function() {
@@ -299,8 +322,24 @@ heat_map_plot <- function(results, ...){
     )
 }
 
+# create_results_object <- function(...) {
+#     env <- new.env(parent = baseenv())
+#     local({
+#         .current_env = environment()
+#         get_value = function(nm, default = NULL){
+#             if(exists(nm, envir = .current_env)){
+#                 return( .current_env[[nm]] )
+#             }else{
+#                 default
+#             }
+#         }
+#     }, envir = env)
+#     list2env(list(...), envir = env)
+#     env
+# }
 
-by_electrode_heat_map <- function(results) {
+
+by_electrode_heat_map <- function(results, ...) {
     rave_context()
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
@@ -335,13 +374,12 @@ color_bar_title_decorator <- function(m) {
 # is the data and the decoration. Use the core heatmap function
 # to enforce consistent look/feel
 # expects by_trial_heat_map_data to exist
-by_trial_heat_map <- function(results) {
+by_trial_heat_map_plot <- function(results) {
     rave_context()
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
 
     set_palette_helper(results)
-    
     by_trial_heat_map_data <- results$get_value('by_trial_heat_map_data')
     
     #base decorator
@@ -371,7 +409,7 @@ by_trial_heat_map <- function(results) {
                 by_trial_heat_map_data[[ii]]$has_trials <- FALSE
                 print('no trials')
             } else {
-                # note that data is perhaps the transpose of what you expect, that's because the image() function requires
+                # note that $data is perhaps the transpose of what you expect, that's because the image() function requires
                 # the transpose of what you might expect to plot what you might expect
                 by_trial_heat_map_data[[ii]]$data <- by_trial_heat_map_data[[ii]]$data[,.clean]
                 by_trial_heat_map_data[[ii]]$Trial_num <- by_trial_heat_map_data[[ii]]$Trial_num[.clean]

@@ -133,7 +133,7 @@ rave_axis <- function(side, at, tcl=-0.3, labels=at, las=1, cex.axis=rave_cex.ax
                       cex.lab=rave_cex.lab, mgpy=c(3, .6, 0), mgpx=c(3, .75, 0), col, col.axis, ...) {
   
   # if the color isn't specified, then we are free to set the color to what we want.
-  # let's set it to be black, unless that background color is black, then we'll do white
+  # let's set it to be black, unless the background color is black, then we'll do white
   col %?<-% get_foreground_color()
   col.axis %?<-% col
   

@@ -74,9 +74,7 @@ observeEvent(input$analysis_settings_load, {
     updateSliderInput(session, 'ANALYSIS_WINDOW', value = conf$ANALYSIS_WINDOW)
     updateSliderInput(session, 'BASELINE_WINDOW', value = conf$BASELINE_WINDOW)
     updateSliderInput(session, 'FREQUENCY', value = conf$FREQUENCY)
-    updateSliderInput(session, 'combine_method', value = conf$combine_method)
-    
-    
+    updateSelectizeInput(session, 'unit_of_analysis', selected = conf$unit_of_analysis)
 })
 
 
@@ -87,12 +85,16 @@ observeEvent(input$power_3d_widget_mouse_dblclicked, {
     .data <- input$power_3d_widget_mouse_dblclicked
 
     # print(input$power_3d_widget_mouse_dblclicked)
-    
+    print('-------')
+    print(.data$is_electrode)
     if(isTRUE(.data$is_electrode)) {
         e <- .data$electrode_number
         if(e %in% preload_info$electrodes){
             updateTextInput(session, 'ELECTRODE_TEXT', value = e)
             showNotification(p('Switched to electrode ', e), type = 'message', id = ns('power_3d_widget__mouse'))
+            if(shiny_is_running()) {
+                trigger_recalculate()
+            }
         }else{
             showNotification(p('Electrode ', e, ' is not loaded.'), type = 'warning', id = ns('power_3d_widget__mouse'))
         }
@@ -271,6 +273,14 @@ observeEvent(input$analysis_filter_variable_2, {
     }
 })
 
+observeEvent(input$select_good_electrodes, {
+    if(!is.null(input$current_active_set)) {
+        updateTextInput(session, 'ELECTRODE_TEXT',
+                        value = input$current_active_set)
+        # Trigger recalculate
+        trigger_recalculate()
+    }
+})
 
 observeEvent(input$clear_outliers, {
     updateSelectInput(session, 'trial_outliers_list', selected=character(0))

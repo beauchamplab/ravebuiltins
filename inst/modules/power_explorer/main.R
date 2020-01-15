@@ -4,7 +4,7 @@
 # rm(list = ls(all.names=T)); rstudioapi::restartSession()
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
-mount_demo_subject(force_reload_subject = T)#,
+mount_demo_subject(force_reload_subject = F)#,
                    #subject_code = 'YAB',project_name = 'congruency', electrodes=13:14, epoch='YABa')
 
 # init_module(module_id = 'power_explorer', debug = TRUE)
@@ -52,74 +52,71 @@ any_trials <- any(has_trials)
 
 # for performance -- check if the previous baseline exists in the cache. If so,
 # grab it, if not, then recaclulate, but remove the previous one to save on space
-# Could put another value in the cache -- last_baseline_key or something, so we
-# can check that directly
-# cache('hi', val={Sys.sleep(2); 4}, replace=F)
-# getDefaultCacheEnvironment()[[digest::digest('hi')]]
+
+
+
+# c('% Change Power', '% Change Amplitude',
+#   'z-score Power', 'z-score Amplitude',
+#   'decibel', 'max-scale')
+# 
+
+# baseline_method <- baseline_functions[[unit_of_analysis]]
+
+calculate_baseline <- function() {
+  unit_dims = c(1,2,4)
+  
+  if(isTRUE(global_baseline)) {
+    unit_dims = c(2,4)
+  }
+  
+  method <- list(
+    '% Change Power' = 'percentage',
+    '% Change Amplitude' = 'sqrt_percentage',
+    'z-score Power' = 'zscore',
+    'z-score Amplitude' = 'sqrt_zscore',
+    'decibel' = 'decibel'
+  )
+  
+  els <- power$subset(Electrode = Electrode %in% requested_electrodes)
+  bl = dipsaus:::baseline_array(
+    x = els$get_data(),
+    baseline_indexpoints = which(els$dimnames$Time %within% BASELINE_WINDOW),
+    along_dim = 3L,
+    method = method[[unit_of_analysis]],
+    unit_dims = unit_dims
+  )
+  
+  ECoGTensor$new(bl, dim = dim(els), dimnames = dimnames(els), 
+                 varnames = els$varnames, hybrid = F)
+}
+
 
 # Subset data
 bl_power <- cache(
   key = list(subject$id, requested_electrodes, BASELINE_WINDOW,
-             preload_info$time_points, combine_method,
+             preload_info$time_points, unit_of_analysis,global_baseline,
              any_trials, preload_info$epoch_name, preload_info$reference_name),
-  val = baseline(power$subset(Electrode = Electrode %in% requested_electrodes),
-                 from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
-                 hybrid = TRUE, mem_optimize = TRUE),
+  
+  val = calculate_baseline(),
   name = 'bl_power'
 )
 
-jitter_seed <- cache(
-  key = 'jitter_seed',
-  val = sample(1:100, 1),
-  name = 'jitter_seed'
-)
+jitter_seed <- cache(key = 'jitter_seed', val = sample(1:100, 1), name = 'jitter_seed')
 
 # Prepare plot datasets
-scatter_bar_data <- line_plot_data <- by_electrode_heat_map_data <- 
+scatter_bar_data <- over_time_data <- by_electrode_heat_map_data <- 
   by_trial_heat_map_data <- heat_map_data <- group_data
 flat_data <- data.frame()
 
 # set transform method
-.transform <- electrode_transform(combine_method)
+# .transform <- electrode_transform(combine_method)
 
 # for transforms, the idea is to apply at each trial for each frequency
 # then when things get it will already be done
-#relies on .transform as defined above
-if(combine_method != 'none') {
-  transformed_power <- cache(
-    key = list(combine_method, subject$id, ELECTRODE_TEXT, BASELINE_WINDOW, preload_info$time_points,
-               any_trials, preload_info$epoch_name, preload_info$reference_name),
-    
-    val = {
-      transformed_power <- bl_power$get_data()
-      
-      # we should be able to apply the sqrt transform directly to the eniter tensor
-      if(combine_method == 'amplitude') {
-        transformed_power %<>% .transform
-      } else {
-        for(ti in seq_len(dim(transformed_power)[1L])) {
-          transformed_power[ti,,,1] <- t(apply(transformed_power[ti,,,1], 1, .transform))
-        }
-      }
-      
-      transformed_power
-    },
-    name = 'transformed_power'
-  )
-  bl_power$set_data(transformed_power)
-}
 
-# Collapse data
 
-## Leave it here in case you want to change it later
-# (make it user specific)
 collapse_method = 'mean'
-# we likely want to do it at the trial level, not on the back end before combining across electrodes
 
-# to help with caching, we need to only recalculate here if the GROUPs have changed. 
-# get_data_for_condition <- function(ii) {
-#   
-# }
 
 for(ii in which(has_trials)){
   .time_stamp <- proc.time()
@@ -157,9 +154,7 @@ for(ii in which(has_trials)){
     
     for (k in c('ylab', 'zlab')) {
       if (isTRUE(vals[[k]] == 'auto')) {
-        vals[[k]] = ifelse(combine_method == 'none',
-                           'Mean % Signal Change',
-                           'Mean '  %&% combine_method %&% ' %SC')
+        vals[[k]] = 'Mean ' %&% unit_of_analysis
       }
     }
     
@@ -206,18 +201,18 @@ for(ii in which(has_trials)){
   # 3. Time only
   # coll freq and trial for line plot w/ ebar. Because we're doing error bars, we have to know whether we have 1 vs. >1 electrodes
   # Single electrode, mean and mse for each time points
-  line_plot_data[[ii]] = wrap_data(t(
+  over_time_data[[ii]] = wrap_data(t(
     apply(.power_freq_clean$collapse(keep = 3:4, method = 'mean'), 1, .fast_mse)),
     xlab='Time (s)', ylab='auto', N=dim(.power_freq_clean)[4L], x=.power_freq_clean$dimnames$Time
   )
   
   # set NA (divide by zero) error bars to 0  
-  line_plot_data[[ii]]$data[is.na(line_plot_data[[ii]]$data[,2]),2] <- 0
+  over_time_data[[ii]]$data[is.na(over_time_data[[ii]]$data[,2]),2] <- 0
   
   
   # we want to make a special range for the line plot data that takes into account mean +/- SE
-  line_plot_data[[ii]]$range <- .fast_range(plus_minus(line_plot_data[[ii]]$data[,1],
-                                                       line_plot_data[[ii]]$data[,2]))
+  over_time_data[[ii]]$range <- .fast_range(plus_minus(over_time_data[[ii]]$data[,1],
+                                                       over_time_data[[ii]]$data[,2]))
   
   # scatter bar data -- here we want all of the data because we are going to highlight (or not) the outliers -- same for by-trial heatmap
   # if(show_outliers_on_plots) {
@@ -290,6 +285,7 @@ get_data_per_electrode <- function()  {
   
   return(res)
 }
+
 get_data_per_electrode_alt <- function(ttypes){
   trial_numbers = epoch_data$Trial[epoch_data$Condition %in% ttypes]
   
@@ -304,8 +300,8 @@ get_data_per_electrode_alt <- function(ttypes){
                    hybrid = FALSE, mem_optimize = FALSE)
     bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
     pow <- bl.analysis$collapse(keep = c(1,4))
-    m = colMeans(pow)
     
+    m = colMeans(pow)
     t = m / .fast_column_se(pow)
     p = 2*pt(abs(t), df = nrow(pow)-1, lower=F)
     
@@ -319,11 +315,14 @@ get_data_per_electrode_alt <- function(ttypes){
 
 omnibus_results <- cache(
   key = list(subject$id, BASELINE_WINDOW, FREQUENCY,all_trial_types,
-             ANALYSIS_WINDOW, combine_method, preload_info$epoch_name,
+             ANALYSIS_WINDOW, unit_of_analysis, preload_info$epoch_name,
              preload_info$reference_name, trial_outliers_list),
   val = get_data_per_electrode_alt(all_trial_types),
   name = 'omnibus_results'
 )
+
+# assign('omnibus_results', omnibus_results, envir = globalenv())
+
 
 # calculate the statistics here so that we can add them to plot output -- eventually this goes away?
 # if there are > 1 groups in the data, then do linear model, otherwise one-sample t-test
@@ -347,6 +346,12 @@ if(length(unique(flat_data$group)) > 1) {
 
 attr(scatter_bar_data, 'stats') <- result_for_suma
 
+if(shiny_is_running()){
+  dipsaus::cat2("Updating 3D viewer")
+  btn_val = isolate(input[['power_3d_btn']]) - 0.001
+  dipsaus::set_shiny_input(session = session, inputId = 'power_3d_btn', value = btn_val, method = 'proxy', priority = 'event')
+}
+
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
@@ -361,27 +366,25 @@ module = rave::get_module(module='power_explorer', package = 'ravebuiltins', loc
 # eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
 
 result = module(ELECTRODE_TEXT = '14',
-  # GROUPS = list(list(group_name='A',
-  #                    group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
-  #                             # putting in an empty group to test our coping mechanisms
-  #                             list(group_name='YY', group_conditions=c('drive_av', 'last_av')),
-  #                             list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
-                background_plot_color_hint='White', BASELINE_WINDOW = c(-1,-.4),
-  plot_time_range = c(-0.5,1.25),
+                # GROUPS = list(list(group_name='A',
+                #                    group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
+                #                             # putting in an empty group to test our coping mechanisms
+                #                             list(group_name='YY', group_conditions=c('drive_av', 'last_av')),
+                #                             list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
+                background_plot_color_hint='White', BASELINE_WINDOW = c(-1,-.4),heatmap_color_palette = 'BlackWhiteRed',
+                plot_time_range = c(-0.5,1.25),
                 FREQUENCY = c(70,150), max_zlim = 0, show_outliers_on_plots = TRUE,
-                sort_trials_by_type = F, combine_method = 'none')
+                sort_trials_by_type = T)
 results = result$results
-
 result$heat_map_plot()
-result$windowed_comparison_plot()
-result$by_trial_heat_map()
-result$over_time_plot()
-result$by_electrode_heat_map()
 
-view_layout('power_explorer', sidebar_width = 3, launch.browser = T)
+heat_map_plot(results)
+windowed_comparison_plot(results)
+by_trial_heat_map_plot(results)
+over_time_plot(results)
+by_electrode_heat_map(results)
 
-# m = to_module(module_id)
-# init_app(m)
+view_layout('power_explorer')
 
 mount_demo_subject()
 

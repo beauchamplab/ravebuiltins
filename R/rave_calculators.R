@@ -295,11 +295,9 @@ get_favored_collapsers <- function(swap_var = 'collapse_using_median') {
       sqrt(.Call(C_cov, x, NULL, 4, FALSE)/length(x)))
 }
 
-# no NA checking
-.fast_range <- function(x) c(min(x), max(x))
+.fast_range <- function(x) c(min(x, na.rm=TRUE), max(x, na.rm=TRUE))
 
 .fast_pearson <- function(x,y) {
-    
     C_cor <- get_from_package('C_cor', 'stats', internal = TRUE, check = FALSE)
     .Call(C_cor, x, y, 4, FALSE)
 }
@@ -320,8 +318,8 @@ get_favored_collapsers <- function(swap_var = 'collapse_using_median') {
 # matrix
 # Because we usually want  t > t*, we take the upper tail probability, lower.tail=FALSE
 # by default we return a one-sided p-value, but you can multiply by 2 using sided=2
-.fast_one_sample_t_pval_mat <- function(ymat, sided=1, lower.tail=FALSE) {
-    sided*pt(.fast_one_sample_tscore_mat(ymat), dim(ymat)[2L]-1, lower.tail=lower.tail)
+.fast_one_sample_t_pval_mat <- function(ymat, sided=1L, lower.tail=FALSE) {
+    sided*pt(.fast_one_sample_tscore_mat(ymat), dim(ymat)[2L]-1L, lower.tail=lower.tail)
 }
 
 # returns the t-score from a t-test (against 0) for each *ROW* in the supplied matrix
@@ -339,7 +337,7 @@ get_favored_collapsers <- function(swap_var = 'collapse_using_median') {
     C_cov <- get_from_package('C_cov', 'stats', internal = TRUE, check = FALSE)
     
     sqrt(
-        .fast_diagonal(.Call(C_cov, y, NULL, 4, FALSE))/dim(y)[1L]
+        .fast_diagonal(.Call(C_cov, y, NULL, 4L, FALSE))/dim(y)[1L]
     )
 }
 
@@ -354,13 +352,13 @@ get_favored_collapsers <- function(swap_var = 'collapse_using_median') {
 
 #ripped this from base::diag, thanks!
 .fast_diagonal <- function(y) {
-    y[1 + 0L:(min(dim(y)) - 1L) * (dim(y)[1L] + 1)]
+    y[1L + 0L:(min(dim(y)) - 1L) * (dim(y)[1L] + 1L)]
 }
 
 .fast_se <- function(x) {
     C_cov <- get_from_package('C_cov', 'stats', internal = TRUE, check = FALSE)
     
-    sqrt(.Call(C_cov, x, NULL, 4, FALSE)/length(x))
+    sqrt(.Call(C_cov, x, NULL, 4L, FALSE)/length(x))
 }
 
 

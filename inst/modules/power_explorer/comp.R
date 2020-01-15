@@ -9,6 +9,7 @@ env = dev_ravebuiltins(T)
 mount_demo_subject()
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
+
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
   'inst/modules/power_explorer/exports.R',
@@ -30,7 +31,7 @@ define_initialization({
   ##
   ## Get referenced power (Wavelet power)
   ##
-  power = module_tools$get_power(referenced = TRUE)
+  power = module_tools$get_power(referenced = TRUE)  # ,units = rave_options('default_power_unit'))
 
   ## Shared variables
   frequencies = preload_info$frequencies
@@ -45,7 +46,7 @@ define_initialization({
   elec_labels <- unique(electrodes_csv$Label)
   
   # if there is a FreeSurferLabel column let's go with that, otherwise we'll fall back to the Label column
-  column <- which(names(electrodes_csv) %>% tolower %>% equals('freesurferlabel'))
+  column <- which(tolower(names(electrodes_csv)) == 'freesurferlabel')
   if(length(column) > 0) {
     elec_filter <- names(electrodes_csv)[column]
     elec_labels <- unique(electrodes_csv[[column]])
@@ -111,9 +112,11 @@ define_input_analysis_yaml_chooser(
 )
 
 define_input(
-  definition = selectInput('combine_method', 'Electrode Transforms',
-                           choices = c('none', 'amplitude', 'z-score', 'max-scale', '0-1 scale', 'rank'),
-                           multiple = F, selected = 'none')
+  definition = selectInput('unit_of_analysis', 'Electrode unit of analysis',
+                           choices = c('% Change Power', '% Change Amplitude',
+                                       'z-score Power', 'z-score Amplitude',
+                                       'decibel'),
+                           multiple = F, selected = '% Change Power')
 )
 
 define_input(
@@ -125,6 +128,11 @@ define_input(
     choices = c(epoch_data$Trial)
     selected = outlier_list
   }
+)
+
+
+define_input(
+  definition = checkboxInput('global_baseline', 'Use Global Baseline (across trials)', value = FALSE)
 )
 
 define_input(
@@ -300,7 +308,8 @@ define_input(
                                     icon=shiny::icon('magic'), type = 'default'))
   
   define_input(
-    definition = textInput('current_active_set', label='Electrodes passing all functional and anatomical filters (read-only)', value=''))
+    definition = textInput('current_active_set',
+                           label='Electrodes passing all functional and anatomical filters (read-only)', value=''))
   
   
   # define_input(
@@ -322,6 +331,7 @@ define_input(
   init_args = c('selected'),
   init_expr = {
     selected = cache_input('color_palette', val = get_palette(get_palette_names = TRUE)[1])
+    print(selected)
   }
 )
   define_input(
@@ -334,7 +344,7 @@ define_input(
   
   define_input(
     definition = selectInput(inputId = 'heatmap_color_palette', label='Heatmap color palette', multiple=FALSE, 
-                             choice=get_heatmap_palette(get_palette_names = TRUE),
+                             choices = get_heatmap_palette(get_palette_names = TRUE),
                              selected = get_heatmap_palette(get_palette_names = TRUE)[1]),
     
     # cache the color palette across data reloads. needs init_args and init_expr
@@ -417,7 +427,6 @@ define_input_auto_recalculate(
   type = 'button', button_type = 'primary'
 )
 
-
 #
 # determine which variables only need to be set, not triggering rendering nor executing
 manual_inputs <- c(
@@ -429,23 +438,39 @@ manual_inputs <- c(
 # Define layouts if exists
 input_layout = list(
   # '[#cccccc]
-  'Configure analysis settings' = list(
+  'Configure analysis' = list(
     c('electrode_category_selector', 'electrode_category_selector_choices'),
     'ELECTRODE_TEXT',
     'download_electrodes_csv',
-    #c('reference_type', 'reference_group'),
     'FREQUENCY',
+     c('unit_of_analysis'),
     'BASELINE_WINDOW',
+    'global_baseline',
     'ANALYSIS_WINDOW',
-     c('combine_method'),
     'do_calculate_btn', 'auto_calculate'
   ),
   #[#99ccff]
-  'Compare trial types' = list(
+  'Create condition contrasts' = list(
     'GROUPS',
     'analysis_settings'
   ),
-  '[-]Set plot options' = list(
+  '[-]Find + Export active electrodes' = list(
+    c('pval_filter', 'pval_operator', 'pval_operand'),
+    c('tval_filter', 'tval_operator', 'tval_operand'),
+    c('mean_filter', 'mean_operator', 'mean_operand'),
+    c('analysis_filter_variable', 'analysis_filter_elec'),
+    c('analysis_filter_variable_2', 'analysis_filter_elec_2'),
+    'current_active_set',
+    'select_good_electrodes',
+    'trial_type_filter', 'synch_with_trial_selector',
+    'export_time_window',
+    'include_outliers_in_export',
+    'analysis_prefix',
+    # 'export_data'
+    'write_out_data_ui',
+    'export_also_download'
+  ),
+  '[-]Configure plots' = list(
     'plot_time_range',
     c('PLOT_TITLE'),
     'draw_decorator_labels',
@@ -461,33 +486,16 @@ input_layout = list(
     #FIXME collapse_using_median should be in Analysis Settings???
     # c('log_scale', , 'collapse_using_median')
   ),
-  '[-]Manage trial outliers' = list(
-    'show_outliers_on_plots',
-    'trial_outliers_list',
-    'clear_outliers', 'save_new_epoch_file'
-  ),
   #[#aaaaaa]
-  '[-]Download plots and underlying data' = list(
+  '[-]Download plots + underlying data' = list(
     c('plots_to_export'),
     c('export_what'),
     # 'export_plots_and_data'#
     c('graph_export')
-  ),
-  '[-]Export data from all electrodes for group analysis' = list(
-    c('pval_filter', 'pval_operator', 'pval_operand'),
-    c('tval_filter', 'tval_operator', 'tval_operand'),
-    c('mean_filter', 'mean_operator', 'mean_operand'),
-    c('analysis_filter_variable', 'analysis_filter_elec'),
-    c('analysis_filter_variable_2', 'analysis_filter_elec_2'),
-    'current_active_set',
-    'select_good_electrodes',
-    'trial_type_filter', 'synch_with_trial_selector',
-    'export_time_window',
-    'include_outliers_in_export',
-    'analysis_prefix',
-    # 'export_data'
-    'write_out_data_ui',
-    'export_also_download'
+  ),'[-]Manage trial outliers' = list(
+    'show_outliers_on_plots',
+    'trial_outliers_list',
+    'clear_outliers', 'save_new_epoch_file'
   )
 )
 
@@ -502,7 +510,7 @@ define_output(
 )
 
 define_output(
-  definition = plotOutput('by_trial_heat_map'),
+  definition = plotOutput('by_trial_heat_map_plot'),
                           # click = clickOpts(shiny::NS('power_explorer')('by_trial_heat_map_click'), clip = FALSE)),
   title = 'Activity over time by trial',
   width = 12,
@@ -513,7 +521,7 @@ define_output(
   definition = plotOutput('by_electrode_heat_map'),
   title = 'Activity over time by electrode',
   width = 12,
-  order = 2.5
+  order = -1
 )
 
 define_output(
@@ -538,26 +546,34 @@ define_output(
   width=2, order=4.1
 )
 
-define_output(
-  definition = plotOutput('across_electrodes_f_histogram'),
-  title = 't-value across all loaded electrodes',
-  width = 4,
-  order = 5.1
-)
+# define_output(
+#   definition = plotOutput('across_electrodes_f_histogram'),
+#   title = 't-value across all loaded electrodes',
+#   width = 4,
+#   order = 5.1
+# )
+# 
+# define_output(
+#   definition = plotOutput('across_electrodes_beta_histogram'),
+#   title = 'mean response across all loaded electrodes',
+#   width = 4,
+#   order = 5.2
+# )
+# 
+# define_output(
+#   definition = plotOutput('across_electrodes_corrected_pvalue'),
+#   title = 'p-value across all loaded electrodes',
+#   width = 4,
+#   order = 5
+# )
 
 define_output(
-  definition = plotOutput('across_electrodes_beta_histogram'),
-  title = 'mean response across all loaded electrodes',
-  width = 4,
-  order = 5.2
+  definition = plotOutput('across_electrode_statistics'),
+  title = 'Results by electrode',
+  width = 12,
+  order = -1
 )
 
-define_output(
-  definition = plotOutput('across_electrodes_corrected_pvalue'),
-  title = 'p-value across all loaded electrodes',
-  width = 4,
-  order = 5
-)
 
 
 
@@ -572,9 +588,9 @@ define_output(
 define_output_3d_viewer(
   outputId = 'power_3d',
   message = 'Click here to reload viewer',
-  title = 'Statistical results by electrode',
-  height = '70vh',
-  order = 1e4
+  title = 'Results on surface',
+  height = '50vh',
+  order = -1e4
 )
 
 
