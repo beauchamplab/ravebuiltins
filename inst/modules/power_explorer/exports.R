@@ -14,6 +14,17 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   
   zoom_level = shiny::isolate(viewer_proxy$main_camera$zoom)
   controllers = viewer_proxy$get_controllers()
+  # bgcolor = ifelse('dark' %in% rave::get_rave_theme()$themes, '#1E1E1E', '#FFFFFF')
+  
+  bgcolor = input$background_plot_color_hint
+  if(bgcolor == 'Gray') {
+    bgcolor = '#1E1E1E'
+  } else {
+    bgcolor %<>% col2hex
+  }
+  if(any(c('#000000', '#1E1E1E', '#FFFFFF') %in% controllers[['Background Color']]) || !length(controllers[['Background Color']])){
+    controllers[['Background Color']] = bgcolor
+  }
   
   if( need_calc ){
     or = cache(name='omnibus_results')
@@ -28,7 +39,10 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
     
     brain$set_electrode_values(values)
     
-    if(!length(controllers[['Display Data']]) || controllers[['Display Data']] == '[None]'){
+    assign('controllers', controllers, globalenv())
+    
+    
+    if(!length(controllers[['Display Data']]) || controllers[['Display Data']] == '[None]') {
       controllers[['Display Data']] = rownames(or)[1]
       v = ceiling(max(abs(or[1,])) )
       controllers[['Display Range']] = sprintf('-%s,%s', v, v )
@@ -38,7 +52,15 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
       controllers[['Threshold Data']] = rownames(or)[2]
       v = ceiling(max(abs(or[2,])) )
       controllers[['Threshold Range']] = sprintf('-%s,%s', v, v)
+      
+      
+      # threshold format: -10,2|2,10
     }
+  
+    # maybe change M to: decibel, PCT Signal Change... if the previous display data == new display data, KEEP the range. If !=, then reset the range to be the range
+    # of the data
+    
+    ### maybe we don't always want to show legend...
     controllers[['Show Legend']] = TRUE
     
     re = brain$plot(symmetric = 0, palettes = list(
@@ -69,48 +91,48 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
 get_summary <- function() {
   # here we just want an estimate of the power at each trial for each electrode
   # get the labels for each trial
-
+  
   ..g_index <- 1
   GROUPS = lapply(GROUPS, function(g){
     g$Trial_num = epoch_data$Trial[epoch_data$Condition %in% unlist(g$group_conditions)]
-
+    
     if(g$group_name == '') {
       g$group_name <-  LETTERS[..g_index]
       ..g_index <<- ..g_index + 1
     }
-
+    
     return(g)
   })
   rm(..g_index)
-
+  
   tnum_by_condition <- sapply(GROUPS, function(g) {
     list(g$Trial_num)
   }) %>% set_names(sapply(GROUPS, '[[', 'group_name'))
-
+  
   all_trials <- unlist(tnum_by_condition)
-   # .bl_power <- cache(
-     # key = list(subject$id, preload_info$electrodes, BASELINE_WINDOW, preload_info),
-     # val = baseline(power, BASELINE_WINDOW[1],  BASELINE_WINDOW[2], hybrid = FALSE, mem_optimize = FALSE)
+  # .bl_power <- cache(
+  # key = list(subject$id, preload_info$electrodes, BASELINE_WINDOW, preload_info),
+  # val = baseline(power, BASELINE_WINDOW[1],  BASELINE_WINDOW[2], hybrid = FALSE, mem_optimize = FALSE)
   # )
-
+  
   .bl_power <- baseline(power, BASELINE_WINDOW[1], BASELINE_WINDOW[2], hybrid = FALSE, mem_optimize = FALSE)
-
+  
   # subset out the trials, frequencies, and time rane
   .power <- .bl_power$subset(Frequency = Frequency %within% FREQUENCY,
                              Time = Time %within% ANALYSIS_WINDOW,
                              Trial = Trial %in% all_trials, data_only = FALSE)
-
+  
   stimulus <- epoch_data$Condition[as.numeric(.power$dimnames$Trial)]
-
+  
   condition <- .power$dimnames$Trial %>% as.numeric %>% sapply(function(tnum) {
     #ensure only one group is ever selected? or we could throw an error on length > 1
     sapply(tnum_by_condition, `%in%`, x=tnum) %>% which %>% extract(1)
   }) %>% names
-
+  
   # rutabaga over Freq and Time
   # by_elec <- rutabaga::collapse(.power$data, keep=c(1,4)) / prod(.power$dim[2:3])
   by_elec <- .power$collapse(keep = c(1,4), method = 'mean')
-
+  
   data.frame('subject_id' = subject$id,
              'elec' = rep(preload_info$electrodes, each=length(condition)),
              'trial' = rep(seq_along(condition), times=length(preload_info$electrodes)),
@@ -154,7 +176,7 @@ fix_font_color_button <- function (outputId, label = "Download", class = NULL, .
 graph_export = function(){
   tagList(
     fix_font_color_button(ns('btn_graph_download'), 'Download graphs and their data', icon=shiny::icon('download'),
-                   class = 'btn-primary text-white')
+                          class = 'btn-primary text-white')
   )
 }
 
@@ -185,22 +207,25 @@ output$btn_graph_download <- downloadHandler(
     function_map <- list('Spectrogram' = 'heat_map_plot',
                          'By Trial Power' = 'by_trial_heat_map_plot',
                          'Over Time Plot' = 'over_time_plot', 
-                         'Windowed Average' = 'windowed_comparison_plot')
-
+                         'Windowed Average' = 'windowed_comparison_plot',
+                         'Over Time by Electrode' = 'by_electrode_heat_map_plot',
+                         'Results by Electrode' = 'across_electrode_statistics_plot')
+    
     to_export <- function_map[plots_to_export]
     prefix <- sprintf('%s_%s_%s_', subject$subject_code, subject$project_name, format(Sys.time(), "%b_%d_%Y_%H_%M_%S"))
-        
+    
     fnames <- function_map[plots_to_export]
     
     tmp_files <- prefix %&% str_replace_all(names(fnames), ' ', '_') %&% '.pdf'
     
+    print('writing out graphs')
     write_out_graphs(conns=file.path(tmp_dir, tmp_files), plot_functions=fnames,
                      dir=tmp_dir, prefix=prefix)    
     wd = getwd()
     on.exit({setwd(wd)}, add = TRUE)
     
     setwd(tmp_dir)
-    
+    print('making zip file')
     zip(conn, files = list.files(pattern = prefix %&% '+.+(pdf|json)'), flags='-r2X')
   }
 )
@@ -208,8 +233,9 @@ output$btn_graph_download <- downloadHandler(
 write_out_graphs <- function(conns=NA, plot_functions, dir, prefix, ...) {
   args = isolate(reactiveValuesToList(input))
   
-  # assign('..args', args, envir = globalenv())
-  
+  assign('..args', args, envir = globalenv())
+  # args = ..args
+  # attachDefaultDataRepository()
   electrodes_loaded = preload_info$electrodes
   # check to see if we should loop over all electrodes or just the currently selected electrode(s)
   if(export_what == 'Current Selection') {
@@ -222,11 +248,16 @@ write_out_graphs <- function(conns=NA, plot_functions, dir, prefix, ...) {
   on.exit({progress$close()}, add=TRUE)
   progress$inc('Initializing')
   
-    module = rave::get_module('ravebuiltins', 'power_explorer', local = TRUE)
-    formal_names = names(formals(module))
-    # args = sapply(formal_names, get)
-    args = args[formal_names]
-    names(args) = formal_names
+  rave::rave_context('rave_running_local')
+  module = rave::get_module('ravebuiltins', 'power_explorer', local = TRUE)
+  formal_names = names(formals(module))
+  if(F) {
+    args = sapply(formal_names, function(fn) {
+      results$get_value(fn)
+    })
+  }
+  args = args[formal_names]
+  names(args) = formal_names
   
   # so we want to open all the PDFs initially
   # based on the number of groups we should scale the plots
@@ -248,8 +279,6 @@ write_out_graphs <- function(conns=NA, plot_functions, dir, prefix, ...) {
   # > dev.cur()
   # pdf 
   # 4 
-
-  
   fin = mapply(function(conn, pf) {
     w_scale = h_scale = 1
     if(pf == 'windowed_comparison_plot') {
@@ -281,13 +310,13 @@ write_out_graphs <- function(conns=NA, plot_functions, dir, prefix, ...) {
   
   
   plot_for_el <- function(etext, write_out_data=FALSE) {
-    
     if(length(etext) > 1) {
       etext %<>% deparse_svec
     }
-    if(shiny_is_running()) {
+    # if(shiny_is_running()) {
       progress$inc(sprintf('Rendering graphs for %s', etext))
-    }
+    # }
+    
     args[['ELECTRODE_TEXT']] = etext
     result = do.call(module, args)
     .results = result$results
@@ -297,15 +326,19 @@ write_out_graphs <- function(conns=NA, plot_functions, dir, prefix, ...) {
     }
     
     mapply(function(graf, dev_num) {
-        cat2(paste('plotting:', graf), level = 'INFO')
-        cat2(paste('plotting:', fff(dev.set(dev_num))), level = 'INFO')
-        match.fun(graf)(.results)
-        if(write_out_data) {
-          fname <- file.path(dir, paste0(prefix, graf, '.json'))
-          data_var = stringr::str_replace(graf, '_plot', '_data')
-          cat(jsonlite::serializeJSON(result$results$get_value(data_var, 'NODATA')),
-              file=fname)
-        }
+      cat2(paste('plotting:', graf), level = 'INFO')
+      cat2(paste('plotting:', fff(dev.set(dev_num))), level = 'INFO')
+      #get the function named by graf
+      get(graf, envir = asNamespace('ravebuiltins'))(.results)
+      
+      
+      # match.fun(graf)(.results)
+      if(write_out_data) {
+        fname <- file.path(dir, paste0(prefix, graf, '.json'))
+        data_var = stringr::str_replace(graf, '_plot', '_data')
+        cat(jsonlite::serializeJSON(result$results$get_value(data_var, 'NODATA')),
+            file=fname)
+      }
     }, plot_functions, find_open_pdfs())
   }
   
@@ -315,7 +348,9 @@ write_out_graphs <- function(conns=NA, plot_functions, dir, prefix, ...) {
   # now for the individual electrodes
   lapply(electrodes_loaded, plot_for_el)
   
-  showNotification(p('Exports finished!'))
+  if(shiny_is_running()) {
+    showNotification(p('Exports finished!'))
+  }
 }
 
 # Export data options
@@ -390,7 +425,7 @@ write_out_data_function <- function(){
   # check if they want to include outliers
   .trial_outlier_list = input$trial_outliers_list
   if(length(.trial_outlier_list) > 0 && (!input$include_outliers_in_export)) {
-      trial_number <- trial_number[!(trial_number %in% .trial_outlier_list)]
+    trial_number <- trial_number[!(trial_number %in% .trial_outlier_list)]
   }
   
   # Get timepoints,frequency range
@@ -446,21 +481,49 @@ write_out_data_function <- function(){
   # # specify all variables in .globals, in this way we can avoid the whole memory mappings
   # }, .globals = c('power', 'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list'))
   
-  res = lapply(electrodes, function(e){
+  unit_dims = c(1,2,4)
+  if(isTRUE(input$global_baseline)) {
+    unit_dims = c(2,4)
+  }
+  method <- list(
+    '% Change Power' = 'percentage',
+    '% Change Amplitude' = 'sqrt_percentage',
+    'z-score Power' = 'zscore',
+    'z-score Amplitude' = 'sqrt_zscore',
+    'decibel' = 'decibel'
+  )
+  unit_of_analysis <- input$unit_of_analysis
+  baseline_method = method[[unit_of_analysis]]
+  unit_name = format_unit_of_analysis_name(unit_of_analysis)
+  
+  res = rave::lapply_async(electrodes, function(e){
     progress$inc(sprintf('Electrode %d', e))
     # Important p_sub is assigned, otherwise, it will get gc before baselined
     p_sub = power$subset(Trial = Trial %in% trial_number,
                          Frequency = Frequency %within% freq_range,
                          Electrode = Electrode %in% e)
-    bl = baseline(p_sub, from = baseline_range[1], to = baseline_range[2], hybrid = FALSE, mem_optimize = FALSE)
+    
+    # bl = baseline(p_sub, from = baseline_range[1], to = baseline_range[2], hybrid = FALSE, mem_optimize = FALSE)
+    bl = dipsaus::baseline_array(
+      x = p_sub$get_data(),
+      baseline_indexpoints = which(p_sub$dimnames$Time %within% baseline_range),
+      along_dim = 3L,
+      method = baseline_method,
+      unit_dims = unit_dims
+    )
+    bl = ECoGTensor$new(bl, dim = dim(p_sub), dimnames = dimnames(p_sub),
+                        varnames = p_sub$varnames, hybrid = FALSE)
+    
     bl = bl$subset(Time = Time %within% time_points)
     flat = bl$collapse(keep = c(1,3))
     dimnames(flat) = dimnames(bl)[c(1,3)]
-    flat = reshape2::melt(flat, value.name = 'Power') # trial time, value
+    flat = reshape2::melt(flat, value.name = unit_name) # trial time, value
     flat$Condition = unlist(cond_list[flat$Trial])
     flat$Electrode = e
     flat
-  })
+  }, .globals = c('unit_name', 'unit_dims', 'baseline_method', 'power',
+                  'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list'),
+  .gc = FALSE) 
   
   res = do.call('rbind', res)
   res$Project = project_name
@@ -471,6 +534,7 @@ write_out_data_function <- function(){
   if(!is.null(.trial_outlier_list)) {
     res$TrialIsOutlier[res$Trial %in% .trial_outlier_list] = TRUE
   }
+  
   
   # Write out results
   progress$inc('Writing out on server, preparing...')
@@ -486,11 +550,10 @@ write_out_data_function <- function(){
   save_inputs(file.path(dirname, paste0(fname, '.yaml')))
   
   # Collapse Trial and save to 3D viewer
-  collapsed_trial = reshape2::dcast(res, Project+Subject+Electrode+Time~Condition, mean, value.var = 'Power')
+  collapsed_trial = reshape2::dcast(res, Project+Subject+Electrode+Time~Condition, mean, value.var = unit_name)
   dirname_viewer = file.path(subject$dirs$subject_dir, '..', '_project_data', '3dviewer')
   dir.create(dirname_viewer, showWarnings = FALSE, recursive = TRUE)
   data.table::fwrite(collapsed_trial, file.path(dirname_viewer, paste0(analysis_prefix, '-collapse_trial-', now, '.csv')), append = FALSE)
-
+  
   return(normalizePath(file.path(dirname, fname)))
 }
-

@@ -44,27 +44,27 @@ get_by <- function(x, FUN, ...) {
 
 
 # this can be better than baselining using cumsum over the network
-.local_baseline <- function(e_tensor, baseline_range, data_only=FALSE) {
-    bl_data <- e_tensor$data
-
-    bsl <- e_tensor$dimnames$Time %within% baseline_range
-
-    for(ei in seq_len(dim(bl_data)[4L])) {
-        bl <- vapply(seq_along(e_tensor$dimnames$Frequency), function(fi) {
-            rowMeans(e_tensor$data[,fi,bsl,ei])
-        }, FUN.VALUE = array(0, dim=dim(e_tensor$data)[1]))
-
-        bl_data[,,,ei] <- (100 * (e_tensor$data[,,,ei] / as.vector(bl) -1))
-    }
-
-    if(data_only) return (bl_data)
-
-    return (ECoGTensor$new(
-        data = bl_data,
-        dimnames = e_tensor$dimnames,
-        varnames = names(e_tensor$dimnames)
-    ))
-}
+# .local_baseline <- function(e_tensor, baseline_range, data_only=FALSE) {
+#     bl_data <- e_tensor$data
+# 
+#     bsl <- e_tensor$dimnames$Time %within% baseline_range
+# 
+#     for(ei in seq_len(dim(bl_data)[4L])) {
+#         bl <- vapply(seq_along(e_tensor$dimnames$Frequency), function(fi) {
+#             rowMeans(e_tensor$data[,fi,bsl,ei])
+#         }, FUN.VALUE = array(0, dim=dim(e_tensor$data)[1]))
+# 
+#         bl_data[,,,ei] <- (100 * (e_tensor$data[,,,ei] / as.vector(bl) -1))
+#     }
+# 
+#     if(data_only) return (bl_data)
+# 
+#     return (ECoGTensor$new(
+#         data = bl_data,
+#         dimnames = e_tensor$dimnames,
+#         varnames = names(e_tensor$dimnames)
+#     ))
+# }
 
 # mean for each time/frequency across trials
 collapse_over_trial <- function(el) {

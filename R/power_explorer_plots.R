@@ -27,27 +27,64 @@ across_electrodes_f_histogram <- function(results, ...) {
     omnibus_results <- results$get_value('omnibus_results')
     ts <- omnibus_results[2,]
     # par('mar'=.1 + c(5,4,1,2))
-    hist(ts, xlab='', ylab='', col='gray50', main='', border=get_foreground_color(),
-         las=1, cex.axis=rave_cex.axis*get_cex_for_multifigure(), axes=F)
-    rave_axis(1, at=axTicks(1))
+    ylim = range(pretty(ts))
+    plot_clean(1:ncol(omnibus_results), ylim)
+    draw_passing_points(ts, results)
+    
+    unit_of_analysis=results$get_value('unit_of_analysis')
     rave_axis(2, at=axTicks(2) %>% round %>% unique)
-    rave_axis_labels(xlab='T-test for mean response', ylab='# of Electrodes')
+    
+    rave_title('t-test ' %&% unit_of_analysis)
+    
+    rave_axis_labels(ylab='t-score')
+    across_electrodes_xaxis(omnibus_results)
     
     cut <- as.numeric(results$get_value('tval_operand'))
     if(!is_null(cut)) {
-        abline(v=cut, lwd=2, col='orangered')
+        abline(h=cut, lwd=2, col='orangered')
     }
+    
+    return(invisible(list(
+        y =ts,
+        ylim=ylim,
+        cut=cut
+    )))
 }
 
-across_electrode_statistics <- function(results, ...) {
+across_electrode_statistics_plot <- function(results, ...) {
     validate(need(results$get_value('has_data', FALSE),
                   message="No Condition Specified"))
 
-    par(mfrow = c(1,3), mar=c(5.1, 7.1, 4.1, 2.1))
+    wrap_density <- function(expr) {
+        og_mar = par('mar')
+        on.exit(par(mar=og_mar), add = TRUE)
+        with(eval(expr), {
+            par(mar=c(og_mar[1], 0, og_mar[3], 1))
+            plot_sideways_density(y, ylim, cut)
+        })
+    }
+    
+    if(isTRUE(results$get_value('show_result_densities'))) {
+        layout(matrix(1:6, nrow=1), widths = rep(c(3.5,1), 3))
+    } else {
+        layout(matrix(1:3, nrow=1), widths = 1)
+        wrap_density = force
+    }
+    par(mar=c(5.1, 4.1+2, 4.1, 2.1))
+    
+    wrap_density(across_electrodes_corrected_pvalue(results, ...))
+    wrap_density(across_electrodes_f_histogram(results, ...))
+    wrap_density(across_electrodes_beta_histogram(results,...))
+}
 
-    across_electrodes_corrected_pvalue(results, ...)
-    across_electrodes_f_histogram(results, ...)
-    across_electrodes_beta_histogram(results,...)
+plot_sideways_density <- function(x, xlim, cut) {
+    den = density(x, from=min(xlim), to=max(xlim))
+    den$tmp = den$y
+    den$y = den$x
+    den$x = den$tmp
+    plot(den, axes=F, xlab='', ylab='', main='')
+    rug(x, side=2, col=get_foreground_color(), lwd = 1, ticksize = 0.05)
+    if(!missing(cut) && !is.null(cut) && length(cut)>0) abline(h=cut, col='orangered', lty=2)
 }
 
 
@@ -61,31 +98,40 @@ across_electrodes_beta_histogram <- function(results, ...) {
     
     set_palette_helper(results)
     
+    unit_of_analysis = results$get_value('unit_of_analysis')
+    
     omnibus_results <- results$get_value('omnibus_results')
     ms <- omnibus_results[1,]
     # par('mar'=.1 + c(5,4,1,2))
-    hist(ms, main='', col='gray50', border=get_foreground_color(),
-         las=1, axes=F, xlab='', ylab='')
-    rave_axis(1, at=axTicks(1))
-    rave_axis(2, at=axTicks(2) %>% round %>% unique)
+    ylim = range(pretty(ms) %>% pretty_round)
+    plot_clean(1:ncol(omnibus_results), ylim)
     
-    unit_of_analysis = results$get_value('unit_of_analysis')
-    rave_axis_labels(xlab='Mean ' %&% unit_of_analysis, ylab='# of Electrodes')
+    draw_passing_points(ms, results)
+    
+    across_electrodes_xaxis(omnibus_results)
+    yat = axTicks(2) %>% pretty_round %>% unique
+    rave_axis(2, at=yat)
+    rave_axis_labels(ylab=unit_of_analysis)
+    
     rave_title(sprintf('Mean %s across trials', unit_of_analysis))
     
     cut <- as.numeric(results$get_value('mean_operand'))
     if(!is_null(cut)) {
-        abline(v=cut, lwd=2, col='orangered')
+        abline(h=cut, lwd=2, col='orangered')
     }
+    
+    return(invisible(list(
+        y=ms,
+        ylim=ylim,
+        cut=cut
+    )))
 }
 
 
 rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.lab, ...) {
     col %?<-% get_foreground_color()
-
     title(xlab=xlab, ylab=ylab, cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, ...)
 }
-
 
 # several functions will need to use this
 determine_passing_electrodes <- function(results, ...) {
@@ -164,6 +210,21 @@ shiny_is_running <- function() {
     # any(cls %in% c('ShinySession', 'session_proxy'))
 }
 
+across_electrodes_xaxis <- function(omnibus_results) {
+    xat = as.integer(pretty(seq_along(omnibus_results[2,])))
+    xat[xat==0] = 1 
+    xat %<>% unique
+    abline(v=xat, col='gray80', lwd=0.5)
+    rave_axis(1, at=xat, labels=colnames(omnibus_results)[xat])
+    rave_axis_labels(xlab='Electrode #')
+    invisible(xat)
+}
+
+draw_passing_points <- function(y, results) {
+    passing_els <- determine_passing_electrodes(results)
+    points(y, cex=1.1, pch=ifelse(passing_els, 19, 1), col=ifelse(passing_els, get_foreground_color(), 'gray50'))
+}
+
 across_electrodes_corrected_pvalue <- function(results, ...) {
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
@@ -181,13 +242,12 @@ across_electrodes_corrected_pvalue <- function(results, ...) {
     nl10 <- function(p) -log10(p)
     # we want to determine the cut point based on the currently selected filters
     # we need to check all the filters, in case they have multiple filters 
-    passing_els <- determine_passing_electrodes(results)    
     
     .col <- get_foreground_color()
     cut <- as.numeric(results$get_value('pval_operand'))
     
-    plot_clean(1:ncol(omnibus_results),
-               ylim=pretty(nl10(c(ps, ifelse(is.null(cut), 0.01, cut)))))
+    ylim = pretty(nl10(c(ps, ifelse(is.null(cut), 0.01, cut))))
+    plot_clean(1:ncol(omnibus_results), ylim=ylim)
     
     if(!is.null(cut)) {
         segments(x0=0, x1=ncol(omnibus_results), y0=nl10(cut), lty=2, col='orangered')
@@ -195,20 +255,15 @@ across_electrodes_corrected_pvalue <- function(results, ...) {
                   tcl=0, cex.axis = 1, lwd=0, mgpy=c(-3, -1, -0))
     }
     # get_foreground_color()
+    across_electrodes_xaxis(omnibus_results)
     
-    xat = as.integer(pretty(seq_along(omnibus_results[2,])))
-    xat[xat==0] = 1 
-    xat %<>% unique
-    abline(v=xat, col='gray80', lwd=0.5)
-    points(nl10(ps), pch=16, col=ifelse(passing_els, 'gray10', 'gray70'))
+    draw_passing_points(nl10(ps), results)
     
     title(xlab='Electrode #', ylab=results$get_value('pval_filter'),
           col.lab = .col, cex.lab=rave_cex.lab*get_cex_for_multifigure(), main = '')
     
-    
-    rave_axis(1, at=xat, labels=colnames(omnibus_results)[xat])
     unit_of_analysis = results$get_value('unit_of_analysis')
-    rave_title('FDR(p) Mean ' %&% unit_of_analysis)
+    rave_title('FDR(p) ' %&% unit_of_analysis)
     
     axt <- axTicks(2)
     # rave_axis(2, at=axTicks(2), labels=lapply(lbl, expression) %>% unlist)
@@ -217,7 +272,7 @@ across_electrodes_corrected_pvalue <- function(results, ...) {
     for(ii in seq_along(axt)) {
         rave_axis(2, at=axt[ii], labels=bquote(10**-.(axt[ii])), cex.axis = rave_cex.axis*.5*get_cex_for_multifigure())
     }
-    # print(omnibus_results[3,])
+    invisible(list(y=nl10(ps), ylim=ylim, cut=nl10(cut)))
 }
 
 get_foreground_color <- function() {
@@ -339,12 +394,13 @@ heat_map_plot <- function(results, ...){
 # }
 
 
-by_electrode_heat_map <- function(results, ...) {
+by_electrode_heat_map_plot <- function(results, ...) {
     rave_context()
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
     
     set_palette_helper(results)
+    set_heatmap_palette_helper(results)
     
     by_electrode_heat_map_data <- results$get_value('by_electrode_heat_map_data')
     
@@ -360,7 +416,7 @@ pretty_round <- function(x) {
     max_x <- max(abs(x))
     dig = 0
     if(max_x < 1) {
-        dig = abs(round(log10(max_x)))
+        dig = abs(floor(log10(max_x)))
     } 
     round(x, dig)
 }

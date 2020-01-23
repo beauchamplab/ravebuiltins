@@ -21,6 +21,7 @@ load_scripts(
 # source(..., local=TRUE)
 
 define_initialization({
+  assign('aaa', session, envir = globalenv())
   ##
   ## Make sure power (referenced) exists
   ## with the following line, RAVE will pop up a dialogue if
@@ -73,7 +74,6 @@ define_initialization({
 # , label='Download copy of electrode meta data')
 # )
 
-
 define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT', label = 'Select electrodes by number')
 # define_input_single_electrode(inputId = 'ELECTRODE')
 
@@ -113,11 +113,12 @@ define_input_analysis_yaml_chooser(
 
 define_input(
   definition = selectInput('unit_of_analysis', 'Electrode unit of analysis',
-                           choices = c('% Change Power', '% Change Amplitude',
-                                       'z-score Power', 'z-score Amplitude',
-                                       'decibel'),
-                           multiple = F, selected = '% Change Power')
-)
+                           choices=NULL, selected=NULL, multiple=FALSE),
+  init_args = c('choices', 'selected'),
+  init_expr = {
+    choices = names(get_unit_of_analysis())
+    selected = names(get_unit_of_analysis())[[1]]
+  })
 
 define_input(
   definition = selectInput('trial_outliers_list', 'Trials to Exclude',
@@ -181,13 +182,22 @@ define_input_time('plot_time_range', label='Plot Time Range', initial_value = c(
 
 define_input(
   definition = selectInput(inputId = 'plots_to_export', label='Plots to download', multiple=TRUE,
-                           choices = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average'),
-                           selected = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average')))
+                           choices = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average', 'Over Time by Electrode'),
+                           selected = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average', 'Over Time by Electrode'))
+  )
 
 define_input(
   definition = selectInput(inputId = 'export_what',
                            label='Which electrodes should be included?', multiple=FALSE,
                            choices = c('All Loaded', 'Current Selection')))
+
+
+define_input(
+  definition = selectInput(inputId = 'movie_export_trials',
+                           label='How should power over time be exported?', multiple=FALSE,
+                           choices = c('Per trial type', 'Averaged over trials within a condition'),
+                           selected = c('Per trial type'))
+)
 
 define_input(
   definition = checkboxInput('draw_decorator_labels', "Label Plot Decorations", value=TRUE))
@@ -388,6 +398,9 @@ define_input(
 )
 
 
+define_input(
+  definition = checkboxInput(inputId = 'show_result_densities', label='Show across electrode result densities', value=TRUE)
+)
 
 define_input(
   definition = customizedUI('graph_export')
@@ -395,22 +408,19 @@ define_input(
 
 }
 
-
-
 define_input(
   definition = customizedUI('download_electrodes_csv')
 )
 
 
-
 #
 # deterime which varibles only need to trigger a render, not an exectute
 render_inputs <- c(
-  'sort_trials_by_type', 'draw_decorator_labels', 'PLOT_TITLE', 'plots_to_export', 'show_outliers_on_plots', 'background_plot_color_hint',
+  'sort_trials_by_type', 'draw_decorator_labels', 'PLOT_TITLE', 'show_outliers_on_plots', 'background_plot_color_hint',
   'invert_colors_in_palette', 'reverse_colors_in_palette', 'color_palette', 'heatmap_color_palette', 'heatmap_number_color_values',
   'max_zlim','plot_time_range', 'invert_colors_in_heatmap_palette', 'reverse_colors_in_heatmap_palette',
   # 'heatmap_truncate_less_than',
-  'tval_filter', 'pval_filter', 'mean_filter',
+  'tval_filter', 'pval_filter', 'mean_filter', 'show_result_densities',
   'tval_operator', 'pval_operator', 'mean_operator', 
   'tval_operand', 'pval_operand', 'mean_operand', 'analysis_filter_elec_2', 'analysis_filter_elec',
   'analysis_filter_variable', 'analysis_filter_variable_2', 'show_heatmap_range'
@@ -430,7 +440,7 @@ define_input_auto_recalculate(
 #
 # determine which variables only need to be set, not triggering rendering nor executing
 manual_inputs <- c(
-  'graph_export', 'trial_type_filter', 'synch_with_trial_selector', 'download_electrodes_csv',
+  'graph_export', 'trial_type_filter', 'synch_with_trial_selector', 'download_electrodes_csv', 'movie_export_trials', 'plots_to_export',
   'btn_save_analysis_settings', 'btn_load_analysis_settings', 'include_outliers_in_export',
   'export_what', 'analysis_prefix', 'export_data', 'current_active_set', 'export_also_download', 'export_time_window'
 )
@@ -476,6 +486,7 @@ input_layout = list(
     'draw_decorator_labels',
     c('color_palette',
     'reverse_colors_in_palette', 'invert_colors_in_palette'),
+    c('show_result_densities'),
     c('heatmap_color_palette', 'heatmap_number_color_values',
       'reverse_colors_in_heatmap_palette', 'invert_colors_in_heatmap_palette'),
       c('max_zlim', 
@@ -490,6 +501,7 @@ input_layout = list(
   '[-]Download plots + underlying data' = list(
     c('plots_to_export'),
     c('export_what'),
+    c('movie_export_trials'),
     # 'export_plots_and_data'#
     c('graph_export')
   ),'[-]Manage trial outliers' = list(
@@ -518,7 +530,7 @@ define_output(
 )
 
 define_output(
-  definition = plotOutput('by_electrode_heat_map'),
+  definition = plotOutput('by_electrode_heat_map_plot'),
   title = 'Activity over time by electrode',
   width = 12,
   order = -1
@@ -568,14 +580,11 @@ define_output(
 # )
 
 define_output(
-  definition = plotOutput('across_electrode_statistics'),
+  definition = plotOutput('across_electrode_statistics_plot'),
   title = 'Results by electrode',
   width = 12,
   order = -1
 )
-
-
-
 
 
 # define_output(

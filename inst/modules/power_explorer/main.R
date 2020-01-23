@@ -4,10 +4,8 @@
 # rm(list = ls(all.names=T)); rstudioapi::restartSession()
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
-mount_demo_subject(force_reload_subject = F)#,
-                   #subject_code = 'YAB',project_name = 'congruency', electrodes=13:14, epoch='YABa')
+mount_demo_subject()#subject_code = 'YAB', project_name = 'congruency', electrodes=13:20, epoch='YABa')
 
-# init_module(module_id = 'power_explorer', debug = TRUE)
 # attachDefaultDataRepository()
 if(FALSE) {
   GROUPS = list(list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
@@ -21,6 +19,7 @@ if(FALSE) {
 # cache <- function(key,val, ...) {
 #   return (val)
 # }
+
 
 # these are only needed when shiny is running (e.g., module debug mode)
 requested_electrodes = dipsaus::parse_svec(ELECTRODE_TEXT, sep=',|;', connect  = ':-')
@@ -50,39 +49,26 @@ group_data = lapply(seq_along(GROUPS), function(idx) {
 has_trials <- vapply(group_data, function(g){g$has_trials}, FALSE)
 any_trials <- any(has_trials)
 
-# for performance -- check if the previous baseline exists in the cache. If so,
+# Idea for performance -- check if the previous baseline exists in the cache. If so,
 # grab it, if not, then recaclulate, but remove the previous one to save on space
 
-
-
-# c('% Change Power', '% Change Amplitude',
-#   'z-score Power', 'z-score Amplitude',
-#   'decibel', 'max-scale')
-# 
-
-# baseline_method <- baseline_functions[[unit_of_analysis]]
-
-calculate_baseline <- function() {
+calculate_baseline <- function(elecs) {
+  
+  if(missing(elecs)) {
+    elecs = requested_electrodes
+  }
   unit_dims = c(1,2,4)
   
   if(isTRUE(global_baseline)) {
     unit_dims = c(2,4)
   }
   
-  method <- list(
-    '% Change Power' = 'percentage',
-    '% Change Amplitude' = 'sqrt_percentage',
-    'z-score Power' = 'zscore',
-    'z-score Amplitude' = 'sqrt_zscore',
-    'decibel' = 'decibel'
-  )
-  
-  els <- power$subset(Electrode = Electrode %in% requested_electrodes)
+  els <- power$subset(Electrode = Electrode %in% elecs)
   bl = dipsaus:::baseline_array(
     x = els$get_data(),
     baseline_indexpoints = which(els$dimnames$Time %within% BASELINE_WINDOW),
     along_dim = 3L,
-    method = method[[unit_of_analysis]],
+    method = get_unit_of_analysis(unit_of_analysis),
     unit_dims = unit_dims
   )
   
@@ -90,11 +76,10 @@ calculate_baseline <- function() {
                  varnames = els$varnames, hybrid = F)
 }
 
-
 # Subset data
 bl_power <- cache(
   key = list(subject$id, requested_electrodes, BASELINE_WINDOW,
-             preload_info$time_points, unit_of_analysis,global_baseline,
+             preload_info$time_points, unit_of_analysis, global_baseline,
              any_trials, preload_info$epoch_name, preload_info$reference_name),
   
   val = calculate_baseline(),
@@ -267,37 +252,59 @@ has_data = sum(has_trials)
 
 all_trial_types <- GROUPS %>% lapply(`[[`, 'group_conditions') %>% unlist %>% unique
 
-get_data_per_electrode <- function()  {
-  bl <- baseline(power$subset(Trial=Trial %in% epoch_data$Trial[epoch_data$Condition %in% all_trial_types],
-                              Frequency=Frequency %within% FREQUENCY,
-                              Time=Time %within% range(BASELINE_WINDOW, ANALYSIS_WINDOW) ),
-                 from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
-                 hybrid = FALSE, mem_optimize = FALSE)
-  bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
-  pow <- bl$collapse(keep = c(1,4))
-  m = colMeans(pow)
-  
-  t = m / .fast_column_se(pow)
-  p = 2*pt(abs(t), df = nrow(pow)-1, lower=F)
-  
-  res <- rbind(m,t,p)
-  colnames(res) <- dimnames(power)$Electrode
-  
-  return(res)
-}
+# get_data_per_electrode <- function()  {
+#   bl <- baseline(power$subset(Trial=Trial %in% epoch_data$Trial[epoch_data$Condition %in% all_trial_types],
+#                               Frequency=Frequency %within% FREQUENCY,
+#                               Time=Time %within% range(BASELINE_WINDOW, ANALYSIS_WINDOW) ),
+#                  from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
+#                  hybrid = FALSE, mem_optimize = FALSE)
+#   bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
+#   pow <- bl$collapse(keep = c(1,4))
+#   m = colMeans(pow)
+#   
+#   t = m / .fast_column_se(pow)
+#   p = 2*pt(abs(t), df = nrow(pow)-1, lower=F)
+#   
+#   res <- rbind(m,t,p)
+#   colnames(res) <- dimnames(power)$Electrode
+#   
+#   return(res)
+# }
 
 get_data_per_electrode_alt <- function(ttypes){
   trial_numbers = epoch_data$Trial[epoch_data$Condition %in% ttypes]
   
+  unit_dims = c(1,2,4)
+  if(isTRUE(global_baseline)) {
+    unit_dims = c(2,4)
+  }
+
+  baseline_method = get_unit_of_analysis(unit_of_analysis)
+  
   # Do not baseline them all, otherwise memory will explode
   res = rave::lapply_async(electrodes, function(e){
     # Subset on electrode is memory optimized, and is fast
-    bl = power$subset(Electrode = Electrode == e)
-    bl = baseline(bl$subset(Trial=Trial %in% trial_numbers,
-                             Frequency=Frequency %within% FREQUENCY,
-                             Time=Time %within% range(BASELINE_WINDOW, ANALYSIS_WINDOW) ),
-                   from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
-                   hybrid = FALSE, mem_optimize = FALSE)
+    el = power$subset(Electrode = Electrode == e,
+                      Frequency = Frequency %within% FREQUENCY,
+                      Trial=Trial %in% trial_numbers,
+                      Time = Time %within% range(c(ANALYSIS_WINDOW, BASELINE_WINDOW)))
+    bl = dipsaus::baseline_array(
+      x = el$get_data(),
+      baseline_indexpoints = which(el$dimnames$Time %within% BASELINE_WINDOW),
+      along_dim = 3L,
+      method = baseline_method,
+      unit_dims = unit_dims
+    )
+    # 
+    bl = ECoGTensor$new(bl, dim = dim(el), dimnames = dimnames(el),
+                        varnames = el$varnames, hybrid = FALSE)
+    
+    # bl = baseline(bl$subset(Trial=Trial %in% trial_numbers,
+    #                          Frequency=Frequency %within% FREQUENCY,
+    #                          Time=Time %within% range(BASELINE_WINDOW, ANALYSIS_WINDOW) ),
+    #                from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
+    #                hybrid = FALSE, mem_optimize = FALSE)
+    
     bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
     pow <- bl.analysis$collapse(keep = c(1,4))
     
@@ -308,21 +315,26 @@ get_data_per_electrode_alt <- function(ttypes){
     res <- rbind(m,t,p)
     colnames(res) <- e
     res
-  }, .globals = c('electrodes', 'e', 'trial_numbers', 'FREQUENCY', 'ANALYSIS_WINDOW', 'BASELINE_WINDOW',
-                  '.fast_column_se'), .gc = FALSE)
-  do.call('cbind', res)
+  } ,
+  .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e',
+               'trial_numbers', 'FREQUENCY', 'ANALYSIS_WINDOW', 'BASELINE_WINDOW', '.fast_column_se'),
+  .gc = FALSE)
+  
+  combined_res = do.call('cbind', res)
+  
+  rownames(combined_res) = c(format_unit_of_analysis_name(unit_of_analysis),
+                             rownames(combined_res)[2:3])
+  
+  return(combined_res)
 }
 
 omnibus_results <- cache(
-  key = list(subject$id, BASELINE_WINDOW, FREQUENCY,all_trial_types,
+  key = list(subject$id, BASELINE_WINDOW, FREQUENCY, all_trial_types,
              ANALYSIS_WINDOW, unit_of_analysis, preload_info$epoch_name,
              preload_info$reference_name, trial_outliers_list),
   val = get_data_per_electrode_alt(all_trial_types),
   name = 'omnibus_results'
 )
-
-# assign('omnibus_results', omnibus_results, envir = globalenv())
-
 
 # calculate the statistics here so that we can add them to plot output -- eventually this goes away?
 # if there are > 1 groups in the data, then do linear model, otherwise one-sample t-test
@@ -346,12 +358,12 @@ if(length(unique(flat_data$group)) > 1) {
 
 attr(scatter_bar_data, 'stats') <- result_for_suma
 
-if(shiny_is_running()){
+if(rave::rave_context()$context %in% c('rave_running', 'default')) {
   dipsaus::cat2("Updating 3D viewer")
   btn_val = isolate(input[['power_3d_btn']]) - 0.001
-  dipsaus::set_shiny_input(session = session, inputId = 'power_3d_btn', value = btn_val, method = 'proxy', priority = 'event')
+  dipsaus::set_shiny_input(session = session, inputId = 'power_3d_btn',
+                           value = btn_val, method = 'proxy', priority = 'event')
 }
-
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
@@ -364,15 +376,15 @@ reload_module_package()
 module = rave::get_module(module='power_explorer', package = 'ravebuiltins', local=TRUE)
 
 # eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
-
-result = module(ELECTRODE_TEXT = '14',
+# attachDefaultDataRepository()
+result = module(ELECTRODE_TEXT = '13-24',
                 # GROUPS = list(list(group_name='A',
                 #                    group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
                 #                             # putting in an empty group to test our coping mechanisms
                 #                             list(group_name='YY', group_conditions=c('drive_av', 'last_av')),
                 #                             list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
                 background_plot_color_hint='White', BASELINE_WINDOW = c(-1,-.4),heatmap_color_palette = 'BlackWhiteRed',
-                plot_time_range = c(-0.5,1.25),
+                plot_time_range = c(-0.5,1.25), unit_of_analysis = 'z-score Amplitude',
                 FREQUENCY = c(70,150), max_zlim = 0, show_outliers_on_plots = TRUE,
                 sort_trials_by_type = T)
 results = result$results

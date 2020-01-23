@@ -11,7 +11,7 @@ dev_subject:
   frequency_range: ~
   data_types: ~
   load_brain: yes
-  download_url: https://s3-us-west-2.amazonaws.com/rave-demo-subject/sfn-demo/data-large.zip
+  download_url: https://github.com/beauchamplab/rave/releases/download/v0.1.8-beta/demo_YAB.zip
 modules:
 - module_id: power_explorer
   module_label: Power Explorer

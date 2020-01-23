@@ -834,7 +834,9 @@ time_series_decorator <- function(plot_data, results, ...) {
                     nm <- FALSE
                 
                 window_decorator(results$get_value(full_name),
-                                 type='shaded', shade.col = rave_colors[[full_name]], text = nm)
+                                 type='shaded', shade.col = rave_colors[[full_name]], text = nm, label_placement_offset = ifelse(
+                                     nm == 'Baseline', 0.9, 0.8
+                                 ))
             }
         })
         
@@ -882,13 +884,40 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
     invisible(plot_data)
 }
 
+
+format_unit_of_analysis_name <- function(unit_of_analysis) {
+    str_replace_all(str_replace_all(unit_of_analysis, ' ', '_'), '%', 'Pct')
+}
+
+get_unit_of_analysis <- function(requested_unit) {
+    ll = list(
+        '% Change Power' = 'percentage',
+        '% Change Amplitude' = 'sqrt_percentage',
+        'z-score Power' = 'zscore',
+        'z-score Amplitude' = 'sqrt_zscore',
+        'decibel' = 'decibel'
+    )
+    
+    if(missing(requested_unit)) {
+        return (ll)
+    }
+    
+    if(!any(requested_unit == names(ll))) {
+        warning("requested unit of analysis not available: ", requested_unit, '. Returning % Change Power')
+        return(ll[['% Change Power']])
+    }
+    
+    return(ll[[requested_unit]])
+}
+
+
+
 window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
                              line.col, shade.col='gray60', label_placement_offset=0.9,
                              text=FALSE, text.col, lwd, lty) {
     type <- match.arg(type)
-    text.x <- mean(window) # window[1]
+    text.x = unlist(window)[1]
     text.y <- par('usr')[4] * label_placement_offset
-    
     
     line.col %?<-% get_foreground_color()
     
@@ -897,7 +926,6 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
                lwd %?<-% 1
                lty %?<-% 2
                text.col %?<-% line.col
-               
                abline(v=unlist(window), lwd=lwd, lty=lty, col=line.col)
            },
            box = {
@@ -931,7 +959,7 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
            },
            shaded = {
                text.col %?<-% shade.col
-               
+               text.x = window[[1]]
                x = window
                y = par('usr')[3:4]
                text.y = par('usr')[4]*0.95
@@ -939,7 +967,6 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
                    x = window$x
                    y = window$y
                    text.x <- window$x[1]
-                   
                    yfac <- diff(par('usr')[4] * c(.975,1))
                    text.y <- min(par('usr')[4]*.95, window$y[2] + yfac)
                }
