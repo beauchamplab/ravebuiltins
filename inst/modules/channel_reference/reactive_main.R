@@ -79,7 +79,7 @@ observeEvent(input[[('bipolar_table_cell_edit')]], {
 
     # string match electrode
     v = str_match(v, '(ref_|[\\ ]{0})([0-9]*)')[3]
-    if(is_invalid(v, .invalids = c('null', 'na', 'blank'))){
+    if(!length(v) || is.na(v) || isTRUE(v=='')){
         v = ''
     }else{
         v = subject$filter_all_electrodes(as.integer(v))
@@ -144,14 +144,14 @@ output[['elec_loc']] <- threeBrain::renderBrain({
             volumes = FALSE, surfaces = TRUE, side_canvas = FALSE, 
             control_panel = FALSE, palettes = list(
                 'Type' = c('red', 'navy')
-            ), side_display = FALSE, control_display = FALSE)
+            ), side_display = FALSE, control_display = FALSE, cex = 0.5)
     }else{
         # Maybe load N27 brain if not exists
         brain$plot(
             volumes = FALSE, surfaces = FALSE, side_canvas = FALSE, 
             control_panel = FALSE, palettes = list(
                 'Type' = c('red', 'navy')
-            ), side_display = FALSE, control_display = FALSE)
+            ), side_display = FALSE, control_display = FALSE, cex = 0.5)
     }
     
     # brain$view(value_range = c(-1,1), control_panel = F)
@@ -166,11 +166,16 @@ observeEvent(input$load_mesh, {
 
 
 elec_loc_ui = function(){
-    div(
-        actionLink(ns('load_mesh'), 'Hide Mesh'),
-        threeBrain::threejsBrainOutput(ns('elec_loc'), height = '300px')
-        # threejsr::threejsOutput(ns('elec_loc'), height = '300px')
-    )
+    if(is.null(brain)){
+        div(tags$small('[Cannot find surface files. Hide viewer.]'), style='color:#E2E2E2')
+    }else{
+        div(
+            actionLink(ns('load_mesh'), 'Hide Mesh'),
+            threeBrain::threejsBrainOutput(ns('elec_loc'), height = '300px')
+            # threejsr::threejsOutput(ns('elec_loc'), height = '300px')
+        )
+    }
+    
 
 }
 
@@ -958,7 +963,7 @@ observeEvent(input$ref_modal_tbl_cell_edit, {
 
     # string match electrode
     v = str_match(v, '(ref_|[\\ ]{0})([0-9,\\-]*)')[3]
-    if(is_invalid(v, .invalids = c('null', 'na', 'blank'))){
+    if(!length(v) || is.na(v) || isTRUE(v=='')){
         v = 'Zeros'
     }else{
         v = dipsaus:::parse_svec(v)

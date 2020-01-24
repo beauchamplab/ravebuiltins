@@ -76,7 +76,7 @@ define_input(
                 'Common Average Reference', 'Bipolar Reference',
                 'White Matter Reference', 'No Reference'), selected = 'No Reference'),
             textInput('rg_electrodes', 'Electrodes', value = '', placeholder = 'e.g. 1-12,14')
-        )
+        ), label_color = 'black'
     )
 )
 
@@ -110,9 +110,9 @@ input_layout = list(
     'Overall' = list('ref_name',
                      'ref_name_alt',
                      'ref_group'),
-    '[-] Group Inspection' = list('cur_group',
-                                  'elec_loc_ui',
-                                  'cur_group_ui'),
+    'Group Inspection' = list('cur_group',
+                              'elec_loc_ui',
+                              'cur_group_ui'),
     '[-] Reference Generator' = list(
         'ref_electrodes',
         'ref_calc'

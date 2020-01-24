@@ -30,18 +30,47 @@ proxy = threeBrain::brain_proxy('brain_viewer_widget', session)
 
 brain_viewer_fun <- function( render_value, side_width, env, proxy ){
     shiny::validate(
-        shiny::need(render_value, message = paste('Please press', sQuote('Generate/Update viewer'), 'first.')),
-        shiny::need(exists('brain'), message = '')
+        shiny::need(render_value, message = paste('Please press', sQuote('Generate viewer'), 'first.'))
     )
+    if(exists('brain')){
+        
+    }else{
+        shiny::validate(
+            shiny::need(exists('brain') && length(brain), message = paste('Surface/Volume files not found. '))
+        )
+    }
+    if(exists('brain') && inherits(brain, c('rave-brain', 'multi-rave-brain'))){
+        generate_brain( brain, proxy )
+    }else{
+        NULL
+    }
 
-    generate_brain( brain, proxy )
+    
 }
 
 generate_brain <- function( brain, proxy ){
+    set_palette('Beautiful Field')
     session = shiny::getDefaultReactiveDomain()
     k = sprintf('output_%s_height', ns('brain_viewer_widget'))
     side_width = (session$clientData[[k]] - 100) / 3
-    brain$plot(side_width = side_width)
+    
+    rave_theme = rave::get_rave_theme()
+    
+    bgcolor = proxy$isolate('background')
+    if(!length(bgcolor) || bgcolor %in% c('#000000', '#FFFFFF')){
+        bgcolor = ifelse('dark' %in% rave_theme$themes, '#000000', '#FFFFFF')
+    }
+    camera = proxy$isolate('main_camera')
+    camera$zoom %?<-% 1
+    
+    
+    controllers = proxy$get_controllers()
+    controllers[['Background Color']] = bgcolor
+    controllers[['Subject']] = NULL
+    
+    brain$plot(side_width = side_width, background = bgcolor, 
+               controllers = controllers, start_zoom = camera$zoom, 
+               side_display = FALSE)
 }
 
 download_ui <- function(){
@@ -136,7 +165,7 @@ electrode_details <- function(){
     if( !isTRUE(click_info$is_electrode) ){
         return(div(
             class = "shiny-output-error shiny-output-error-shiny.silent.error shiny-output-error-validation",
-            'Please click on an electrode'
+            'Please generate viewer, load data and click on an electrode'
         ))
     }
     
@@ -154,7 +183,8 @@ electrode_details <- function(){
         ))
     }
     
-    current_clip = shiny::isolate( local_data$detail_type )
+    current_clip = shiny::isolate(proxy$display_variable)
+    # current_clip = shiny::isolate( local_data$detail_type )
     if( !length(current_clip) || !current_clip %in% varnames ){
         current_clip = varnames[1]
     }

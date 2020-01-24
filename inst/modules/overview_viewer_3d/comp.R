@@ -78,7 +78,7 @@ define_input_auto_recalculate(
 )
 
 define_input_auto_recalculate(
-    'viewer_result_btn1', label = 'Generate/Update viewer', type = 'button',
+    'viewer_result_btn1', label = 'Generate viewer', type = 'button',
     default_on = FALSE, button_type = 'primary'
 )
 
