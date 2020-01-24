@@ -73,13 +73,13 @@ define_input(
 )
 
 define_input_auto_recalculate(
-    'viewer_result_btn2', label = 'Update Data', type = 'button',
+    'viewer_result_btn2', label = 'Update data', type = 'button',
     default_on = FALSE, button_type = 'success'
 )
 
 define_input_auto_recalculate(
-    'viewer_result_btn1', label = 'Update Viewer', type = 'button',
-    default_on = FALSE, button_type = 'success'
+    'viewer_result_btn1', label = 'Generate/Update viewer', type = 'button',
+    default_on = FALSE, button_type = 'primary'
 )
 
 
@@ -104,18 +104,21 @@ define_input(
 )
 
 
-define_input_3d_viewer_generator('viewer_result',
-                                 label = 'Open viewer in a new tab',
-                                 reactive = 'local_data')
+define_input(
+    rave::customizedUI('download_ui')
+)
+
+define_input(
+    rave::customizedUI('electrode_details')
+)
 
 
 
 input_layout = list(
     'Subject & Surfaces' = list(
-        c('subject_codes'),
-        c('surface_types'),
-        c('use_template'),
-        'viewer_result_btn1'
+        c('subject_codes', 'surface_types'),
+        'use_template',
+        c('viewer_result_btn1', 'download_ui')
     ),
     'Data Source' = list(
         c('data_files'),
@@ -123,8 +126,8 @@ input_layout = list(
         c('file_check'),
         c('viewer_result_btn2')
     ),
-    'Misc' = list(
-        c('viewer_result', 'viewer_result_ui')
+    'Data Inspector' = list(
+        'electrode_details'
     )
 )
 
@@ -139,24 +142,26 @@ manual_inputs = c('viewer_result_download')
 # define_output_3d_viewer(outputId = 'viewer_result', title = 'Embedded Viewer',
 #                         order = 1, width = 12, hide_btn = TRUE, height = '82vh')
 
-define_output(
-    definition = rave::customizedUI('viewer_brain'),
+define_output_3d_viewer(
+    outputId = 'brain_viewer', 
     title = 'Viewer',
     width = 12L,
-    order = 1
+    order = 1,
+    hide_btn = TRUE,
+    height = '85vh'
 )
 
-define_output(
-    definition = rave::customizedUI('electrode_details'),
-    title = 'Details',
-    width = 4L,
-    order = 3
-)
+# define_output(
+#     definition = rave::customizedUI('electrode_details'),
+#     title = 'Details',
+#     width = 4L,
+#     order = 3
+# )
 
 define_output(
     definition = rave::customizedUI('electrode_table_ui'), #DT::dataTableOutput('electrode_table'),
     title = 'Combined Data File',
-    width = 8,
+    width = 12,
     order = 2
 )
 
