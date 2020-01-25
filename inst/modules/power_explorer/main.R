@@ -4,12 +4,14 @@
 # rm(list = ls(all.names=T)); rstudioapi::restartSession()
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
-mount_demo_subject()#subject_code = 'YAB', project_name = 'congruency', electrodes=13:20, epoch='YABa')
+mount_demo_subject(T)
+init_module('power_explorer', TRUE)
 
 # attachDefaultDataRepository()
 if(FALSE) {
-  GROUPS = list(list(group_name='A', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
-                list(group_name='B', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v')))
+  GROUPS = list(list(group_name='A', group_conditions=c('known_av', 'last_a', 'drive_a', 'meant_a')),
+                list(group_name='B', group_conditions=c('known_av', 'last_v', 'drive_v', 'meant_v')),
+                list(group_name='C', group_conditions=c('known_av', 'last_av', 'drive_av', 'meant_av')))
   FREQUENCY = c(75,150)
   ELECTRODE_TEXT = '14-19'
 }
@@ -20,11 +22,11 @@ if(FALSE) {
 #   return (val)
 # }
 
-
+# attachDefaultDataRepository()
 # these are only needed when shiny is running (e.g., module debug mode)
 requested_electrodes = dipsaus::parse_svec(ELECTRODE_TEXT, sep=',|;', connect  = ':-')
 requested_electrodes %<>% get_by(`%in%`, electrodes)
-
+# electrodes = preload_info$electrodes
 # this will be NA if the only requested electrodes are not available
 # electrode <- requested_electrodes[1]
 assertthat::assert_that(length(requested_electrodes) >= 1 &&
@@ -106,7 +108,6 @@ collapse_method = 'mean'
 for(ii in which(has_trials)){
   .time_stamp <- proc.time()
 
-  ### 17ms  
   .power_all = bl_power$subset(Trial = Trial %in% group_data[[ii]]$Trial_num)
   .power_all_clean <- .power_all$subset(Trial=! (Trial %in% trial_outliers_list))
   .power_freq = .power_all$subset(Frequency=Frequency %within% FREQUENCY)
@@ -220,60 +221,38 @@ for(ii in which(has_trials)){
   scatter_bar_data[[ii]]$xp <- .xp[xpi]
   set.seed(jitter_seed)
   scatter_bar_data[[ii]]$x <- .xp[xpi] + runif(length(scatter_bar_data[[ii]]$data), -.r, .r)
-
   
   # for the scatter_bar_data we also need to get m_se within condition w/o the outliers
   scatter_bar_data[[ii]]$mse <- .fast_mse(scatter_bar_data[[ii]]$data[scatter_bar_data[[ii]]$is_clean])
   
   flat_data %<>% rbind(data.frame('group'=ii,
+                                  'orig_trial_number' =group_data[[ii]]$Trial_num,
                                   'y' = with(scatter_bar_data[[ii]], data[is_clean])))
   
-  # print('loop ' %&% ii) 
-  # print(proc.time() - .time_stamp)
+  print('loop ' %&% ii)
+  print(proc.time() - .time_stamp)
 }
 
-
 # for baseline you want to have only the baseline times
+flat_data$group_i = flat_data$group
 flat_data$group %<>% factor
 
 # this can be used elsewhere
 has_data = sum(has_trials)
 
 
-# calculate some statistics across electrodes
-
-# because we're eventually going to be doing second-level stats, we're not too worried about
-# gratuitous NHST
-
-# the first thing we want is an omnibus F statistic. Because the data are baseline corrected, we're here
-# just comparing with zero. That is, a no-intercept model.
-
-# we need the omnibus result per-electrode, do for all electrodes, not just selected
-
 all_trial_types <- GROUPS %>% lapply(`[[`, 'group_conditions') %>% unlist %>% unique
 
-# get_data_per_electrode <- function()  {
-#   bl <- baseline(power$subset(Trial=Trial %in% epoch_data$Trial[epoch_data$Condition %in% all_trial_types],
-#                               Frequency=Frequency %within% FREQUENCY,
-#                               Time=Time %within% range(BASELINE_WINDOW, ANALYSIS_WINDOW) ),
-#                  from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
-#                  hybrid = FALSE, mem_optimize = FALSE)
-#   bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
-#   pow <- bl$collapse(keep = c(1,4))
-#   m = colMeans(pow)
-#   
-#   t = m / .fast_column_se(pow)
-#   p = 2*pt(abs(t), df = nrow(pow)-1, lower=F)
-#   
-#   res <- rbind(m,t,p)
-#   colnames(res) <- dimnames(power)$Electrode
-#   
-#   return(res)
-# }
-
-get_data_per_electrode_alt <- function(ttypes){
-  trial_numbers = epoch_data$Trial[epoch_data$Condition %in% ttypes]
+get_p.adjust_method <- function(pval_filter=c('p', 'FDR(p)', 'Bonf(p)')) {
+  pval_filter = match.arg(pval_filter)
   
+  c('p'='none', 'FDR(p)'='fdr', 'Bonf(p)'='bonferroni')[pval_filter]
+}
+
+# calculate some statistics across electrodes
+# we need the omnibus result per-electrode, do for all electrodes, not just selected
+get_stats_per_electrode <- function(ttypes){
+  trial_numbers = epoch_data$Trial[epoch_data$Condition %in% ttypes]
   unit_dims = c(1,2,4)
   if(isTRUE(global_baseline)) {
     unit_dims = c(2,4)
@@ -281,13 +260,35 @@ get_data_per_electrode_alt <- function(ttypes){
 
   baseline_method = get_unit_of_analysis(unit_of_analysis)
   
-  # Do not baseline them all, otherwise memory will explode
-  res = rave::lapply_async(electrodes, function(e){
+  # see if there are contrasts to run
+  group_f = NULL
+  if(has_data > 1) {
+    # assign('flat_data', flat_data, envir = global_env())
+    # assign('GROUPS', GROUPS, envir = global_env())
+    # assign('trial_numbers', trial_numbers, envir = global_env())
+    
+    group = flat_data$group_i
+    gnames = GROUPS[unique(flat_data$group_i)] %>% sapply('[[', 'group_name')
+    if(any(gnames == '')) {
+      gnames[gnames == ''] = paste0('rave_group_', LETTERS[which(gnames=='')])
+    }
+    group_f = gnames[group]
+    df_shell = data.frame(group_f, flat_data$orig_trial_number)
+    lbls = apply(combn(nlevels(flat_data$group),2), 2, 
+                 function(x) paste(gnames[x],collapse='.vs.'))
+    
+    # trials_per_group = GROUPS[[1]]$group_conditions
+  }
+  
+  # Do not baseline all elecs simultaneously, otherwise memory will explode
+  res = #lapply(electrodes, function(e, ...){
+    rave::lapply_async(electrodes, function(e){
     # Subset on electrode is memory optimized, and is fast
     el = power$subset(Electrode = Electrode == e,
                       Frequency = Frequency %within% FREQUENCY,
                       Trial=Trial %in% trial_numbers,
-                      Time = Time %within% range(c(ANALYSIS_WINDOW, BASELINE_WINDOW)))
+                      Time = (Time %within% ANALYSIS_WINDOW) | (Time %within% BASELINE_WINDOW)
+    )
     bl = dipsaus::baseline_array(
       x = el$get_data(),
       baseline_indexpoints = which(el$dimnames$Time %within% BASELINE_WINDOW),
@@ -295,68 +296,93 @@ get_data_per_electrode_alt <- function(ttypes){
       method = baseline_method,
       unit_dims = unit_dims
     )
-    # 
     bl = ECoGTensor$new(bl, dim = dim(el), dimnames = dimnames(el),
                         varnames = el$varnames, hybrid = FALSE)
     
-    # bl = baseline(bl$subset(Trial=Trial %in% trial_numbers,
-    #                          Frequency=Frequency %within% FREQUENCY,
-    #                          Time=Time %within% range(BASELINE_WINDOW, ANALYSIS_WINDOW) ),
-    #                from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
-    #                hybrid = FALSE, mem_optimize = FALSE)
-    
     bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
-    pow <- bl.analysis$collapse(keep = c(1,4))
     
-    m = colMeans(pow)
-    t = m / .fast_column_se(pow)
-    p = 2*pt(abs(t), df = nrow(pow)-1, lower=F)
+    trial_means = rowMeans(bl.analysis$get_data())
+    mse = .fast_mse(trial_means)
+    t = mse[1]/mse[2]
+    p = 2*pt(abs(t), df = length(trial_means)-1, lower=F)
     
-    res <- rbind(m,t,p)
-    colnames(res) <- e
-    res
+    res = rbind(mse[1], t, p)
+    
+    # now we also need to run the contrasts
+    if(has_data > 1) {
+      df2 = df_shell
+      df2$y = trial_means[as.character(df_shell$flat_data.orig_trial_number)]
+      # print('calling ls means')
+      cntr = summary(lsmeans::lsmeans(lm(y ~ group_f, data=df2),pairwise ~ group_f), adjust='none')$contrasts
+      # print('creating cmat')
+      cmat = as.matrix(c(t(as.matrix(cntr[,c('estimate','t.ratio', 'p.value')]))))
+      res = rbind(res, cmat)
+    }
+    
+    return(res)
   } ,
-  .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e',
-               'trial_numbers', 'FREQUENCY', 'ANALYSIS_WINDOW', 'BASELINE_WINDOW', '.fast_column_se'),
+  .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e', 'group_f', 'has_data',
+               'trial_numbers', 'FREQUENCY', 'ANALYSIS_WINDOW', 'BASELINE_WINDOW', '.fast_column_se', 'df_shell'),
   .gc = FALSE)
   
   combined_res = do.call('cbind', res)
   
-  rownames(combined_res) = c(format_unit_of_analysis_name(unit_of_analysis),
-                             rownames(combined_res)[2:3])
+  rownames(combined_res)[1] <- format_unit_of_analysis_name(unit_of_analysis)
+  colnames(combined_res) <- electrodes
+  
+  # do we need to adjust the p-values?
+  # if they are using adjusted p-values in the filter, then put them in the result
+  if(pval_filter != 'p') {
+    # assign('p', p, envir = globalenv())
+    adjusted_p = p.adjust(combined_res[3,], method=get_p.adjust_method(pval_filter))
+    # print("pval adjustment:")
+    # print(m_sd(adjusted_p-combined_res[3,]))
+    
+    if(nrow(combined_res) > 3) {
+      tmp = combined_res[4:nrow(combined_res),]
+      
+      # add the names for these folks
+      rownames(tmp) = outer(c('m_', 't_', 'p_'), lbls, paste0) %>% c
+      
+      combined_res = combined_res[1:3,]
+      combined_res %<>% rbind(adjusted_p, tmp)
+    } else {
+      combined_res %<>% rbind(adjusted_p)
+    }
+    rownames(combined_res)[4] = pval_filter
+
+  }
   
   return(combined_res)
 }
 
 omnibus_results <- cache(
-  key = list(subject$id, BASELINE_WINDOW, FREQUENCY, all_trial_types,
+  key = list(subject$id, BASELINE_WINDOW, FREQUENCY, all_trial_types,GROUPS,
              ANALYSIS_WINDOW, unit_of_analysis, preload_info$epoch_name,
              preload_info$reference_name, trial_outliers_list),
-  val = get_data_per_electrode_alt(all_trial_types),
+  val = get_stats_per_electrode(all_trial_types),
   name = 'omnibus_results'
 )
 
 # calculate the statistics here so that we can add them to plot output -- eventually this goes away?
 # if there are > 1 groups in the data, then do linear model, otherwise one-sample t-test
-if(length(unique(flat_data$group)) > 1) {
-  # we need to check if they have supplied all identical data sets
-  # easy way is to check that the trials are the same?
-  g1_trials <- unlist(GROUPS[[which(has_trials)[1]]]$group_conditions)
-  if(all(
-    sapply(which(has_trials)[-1],
-           function(ii) {
-             setequal(unlist(GROUPS[[ii]]$group_conditions),g1_trials)
-           })
-  )) {
-    result_for_suma <- get_t(flat_data$y[flat_data$group==flat_data$group[1]])
-  } else {
-    result_for_suma <- get_f(y ~ group, flat_data)
-  }
-} else {
-  result_for_suma <- get_t(flat_data$y)
-}
-
-attr(scatter_bar_data, 'stats') <- result_for_suma
+# if(length(unique(flat_data$group)) > 1) {
+#   # we need to check if they have supplied all identical data sets
+#   # easy way is to check that the trials are the same?
+#   g1_trials <- unlist(GROUPS[[which(has_trials)[1]]]$group_conditions)
+#   if(all(sapply(which(has_trials)[-1],
+#            function(ii) {
+#              setequal(unlist(GROUPS[[ii]]$group_conditions),g1_trials)
+#            })
+#   )) {
+#     result_for_suma <- get_t(flat_data$y[flat_data$group==flat_data$group[1]])
+#   } else {
+#     result_for_suma <- get_f(y ~ group, flat_data)
+#   }
+# } else {
+#   result_for_suma <- get_t(flat_data$y)
+# }
+# attr(scatter_bar_data, 'stats') <- result_for_suma
 
 if(rave::rave_context()$context %in% c('rave_running', 'default')) {
   dipsaus::cat2("Updating 3D viewer")
@@ -378,11 +404,11 @@ module = rave::get_module(module='power_explorer', package = 'ravebuiltins', loc
 # eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
 # attachDefaultDataRepository()
 result = module(ELECTRODE_TEXT = '13-24',
-                # GROUPS = list(list(group_name='A',
-                #                    group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
-                #                             # putting in an empty group to test our coping mechanisms
-                #                             list(group_name='YY', group_conditions=c('drive_av', 'last_av')),
-                #                             list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
+                GROUPS = list(list(group_name='A',
+                                   group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
+                                            # putting in an empty group to test our coping mechanisms
+                                            list(group_name='YY', group_conditions=c('drive_av', 'last_av')),
+                                            list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
                 background_plot_color_hint='White', BASELINE_WINDOW = c(-1,-.4),heatmap_color_palette = 'BlackWhiteRed',
                 plot_time_range = c(-0.5,1.25), unit_of_analysis = 'z-score Amplitude',
                 FREQUENCY = c(70,150), max_zlim = 0, show_outliers_on_plots = TRUE,
@@ -394,7 +420,7 @@ heat_map_plot(results)
 windowed_comparison_plot(results)
 by_trial_heat_map_plot(results)
 over_time_plot(results)
-by_electrode_heat_map(results)
+by_electrode_heat_map_plot(results)
 
 view_layout('power_explorer')
 

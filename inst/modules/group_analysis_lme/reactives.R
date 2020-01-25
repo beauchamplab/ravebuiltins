@@ -96,11 +96,11 @@ observe({
                       max=time_range[[2]], value=analysis_window)
 })
 
-observeEvent(input$cond_group, {
-    assign('aaa', session, envir = globalenv())
-    
-    print(input$cond_group)
-})
+# observeEvent(input$cond_group, {
+#     assign('aaa', session, envir = globalenv())
+#     
+#     print(input$cond_group)
+# })
 
 # Get additional data
 observe({

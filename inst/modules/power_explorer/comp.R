@@ -399,8 +399,13 @@ define_input(
 
 
 define_input(
-  definition = checkboxInput(inputId = 'show_result_densities', label='Show across electrode result densities', value=TRUE)
+  definition = checkboxInput(inputId = 'show_result_densities', label='Show frequency plots beside results output', value=TRUE)
 )
+
+# define_input(
+#   definition = selectInput(inputId = 'which_result_to_show_on_electrodes', label = 'Across electrodes results to show', multiple=FALSE,
+#                            choices = c('Omnibus Activity (across all active trial types)'), selected = 'Omnibus Activity (across all active trial types)')
+# )
 
 define_input(
   definition = customizedUI('graph_export')
@@ -437,6 +442,7 @@ define_input_auto_recalculate(
   type = 'button', button_type = 'primary'
 )
 
+
 #
 # determine which variables only need to be set, not triggering rendering nor executing
 manual_inputs <- c(
@@ -459,12 +465,12 @@ input_layout = list(
     'ANALYSIS_WINDOW',
     'do_calculate_btn', 'auto_calculate'
   ),
-  #[#99ccff]
-  'Create condition contrasts' = list(
+  '[-]Create condition contrasts' = list(
     'GROUPS',
     'analysis_settings'
   ),
   '[-]Find + Export active electrodes' = list(
+    c('show_result_densities'),
     c('pval_filter', 'pval_operator', 'pval_operand'),
     c('tval_filter', 'tval_operator', 'tval_operand'),
     c('mean_filter', 'mean_operator', 'mean_operand'),
@@ -486,7 +492,6 @@ input_layout = list(
     'draw_decorator_labels',
     c('color_palette',
     'reverse_colors_in_palette', 'invert_colors_in_palette'),
-    c('show_result_densities'),
     c('heatmap_color_palette', 'heatmap_number_color_values',
       'reverse_colors_in_heatmap_palette', 'invert_colors_in_heatmap_palette'),
       c('max_zlim', 
@@ -545,16 +550,16 @@ define_output(
 
 define_output(
   definition = plotOutput('windowed_comparison_plot',
-                          click = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_click'), clip = FALSE),
-                          dblclick = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_dbl_click'), clip = FALSE)),
-  title = 'By-trial windowed response (across electrodes)',
+                          click = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_click'), clip = T),
+                          dblclick = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_dbl_click'), clip = T)),
+  title = 'Per trial, averaged across electrodes',
   width = 3,
   order = 4
 )
 
 define_output(
   definition = customizedUI('click_output'),
-  title = 'Last Click',
+  title = 'Click Info',
   width=2, order=4.1
 )
 
@@ -581,9 +586,10 @@ define_output(
 
 define_output(
   definition = plotOutput('across_electrode_statistics_plot'),
-  title = 'Results by electrode',
+  title = 'Per electrode t-test against baseline, all active trial types. Filled circles pass all filters, open circles do not]',
   width = 12,
-  order = -1
+  order = -1#,
+  # alt_text = 'This does...'
 )
 
 

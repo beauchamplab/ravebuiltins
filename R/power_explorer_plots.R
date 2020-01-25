@@ -41,7 +41,7 @@ across_electrodes_f_histogram <- function(results, ...) {
     
     cut <- as.numeric(results$get_value('tval_operand'))
     if(!is_null(cut)) {
-        abline(h=cut, lwd=2, col='orangered')
+        abline(h=cut, lwd=2, col='orangered', lty=2)
     }
     
     return(invisible(list(
@@ -113,7 +113,7 @@ across_electrodes_beta_histogram <- function(results, ...) {
     rave_axis(2, at=yat)
     rave_axis_labels(ylab=unit_of_analysis)
     
-    rave_title(sprintf('Mean %s across trials', unit_of_analysis))
+    rave_title(sprintf('Mean %s', unit_of_analysis))
     
     cut <- as.numeric(results$get_value('mean_operand'))
     if(!is_null(cut)) {
@@ -194,9 +194,6 @@ determine_passing_electrodes <- function(results, ...) {
     # no. instead let's put this value in a textInput??
     
     if(shiny_is_running()){
-        # updateTextInput(getDefaultReactiveDomain(), 'current_active_set', value=deparse_svec(
-        #     as.numeric(names(which(pass_the_test)))
-        # ))
         updateTextInput(getDefaultReactiveDomain(), 'current_active_set', 
                         value=deparse_svec(emeta$Electrode[pass_the_test]))
     }
@@ -238,15 +235,18 @@ across_electrodes_corrected_pvalue <- function(results, ...) {
                        'FDR(p)' = function(p) p.adjust(p, method='fdr'),
                        'Bonf(p)' = function(p) p.adjust(p, method='bonferroni'))
     
+    
     ps <- pval_funcs[[filt]](ps)
     nl10 <- function(p) -log10(p)
     # we want to determine the cut point based on the currently selected filters
     # we need to check all the filters, in case they have multiple filters 
     
     .col <- get_foreground_color()
+    
     cut <- as.numeric(results$get_value('pval_operand'))
     
     ylim = pretty(nl10(c(ps, ifelse(is.null(cut), 0.01, cut))))
+    
     plot_clean(1:ncol(omnibus_results), ylim=ylim)
     
     if(!is.null(cut)) {
@@ -342,7 +342,8 @@ windowed_comparison_plot <- function(results, ...){
     
     trial_scatter_plot(
         group_data = results$get_value('scatter_bar_data'),
-        show_outliers = results$get_value('show_outliers_on_plots')
+        show_outliers = results$get_value('show_outliers_on_plots'),
+        PANEL.LAST = trial_scatter_plot_decortator(results=results)
     )
 }
 
@@ -436,6 +437,7 @@ by_trial_heat_map_plot <- function(results) {
     validate(need(has_data, message="No Condition Specified"))
 
     set_palette_helper(results)
+    set_heatmap_palette_helper(results)
     by_trial_heat_map_data <- results$get_value('by_trial_heat_map_data')
     
     #base decorator

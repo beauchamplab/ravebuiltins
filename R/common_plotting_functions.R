@@ -184,7 +184,7 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, xrang
 # this is a list to allow different N in each group
 # NB: the reason we use barplot here is that it takes care of the width between groups for us, even though by default we don't actually show the bars
 trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, cols, ebar.cols='gray30', ebar.lwd=3, jitr_x,
-                              pchs=19, pt.alpha=175, xlab='Group', ylab='Mean % Signal Change', ebar.lend=2, show_outliers=TRUE, ...) {
+                              pchs=19, pt.alpha=175, xlab='Group', ylab='Mean % Signal Change', ebar.lend=2, show_outliers=TRUE, PANEL.LAST=NULL, ...) {
     
     nms <- group_data %>% get_list_elements('name')
     #
@@ -232,8 +232,11 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
     if(min(yax) < 0) abline(h=0, col='lightgray')
 
     # grabbing an attribute from the group data
-    if(not_null(attr(group_data, 'stats')))
+    if(not_null(attr(group_data, 'stats'))) {
         rave_title(as.title(pretty(attr(group_data, 'stats'))))
+    } else {
+        # 
+    }
     
     #emphasize the means
     lsize <- (1/3)*mean(unique(diff(x)))
@@ -294,8 +297,25 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
         }
     }
     
+    if(is.function(PANEL.LAST)) {
+        PANEL.LAST(group_data)
+    }
+    
     # in case people need to further decorate
     invisible(group_data)
+}
+
+
+trial_scatter_plot_decortator <- function(plot_data, results, ...) {
+    tspd <- function(plot_data, ...) {
+        title_decorator(plot_data, results=results, allow_cond = FALSE, allow_sample_size = FALSE)
+    }
+    
+    if(missing(plot_data)) {
+        return (tspd)
+    }
+    
+    tspd(plot_data)
 }
 
 # the Xmap and Ymap here are functions that allow for transformation of the plot_data $x and $y into
@@ -886,10 +906,10 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
 
 
 format_unit_of_analysis_name <- function(unit_of_analysis) {
-    str_replace_all(str_replace_all(unit_of_analysis, ' ', '_'), '%', 'Pct')
+    str_replace_all(unit_of_analysis, c(' '='_', '%'='Pct', '-'='_'))
 }
 
-get_unit_of_analysis <- function(requested_unit) {
+get_unit_of_analysis <- function(requested_unit, names=FALSE) {
     ll = list(
         '% Change Power' = 'percentage',
         '% Change Amplitude' = 'sqrt_percentage',
@@ -899,6 +919,8 @@ get_unit_of_analysis <- function(requested_unit) {
     )
     
     if(missing(requested_unit)) {
+        if(names) return (names(ll))
+        
         return (ll)
     }
     

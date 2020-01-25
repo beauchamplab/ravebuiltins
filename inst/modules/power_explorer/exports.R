@@ -1,12 +1,15 @@
 input <- getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 
-
-
 power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   
   showNotification(p('Generating 3d viewer...'))
   brain = rave::rave_brain2(subject = subject);
+  
+  if(is.null(brain)){
+    rave::close_tab('power_explorer', 'Results on surface')
+  }
+  
   shiny::validate(shiny::need(!is.null(brain), message = 'No surface/volume file found!'))
   re = NULL
   
@@ -28,46 +31,59 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   
   if( need_calc ){
     or = cache(name='omnibus_results')
+    
     values = data.frame(t(or))
     values$Subject = as.factor(subject$subject_code)
     values$Electrode = as.numeric(colnames(or))
     values$Time = 0
     
-    #           m        t            p   Subject Electrode Time
-    # 1 120.36184 13.83425 7.733204e-22 sub_large        14  0
-    # 2  45.21445  8.11932 1.004675e-11 sub_large        15  0
-    
     brain$set_electrode_values(values)
+    assign('omnibus_results', omnibus_results, globalenv())
     
-    assign('controllers', controllers, globalenv())
+    # check to see if we've udpated the dependent variable. We do this by comparing this list of Possible DVs with the 
+    # actual current DV
+    curr_dv =  controllers[['Display Data']]
+    new_dv = rownames(or)[1]
+    is_old_dv = curr_dv %in% str_subset(format_unit_of_analysis_name(get_unit_of_analysis(names=T)),
+                                        new_dv, negate = TRUE)
     
-    
-    if(!length(controllers[['Display Data']]) || controllers[['Display Data']] == '[None]') {
-      controllers[['Display Data']] = rownames(or)[1]
+    if(!length(controllers[['Display Data']]) || controllers[['Display Data']] == '[None]' || is_old_dv) {
+      controllers[['Display Data']] = new_dv
       v = ceiling(max(abs(or[1,])) )
       controllers[['Display Range']] = sprintf('-%s,%s', v, v )
     }
     
     if(!length(controllers[['Threshold Data']]) || controllers[['Threshold Data']] == '[None]'){
       controllers[['Threshold Data']] = rownames(or)[2]
-      v = ceiling(max(abs(or[2,])) )
-      controllers[['Threshold Range']] = sprintf('-%s,%s', v, v)
-      
-      
+      v = 1+ceiling(max(abs(or[2,])) )
+      controllers[['Threshold Range']] = sprintf('-%s,-2|2,%s', v, v)
       # threshold format: -10,2|2,10
+    } else if(is_old_dv & controllers[['Threshold Data']] == 't') {
+      # we want to update the threshold range just in case
+      old_range = controllers[['Threshold Range']]
+      
+      if(str_detect(old_range, '|')) {
+        rng = str_split(str_split(old_range, '\\|')[[1]], ',')
+        new_mx = max(c(rng[[1]] %>% as.numeric %>% abs, 1+ceiling(max(abs(or[2,])) )))
+        controllers[['Threshold Range']] = sprintf('-%s,%s|%s,%s', new_mx, rng[[1]][2], rng[[2]][1], new_mx)
+      }
     }
-  
-    # maybe change M to: decibel, PCT Signal Change... if the previous display data == new display data, KEEP the range. If !=, then reset the range to be the range
-    # of the data
     
     ### maybe we don't always want to show legend...
     controllers[['Show Legend']] = TRUE
+    pals = list('dv' = cache(name='current_rave_heatmap_palette'),
+                t = cache(name='current_rave_heatmap_palette'),
+                p = c('yellow', 'yellow', 'white')
+    )
+    names(pals)[1] = new_dv
     
-    re = brain$plot(symmetric = 0, palettes = list(
-      m = cache(name='current_rave_heatmap_palette'),
-      t = cache(name='current_rave_heatmap_palette'),
-      p = c('red', 'red', 'grey')
-    ), side_width = side_width / 2, side_canvas = TRUE, 
+    re = brain$plot(symmetric = 0, palettes = pals,
+                    val_ranges = list(
+                      'p' = c(0,1),
+                      'FDR.p.' = c(0,1),
+                      'Bonf.p.' = c(0,1)
+                    ),
+                    side_width = side_width / 2, side_canvas = TRUE, 
     side_display = display_side, start_zoom = zoom_level, controllers = controllers,
     control_presets = 'syncviewer', timestamp = FALSE)
     
@@ -384,6 +400,14 @@ observeEvent(input$export_data_only, {
   write_out_data_function()
   showNotification(p('Done saving'), duration = 3, type = 'message')
 })
+
+
+# observeEvent(input$GROUPS, {
+  
+  # print('groups changed')
+  
+# })
+
 
 save_inputs <- function(yaml_path, variables_to_export){
   if( !shiny_is_running() || !exists('getDefaultReactiveInput') ){ return(FALSE) }
