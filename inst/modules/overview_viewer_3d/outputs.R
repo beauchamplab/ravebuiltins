@@ -1,11 +1,110 @@
 # outputs
 
-output_needs_update <- function(){
-    ctx = rave_context()
-    if(!is.null(ctx$instance)){
-        ctx$instance$local_reactives$show_results
+
+# --------------------------------- Viewer ---------------------------------
+
+# set up proxy
+# proxy = threeBrain::brain_proxy('brain_viewer', session = session)
+# 
+# brain_viewer <- function( ... ){
+#     print(list(...))
+#     viewer_result_fun( proxy )
+# }
+# viewer_result_fun <- function( proxy ){
+#     # print(proxy$background)
+#     # output_needs_update()
+#     # Assume brain is given
+#     shiny::validate(
+#         shiny::need(length(brain), message = 'Cannot find any Brain object')
+#     )
+#     
+#     client_size = get_client_size()
+#     side_width = ceiling((client_size$available_size[[2]] - 300) / 3)
+#     
+#     brain$plot(side_width = min(side_width, 300))
+# }
+# 
+# # prepare to open it in new window
+# session$userData$cross_session_funcs[[ns('brain_viewer')]] = viewer_result_fun
+proxy = threeBrain::brain_proxy('brain_viewer_widget', session)
+
+brain_viewer_fun <- function( render_value, side_width, env, proxy ){
+    shiny::validate(
+        shiny::need(render_value, message = paste('Please press', sQuote('Generate viewer'), 'first.'))
+    )
+    if(exists('brain')){
+        
+    }else{
+        shiny::validate(
+            shiny::need(exists('brain') && length(brain), message = paste('Surface/Volume files not found. '))
+        )
     }
+    if(exists('brain') && inherits(brain, c('rave-brain', 'multi-rave-brain'))){
+        generate_brain( brain, proxy )
+    }else{
+        NULL
+    }
+
+    
 }
+
+generate_brain <- function( brain, proxy ){
+    set_palette('Beautiful Field')
+    session = shiny::getDefaultReactiveDomain()
+    k = sprintf('output_%s_height', ns('brain_viewer_widget'))
+    side_width = (session$clientData[[k]] - 100) / 3
+    
+    rave_theme = rave::get_rave_theme()
+    
+    bgcolor = proxy$isolate('background')
+    if(!length(bgcolor) || bgcolor %in% c('#000000', '#FFFFFF')){
+        bgcolor = ifelse('dark' %in% rave_theme$themes, '#000000', '#FFFFFF')
+    }
+    camera = proxy$isolate('main_camera')
+    camera$zoom %?<-% 1
+    
+    
+    controllers = proxy$get_controllers()
+    controllers[['Background Color']] = bgcolor
+    controllers[['Subject']] = NULL
+    
+    brain$plot(side_width = side_width, background = bgcolor, 
+               controllers = controllers, start_zoom = camera$zoom, 
+               side_display = FALSE)
+}
+
+download_ui <- function(){
+    shiny::downloadButton(ns('download_btn'), style = 'display:block;width:100%')
+}
+
+output$download_btn <- shiny::downloadHandler(
+    filename = function(){
+        strftime(Sys.time(), 'RAVE-viewer-%Y%m%d-%H%M%S.zip')
+    },
+    content = function(con){
+        f = tempfile(fileext = 'ravethreebrain')
+        showNotification(p('Compressing... Please wait.'), type = 'message', id = 'download', duration = NULL)
+        on.exit({
+            removeNotification('download')
+            unlink(f, recursive = TRUE)
+        })
+        # get current proxy
+        
+        wg = generate_brain(brain, proxy)
+        
+        threeBrain::save_brain(wg, directory = f, as_zip = TRUE)
+        file.copy(file.path(f, 'compressed.zip'), to = con)
+    }
+)
+
+# observeEvent({
+#     session$clientData[[sprintf('output_%s_height', ns('brain_viewer_widget'))]]
+# }, {
+#     height = session$clientData[[sprintf('output_%s_height', ns('brain_viewer_widget'))]]
+#     side_width = height - 100 / 3
+#     proxy$set_controllers()
+# })
+
 
 electrode_table_ui <- function(){
     # shiny::validate(
@@ -36,7 +135,7 @@ output$electrode_table <- DT::renderDataTable({
     )
     
     tbl = combined_table
-    click_info = input$viewer_result_out_mouse_dblclicked
+    click_info = proxy$mouse_event_click
     if( !isTRUE(input$table_show_all) && is.list(click_info) && isTRUE(click_info$is_electrode)){
         sub = click_info$subject
         elec = click_info$electrode_number
@@ -51,22 +150,9 @@ output$electrode_table <- DT::renderDataTable({
     DT::formatRound(dt, names(tbl), digits = 4)
 })
 
-viewer_result_fun <- function(){
-    output_needs_update()
-    # Assume brain is given
-    shiny::validate(
-        shiny::need(length(brain), message = 'Cannot find any Brain object')
-    )
-    
-    client_size = get_client_size()
-    side_width = ceiling((client_size$available_size[[2]] - 300) / 3)
-    
-    brain$plot(side_width = min(side_width, 300))
-}
 
-output$viewer_result_out <- threeBrain::renderBrain({
-    viewer_result_fun()
-})
+
+
 
 
 
@@ -74,12 +160,12 @@ output$viewer_result_out <- threeBrain::renderBrain({
 electrode_details <- function(){
     # listen to dblclick information
     
-    click_info = input$viewer_result_out_mouse_dblclicked
+    click_info = proxy$mouse_event_click
     
     if( !isTRUE(click_info$is_electrode) ){
         return(div(
             class = "shiny-output-error shiny-output-error-shiny.silent.error shiny-output-error-validation",
-            'Please double click an electrode'
+            'Please generate viewer, load data and click on an electrode'
         ))
     }
     
@@ -97,7 +183,8 @@ electrode_details <- function(){
         ))
     }
     
-    current_clip = shiny::isolate( local_data$detail_type )
+    current_clip = shiny::isolate(proxy$display_variable)
+    # current_clip = shiny::isolate( local_data$detail_type )
     if( !length(current_clip) || !current_clip %in% varnames ){
         current_clip = varnames[1]
     }

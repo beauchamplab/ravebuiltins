@@ -119,9 +119,14 @@ if( 'R6' %in% class(brain) && is.data.frame(combined_table) && nrow(combined_tab
 # Step 6. refresh UI
 local_data$viewer_result = Sys.time()
 
-# shiny::validate(
-#   shiny::need(length(brain), message = 'Cannot find any Brain object')
-# )
+# step 7. let viewer update
+ctx = rave::rave_context()
+print(ctx$context)
+if(ctx$context %in% c('rave_running', 'rave_module_debug')) {
+  dipsaus::cat2("Updating 3D viewer")
+  dipsaus::set_shiny_input(session = session, inputId = 'brain_viewer_btn',
+                           value = 1, method = 'proxy', priority = 'event')
+}
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 

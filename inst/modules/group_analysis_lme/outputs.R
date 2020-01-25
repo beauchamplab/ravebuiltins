@@ -158,6 +158,10 @@ src_data_snapshot <- function() {
 # }
 
 windowed_activity <- function(lmer_results, collapsed_data) {
+    set_palette('Beautiful Field')
+    
+    print(grDevices::palette())
+    
     lmer_results %?<-% local_data$lmer_results
     collapsed_data %?<-% local_data$collapsed_data
     
@@ -426,7 +430,7 @@ output$btn_download_all_results <- downloadHandler(
 
 
 # 3D viewer, takes 3 args
-lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, ...){
+lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, proxy, ...){
     # Check whether load is needed
     lmer_results = local_data$lmer_results
     shiny::validate(shiny::need(!is.null(lmer_results), message = 'Please run LMER model first'))
