@@ -21,7 +21,7 @@ load_scripts(
 # source(..., local=TRUE)
 
 define_initialization({
-  assign('aaa', session, envir = globalenv())
+  # assign('aaa', session, envir = globalenv())
   ##
   ## Make sure power (referenced) exists
   ## with the following line, RAVE will pop up a dialogue if
