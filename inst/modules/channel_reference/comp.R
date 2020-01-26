@@ -50,7 +50,7 @@ define_initialization({
     }
 
     check_load_volt()
-    brain = rave::rave_brain2(subject)
+    local_data$brain = rave::rave_brain2(subject)
     # Load current brain
 })
 
