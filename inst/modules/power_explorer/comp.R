@@ -273,30 +273,30 @@ define_input(
   
   # filter 1: p-value filter
   define_input(
-    definition = selectInput('pval_filter', label = HTML('Functional Filters<br/>p-value'),
+    definition = selectInput('p_filter', label = HTML('Functional Filters<br/>p-value'),
                              choices=c('p', 'FDR(p)', 'Bonf(p)'),
                              selected = 'FDR(p)', multiple = FALSE))
   define_input(
-    definition = selectInput('pval_operator', label = '',
+    definition = selectInput('p_operator', label = '',
                              choices=c('<', '>', '<=', '>='), selected = '<', multiple = FALSE))
   define_input(
-    definition = textInput('pval_operand', label = '', value = 0.01))
+    definition = textInput('p_operand', label = '', value = 0.01))
   
   # stat filter for t-value
   define_input(
-    definition = selectInput('tval_filter', label = 't-value',
-                             choices=c('t', '|t|'), selected = 't', multiple = FALSE))
+    definition = selectInput('t_filter', label = 't-value',
+                             choices=c('t', 'abs(t)'), selected = 't', multiple = FALSE))
   define_input(
-    definition = selectInput('tval_operator', label = ' ',
+    definition = selectInput('t_operator', label = ' ',
                              choices=c('<', '>', '<=', '>='), selected = '>', multiple = FALSE))
   define_input(
-    definition = textInput('tval_operand', label= ' '))
+    definition = textInput('t_operand', label= ' '))
   
   # stat filter for mean
   # this filter should be dynamic based on the contents of the statistical output
   define_input(
     definition = selectInput('mean_filter', label = 'mean response',
-                             choices=c('b0', 'abs(b0)'), selected = 'b0', multiple = FALSE))
+                             choices=c('mean', 'abs(mean)'), selected = 'mean', multiple = FALSE))
   define_input(
     definition = selectInput('mean_operator', label = ' ',
                              choices=c('<', '>', '<=', '>='), selected = '>', multiple = FALSE))
@@ -402,10 +402,15 @@ define_input(
   definition = checkboxInput(inputId = 'show_result_densities', label='Show frequency plots beside results output', value=TRUE)
 )
 
-# define_input(
-#   definition = selectInput(inputId = 'which_result_to_show_on_electrodes', label = 'Across electrodes results to show', multiple=FALSE,
-#                            choices = c('Omnibus Activity (across all active trial types)'), selected = 'Omnibus Activity (across all active trial types)')
-# )
+define_input(
+  definition = selectInput(inputId = 'which_result_to_show_on_electrodes', label = 'Across electrodes results to show', multiple=FALSE,
+                           choices = c('Omnibus Activity (across all active trial types)'), selected = 'Omnibus Activity (across all active trial types)')
+)
+
+define_input(
+  definition = checkboxInput(inputId = 'synch_to_3dviewer',
+                             label = 'Synch display variable to 3d Viewer', value=TRUE)
+)
 
 define_input(
   definition = customizedUI('graph_export')
@@ -421,13 +426,14 @@ define_input(
 #
 # deterime which varibles only need to trigger a render, not an exectute
 render_inputs <- c(
+  'which_result_to_show_on_electrodes', 'synch_to_3dviewer',
   'sort_trials_by_type', 'draw_decorator_labels', 'PLOT_TITLE', 'show_outliers_on_plots', 'background_plot_color_hint',
   'invert_colors_in_palette', 'reverse_colors_in_palette', 'color_palette', 'heatmap_color_palette', 'heatmap_number_color_values',
   'max_zlim','plot_time_range', 'invert_colors_in_heatmap_palette', 'reverse_colors_in_heatmap_palette',
   # 'heatmap_truncate_less_than',
-  'tval_filter', 'pval_filter', 'mean_filter', 'show_result_densities',
-  'tval_operator', 'pval_operator', 'mean_operator', 
-  'tval_operand', 'pval_operand', 'mean_operand', 'analysis_filter_elec_2', 'analysis_filter_elec',
+  't_filter', 'p_filter', 'mean_filter', 'show_result_densities',
+  't_operator', 'p_operator', 'mean_operator', 
+  't_operand', 'p_operand', 'mean_operand', 'analysis_filter_elec_2', 'analysis_filter_elec',
   'analysis_filter_variable', 'analysis_filter_variable_2', 'show_heatmap_range'
 )
 
@@ -471,8 +477,10 @@ input_layout = list(
   ),
   '[-]Find + Export active electrodes' = list(
     c('show_result_densities'),
-    c('pval_filter', 'pval_operator', 'pval_operand'),
-    c('tval_filter', 'tval_operator', 'tval_operand'),
+    c('which_result_to_show_on_electrodes'), 
+    c('synch_to_3dviewer'),
+    c('p_filter', 'p_operator', 'p_operand'),
+    c('t_filter', 't_operator', 't_operand'),
     c('mean_filter', 'mean_operator', 'mean_operand'),
     c('analysis_filter_variable', 'analysis_filter_elec'),
     c('analysis_filter_variable_2', 'analysis_filter_elec_2'),
@@ -562,6 +570,7 @@ define_output(
   title = 'Click Info',
   width=2, order=4.1
 )
+
 
 # define_output(
 #   definition = plotOutput('across_electrodes_f_histogram'),

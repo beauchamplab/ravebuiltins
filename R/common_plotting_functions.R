@@ -36,7 +36,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
         max_char_count = max(sapply(hmaps, function(h) ifelse(h$has_trials, max(nchar(h$conditions)), 1)))
         
         par(mar = c(5.1,
-                    5.1 + max(0,(max_char_count - 5)*0.85),
+                    5.1 + max(0,(max_char_count - 5)*0.95),
                     2, 2))
     }
 
@@ -134,6 +134,18 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
     
     invisible(hmaps)
 }
+
+build_group_names <- function(groups) {
+    gnames = sapply(groups, `[[`, 'group_name')
+    gnames[gnames == ""] = paste0('rave_group_', LETTERS[which(gnames=='')])
+    return(gnames)
+}
+
+build_group_contrast_labels <- function(group_names) {
+    apply(combn(length(group_names),2), 2, 
+          function(x) paste(group_names[x],collapse='.vs.'))
+}
+
 
 # show power over time with MSE by condition
 time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, xrange=NULL) {

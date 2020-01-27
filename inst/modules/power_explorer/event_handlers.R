@@ -362,6 +362,31 @@ observeEvent(input$windowed_by_trial_dbl_click, {
     update_trial_outlier_list()
 })
 
+observeEvent(input$GROUPS, {
+    print('group_changed')
+    choices = c('Omnibus Activity (across all active trial types)')
+    grp = input$GROUPS
+    
+    assign('GROUPS', GROUPS, envir=globalenv())
+    
+    gnames = build_group_names(grp)
+    if(length(gnames) > 1) {
+        print('building labels')
+        lbls = build_group_contrast_labels(gnames)
+        choices %<>% c(lbls)
+    }
+    selected = input$which_result_to_show_on_electrodes
+    if(!(selected %in% choices)) {
+        selected = choices[1]
+    }
+    
+    # print('updating which_result_to_show_on_electrodes')
+    # print(choices)
+    # print(selected)
+    updateSelectInput(session, 'which_result_to_show_on_electrodes',
+                      choices=choices, selected=selected)
+})
+
 output$trial_click <- renderUI({
     .click <- local_data$click_info
     .disc = ''
@@ -388,4 +413,3 @@ click_output = function() {
     return(HTML("<div style='margin-left: 5px; min-height:360px'>" %&%
     "<p style='margin-top:5px'>" %&% local_data$instruction_string %&% '</p>' %&% .disc %&% '</div>'))
 }
-

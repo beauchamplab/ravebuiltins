@@ -29,6 +29,14 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
     controllers[['Background Color']] = bgcolor
   }
   
+  if(input$synch_to_3dviewer) {
+    
+    # set the display to mean and the threshold to t-score
+    
+    # controllers[['Display Data']] = 
+  }
+  
+  
   if( need_calc ){
     or = cache(name='omnibus_results')
     
@@ -346,7 +354,6 @@ write_out_graphs <- function(conns=NA, plot_functions, dir, prefix, ...) {
       cat2(paste('plotting:', fff(dev.set(dev_num))), level = 'INFO')
       #get the function named by graf
       get(graf, envir = asNamespace('ravebuiltins'))(.results)
-      
       
       # match.fun(graf)(.results)
       if(write_out_data) {

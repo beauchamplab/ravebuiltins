@@ -4,7 +4,7 @@
 # rm(list = ls(all.names=T)); rstudioapi::restartSession()
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
-mount_demo_subject(T)
+mount_demo_subject()
 init_module('power_explorer', TRUE)
 
 # attachDefaultDataRepository()
@@ -274,8 +274,7 @@ get_stats_per_electrode <- function(ttypes){
     }
     group_f = gnames[group]
     df_shell = data.frame(group_f, flat_data$orig_trial_number)
-    lbls = apply(combn(nlevels(flat_data$group),2), 2, 
-                 function(x) paste(gnames[x],collapse='.vs.'))
+    lbls = build_group_contrast_labels(gnames)
     
     # trials_per_group = GROUPS[[1]]$group_conditions
   }
@@ -312,6 +311,7 @@ get_stats_per_electrode <- function(ttypes){
     if(has_data > 1) {
       df2 = df_shell
       df2$y = trial_means[as.character(df_shell$flat_data.orig_trial_number)]
+      df2$group_f %<>% factor(levels = gnames)
       # print('calling ls means')
       cntr = summary(lsmeans::lsmeans(lm(y ~ group_f, data=df2),pairwise ~ group_f), adjust='none')$contrasts
       # print('creating cmat')
@@ -321,7 +321,7 @@ get_stats_per_electrode <- function(ttypes){
     
     return(res)
   } ,
-  .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e', 'group_f', 'has_data',
+  .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e', 'gnames', 'has_data',
                'trial_numbers', 'FREQUENCY', 'ANALYSIS_WINDOW', 'BASELINE_WINDOW', '.fast_column_se', 'df_shell'),
   .gc = FALSE)
   
@@ -332,9 +332,9 @@ get_stats_per_electrode <- function(ttypes){
   
   # do we need to adjust the p-values?
   # if they are using adjusted p-values in the filter, then put them in the result
-  if(pval_filter != 'p') {
+  if(p_filter != 'p') {
     # assign('p', p, envir = globalenv())
-    adjusted_p = p.adjust(combined_res[3,], method=get_p.adjust_method(pval_filter))
+    adjusted_p = p.adjust(combined_res[3,], method=get_p.adjust_method(p_filter))
     # print("pval adjustment:")
     # print(m_sd(adjusted_p-combined_res[3,]))
     
@@ -349,7 +349,7 @@ get_stats_per_electrode <- function(ttypes){
     } else {
       combined_res %<>% rbind(adjusted_p)
     }
-    rownames(combined_res)[4] = pval_filter
+    rownames(combined_res)[4] = p_filter
 
   }
   
@@ -421,7 +421,7 @@ windowed_comparison_plot(results)
 by_trial_heat_map_plot(results)
 over_time_plot(results)
 by_electrode_heat_map_plot(results)
-
+across_electrode_statistics_plot(results)
 view_layout('power_explorer')
 
 mount_demo_subject()
