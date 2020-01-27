@@ -25,6 +25,7 @@
 #' @importFrom grDevices col2rgb
 #' @importFrom grDevices colorRampPalette
 #' @importFrom grDevices rgb
+#' @importFrom grDevices adjustcolor
 #' 
 #' @import graphics
 #' 
@@ -34,6 +35,7 @@
 #' @importFrom stats quantile
 #' @importFrom stats p.adjust
 #' @importFrom stats symnum
+#' @importFrom stats density
 #' 
 NULL
 

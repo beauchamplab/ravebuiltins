@@ -101,7 +101,14 @@ observeEvent(input[[('bipolar_table_cell_edit')]], {
 
 
 output[['elec_loc']] <- threeBrain::renderBrain({
+    
     local_data$refresh
+    brain = local_data$brain
+    
+    if(is.null(brain)){
+        return()
+    }
+    
     group_info = current_group() 
     group_info %?<-% list(electrodes = NULL)
     name = group_info$rg_name
@@ -137,11 +144,14 @@ output[['elec_loc']] <- threeBrain::renderBrain({
         Type = values,
         Note = marker
     )
+    if(!nrow(tbl)){ return() }
     brain$set_electrode_values( tbl )
+    bg = ifelse('dark' %in% rave::get_rave_theme()$theme, '#1E1E1E', '#FFFFFF')
     
     if( isTRUE(local_data$load_mesh) ){
         brain$plot(
             volumes = FALSE, surfaces = TRUE, side_canvas = FALSE, 
+            background = bg,
             control_panel = FALSE, palettes = list(
                 'Type' = c('red', 'navy')
             ), side_display = FALSE, control_display = FALSE, cex = 0.5)
@@ -149,6 +159,7 @@ output[['elec_loc']] <- threeBrain::renderBrain({
         # Maybe load N27 brain if not exists
         brain$plot(
             volumes = FALSE, surfaces = FALSE, side_canvas = FALSE, 
+            background = bg,
             control_panel = FALSE, palettes = list(
                 'Type' = c('red', 'navy')
             ), side_display = FALSE, control_display = FALSE, cex = 0.5)
@@ -166,7 +177,7 @@ observeEvent(input$load_mesh, {
 
 
 elec_loc_ui = function(){
-    if(is.null(brain)){
+    if(!length(local_data$brain)){
         div(tags$small('[Cannot find surface files. Hide viewer.]'), style='color:#E2E2E2')
     }else{
         div(
