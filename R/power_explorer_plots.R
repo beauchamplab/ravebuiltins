@@ -428,7 +428,7 @@ get_foreground_color <- function() {
 }
 
 invert_palette <- function(pal) {
-    inv = c(255, 255, 255, 255) - col2rgb(apal, alpha=TRUE)
+    inv = c(255, 255, 255, 255) - col2rgb(pal, alpha=TRUE)
     rgb(t(inv), alpha=255, maxColorValue = 255)    
 }
 
