@@ -367,7 +367,7 @@ observeEvent(input$GROUPS, {
     choices = c('Omnibus Activity (across all active trial types)')
     grp = input$GROUPS
     
-    assign('GROUPS', GROUPS, envir=globalenv())
+    # assign('GROUPS', GROUPS, envir=globalenv())
     
     gnames = build_group_names(grp)
     if(length(gnames) > 1) {

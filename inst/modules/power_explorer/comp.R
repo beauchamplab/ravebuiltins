@@ -595,7 +595,7 @@ define_output(
 
 define_output(
   definition = plotOutput('across_electrode_statistics_plot'),
-  title = 'Per electrode t-test against baseline, all active trial types. Filled circles pass all filters, open circles do not]',
+  title = 'Per electrode statitical tests [Filled circles pass all filters, open circles do not]',
   width = 12,
   order = -1#,
   # alt_text = 'This does...'

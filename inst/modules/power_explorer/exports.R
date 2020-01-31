@@ -26,7 +26,11 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
     bgcolor %<>% col2hex
   }
   if(any(c('#000000', '#1E1E1E', '#FFFFFF') %in% controllers[['Background Color']]) || !length(controllers[['Background Color']])){
+    # print('changing background color')
     controllers[['Background Color']] = bgcolor
+  } else {
+    # print('not updating bg color')
+    # print(controllers[['Background Color']])
   }
   
   if(input$synch_to_3dviewer) {
@@ -109,85 +113,6 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   # brain$view(value_range = c(-1,1) * max(abs(values)),
   #            color_ramp = rave_heat_map_colors, side_shift = c(-265, 0))
 }
-
-
-# Export functions
-get_summary <- function() {
-  # here we just want an estimate of the power at each trial for each electrode
-  # get the labels for each trial
-  
-  ..g_index <- 1
-  GROUPS = lapply(GROUPS, function(g){
-    g$Trial_num = epoch_data$Trial[epoch_data$Condition %in% unlist(g$group_conditions)]
-    
-    if(g$group_name == '') {
-      g$group_name <-  LETTERS[..g_index]
-      ..g_index <<- ..g_index + 1
-    }
-    
-    return(g)
-  })
-  rm(..g_index)
-  
-  tnum_by_condition <- sapply(GROUPS, function(g) {
-    list(g$Trial_num)
-  }) %>% set_names(sapply(GROUPS, '[[', 'group_name'))
-  
-  all_trials <- unlist(tnum_by_condition)
-  # .bl_power <- cache(
-  # key = list(subject$id, preload_info$electrodes, BASELINE_WINDOW, preload_info),
-  # val = baseline(power, BASELINE_WINDOW[1],  BASELINE_WINDOW[2], hybrid = FALSE, mem_optimize = FALSE)
-  # )
-  
-  .bl_power <- baseline(power, BASELINE_WINDOW[1], BASELINE_WINDOW[2], hybrid = FALSE, mem_optimize = FALSE)
-  
-  # subset out the trials, frequencies, and time rane
-  .power <- .bl_power$subset(Frequency = Frequency %within% FREQUENCY,
-                             Time = Time %within% ANALYSIS_WINDOW,
-                             Trial = Trial %in% all_trials, data_only = FALSE)
-  
-  stimulus <- epoch_data$Condition[as.numeric(.power$dimnames$Trial)]
-  
-  condition <- .power$dimnames$Trial %>% as.numeric %>% sapply(function(tnum) {
-    #ensure only one group is ever selected? or we could throw an error on length > 1
-    sapply(tnum_by_condition, `%in%`, x=tnum) %>% which %>% extract(1)
-  }) %>% names
-  
-  # rutabaga over Freq and Time
-  # by_elec <- rutabaga::collapse(.power$data, keep=c(1,4)) / prod(.power$dim[2:3])
-  by_elec <- .power$collapse(keep = c(1,4), method = 'mean')
-  
-  data.frame('subject_id' = subject$id,
-             'elec' = rep(preload_info$electrodes, each=length(condition)),
-             'trial' = rep(seq_along(condition), times=length(preload_info$electrodes)),
-             'condition' = rep(condition, length(preload_info$electrodes)),
-             'power' = c(by_elec)
-  )
-}
-
-# export_stats = function(conn=NA, lbl='stat_out', dir, ...){
-#   out_dir <- dir #module_tools$get_subject_dirs()$module_data_dir %&% '/power_explorer/'
-# 
-#   if(!dir.exists(out_dir))    {
-#     dir.create(out_dir, recursive = TRUE)
-#   }
-# 
-#   if(is.na(conn)) {
-#     fout <- out_dir %&% lbl %&% '.RDS'
-#   } else {
-#     fout <- conn #out_dir %&% conn
-#   }
-# 
-# 
-#   # run through all the active electrodes and get the data
-#   # out_data <- lapply_async(electrodes, process_for_stats)
-# 
-#   out_data <- get_summary()
-# 
-#   saveRDS(out_data, file = fout)
-# 
-#   invisible(out_data)
-# }
 
 
 ## modified from downloadButton

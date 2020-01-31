@@ -22,43 +22,6 @@ draw_cut_point <- function(cut=NULL) {
 }
 
 
-#' @title Histogram of F-tests per electrode
-#' @param results results returned by module
-#' @param ... other parameters passed to module output
-#' @export
-across_electrodes_f_histogram <- function(results, ...) {
-    has_data <- results$get_value('has_data', FALSE)
-    
-    validate(need(has_data, message="No Condition Specified"))
-    set_palette_helper(results)
-    
-    ts <- get_active_result(results)[2,]
-    # par('mar'=.1 + c(5,4,1,2))
-    ylim = range(pretty(ts))
-    plot_clean(seq_along(ts), ylim)
-    draw_passing_points(ts, results)
-    
-    unit_of_analysis=results$get_value('unit_of_analysis')
-    rave_axis(2, at=axTicks(2) %>% round %>% unique)
-    
-    wrtsoe = results$get_value('which_result_to_show_on_electrodes')
-    rave_title(paste('t-test', '\n',
-                     get_result_name(wrtsoe), unit_of_analysis),
-               cex = rave_cex.main*.75)
-    
-    rave_axis_labels(ylab='t-score')
-    across_electrodes_xaxis(vector_to_row_matrix(ts))
-    
-    cut <- as.numeric(results$get_value('tval_operand'))
-    draw_cut_point(cut)
-    
-    return(invisible(list(
-        y =ts,
-        ylim=ylim,
-        cut=cut
-    )))
-}
-
 across_electrode_statistics_plot <- function(results, ...) {
     validate(need(results$get_value('has_data', FALSE),
                   message="No Condition Specified"))
@@ -82,14 +45,9 @@ across_electrode_statistics_plot <- function(results, ...) {
     }
     par(mar=c(5.1, 4.1+2, 4.1, 2.1))
     
-    
-    wrap_density(
-        across_electrode_statistics_plot_helper(results, 'mean')
-    )
-    
-    wrap_density(
-        across_electrode_statistics_plot_helper(results, 't')
-    )
+    lapply(c('mean', 't'), function(sv) {
+        wrap_density(across_electrode_statistics_plot_helper(results, sv))
+    })
     
     wrap_density(
         across_electrode_statistics_plot_helper(
@@ -180,7 +138,7 @@ across_electrode_statistics_plot_helper <- function(results,
     rave_axis_labels(ylab=filter_name)
     draw_passing_points(res, results)
     
-    yat = axTicks(2) %>% pretty(n=4) %>% unique
+    yat = ylim#axTicks(2)# %>% pretty(n=4) %>% unique
     rave_axis(2, at=yat, labels = show_yaxis_labels)
     
     wrtsoe = results$get_value('which_result_to_show_on_electrodes')
@@ -202,46 +160,6 @@ across_electrode_statistics_plot_helper <- function(results,
         cut=cut
     ))
 }
-
-#' @title Histogram of per-condition means, per electrode
-#' @param results results returned by module
-#' @param ... other parameters passed to module output
-#' @export
-across_electrodes_beta_histogram <- function(results, ...) {
-    has_data <- results$get_value('has_data', FALSE)
-    validate(need(has_data, message="No Condition Specified"))
-    
-    set_palette_helper(results)
-    
-    unit_of_analysis = results$get_value('unit_of_analysis')
-    # omnibus_results <- results$get_value('omnibus_results')
-    ms <- get_active_result(results)[1,]
-    
-    # par('mar'=.1 + c(5,4,1,2))
-    ylim = range(pretty(ms, n=4) %>% pretty_round)
-    plot_clean(seq_along(ms), ylim)
-    draw_passing_points(ms, results)
-    
-    across_electrodes_xaxis(vector_to_row_matrix(ms))
-    yat = axTicks(2) %>% pretty_round %>% pretty(n=4) %>% unique
-    rave_axis(2, at=yat)
-    rave_axis_labels(ylab=unit_of_analysis)
-    wrtsoe = results$get_value('which_result_to_show_on_electrodes')
-    
-    # rave_title(sprintf('Mean %s', unit_of_analysis))
-    rave_title(paste('Expected Value', '\n',
-                     get_result_name(wrtsoe), unit_of_analysis),
-               cex = rave_cex.main*.75)
-    
-    cut <- draw_cut_point(as.numeric(results$get_value('mean_operand')))
-    
-    return(invisible(list(
-        y=ms,
-        ylim=ylim,
-        cut=cut
-    )))
-}
-
 
 rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.lab, ...) {
     col %?<-% get_foreground_color()
@@ -363,59 +281,6 @@ get_result_name <- function(full_name) {
         return ("Across all trials")
     }
     return(full_name)
-}
-
-across_electrodes_corrected_pvalue <- function(results, ...) {
-    has_data <- results$get_value('has_data', FALSE)
-    validate(need(has_data, message="No Condition Specified"))
-    set_palette_helper(results)
-    
-    ps <- get_active_result(results)[3,]
-    
-    filt <- results$get_value('p_filter')
-    pval_funcs <- list('p' = c,
-                       'FDR(p)' = function(p) p.adjust(p, method='fdr'),
-                       'Bonf(p)' = function(p) p.adjust(p, method='bonferroni'))
-    
-    
-    ps <- pval_funcs[[filt]](ps)
-    nl10 <- function(p) -log10(p)
-    # we want to determine the cut point based on the currently selected filters
-    # we need to check all the filters, in case they have multiple filters 
-    
-    .col <- get_foreground_color()
-    
-    
-    cut <- as.numeric(results$get_value('p_operand'))
-    ylim = pretty(nl10(c(ps, ifelse(is.null(cut), 0.01, cut))))
-    
-    plot_clean(seq_along(ps), ylim=ylim)
-    
-    if(!is.null(cut)) {
-        segments(x0=1, x1=length(ps), y0=nl10(cut), lty=2, col='orangered')
-        rave_axis(4, at=nl10(cut), labels=results$get_value('p_operand'),
-                  tcl=0, cex.axis = 1, lwd=0, mgpy=c(-3, -1, -0))
-    }
-    # get_foreground_color()
-    across_electrodes_xaxis(vector_to_row_matrix(ps))
-    draw_passing_points(nl10(ps), results)
-    
-    title(xlab='Electrode #', ylab=results$get_value('p_filter'),
-          col.lab = .col, cex.lab=rave_cex.lab*get_cex_for_multifigure(), main = '')
-    
-    unit_of_analysis = results$get_value('unit_of_analysis')
-    wrtsoe = results$get_value('which_result_to_show_on_electrodes')
-    rave_title(paste(filt, '\n', wrtsoe, unit_of_analysis),
-               cex = rave_cex.main*.75)
-    
-    axt <- axTicks(2)
-    rave_axis(2, at=axt, labels = F, tcl=0, mgpy=c(3, .75, 0))
-    
-    # not sure how to vectorize an expression involving bquote :(
-    for(ii in seq_along(axt)) {
-        rave_axis(2, at=axt[ii], labels=bquote(10**-.(axt[ii])), cex.axis = rave_cex.axis*.5*get_cex_for_multifigure())
-    }
-    invisible(list(y=nl10(ps), ylim=ylim, cut=nl10(cut)))
 }
 
 get_foreground_color <- function() {
@@ -608,9 +473,17 @@ by_trial_heat_map_plot <- function(results) {
                 by_trial_heat_map_data[[ii]]$has_trials <- FALSE
                 print('no trials')
             } else {
+                
+                xlab = attr(by_trial_heat_map_data[[ii]]$data, 'xlab')
+                ylab = attr(by_trial_heat_map_data[[ii]]$data, 'ylab')
+
                 # note that $data is perhaps the transpose of what you expect, that's because the image() function requires
                 # the transpose of what you might expect to plot what you might expect
+                # subsetting the data drops the attributes
                 by_trial_heat_map_data[[ii]]$data <- by_trial_heat_map_data[[ii]]$data[,.clean]
+                attr(by_trial_heat_map_data[[ii]]$data, 'xlab') = xlab
+                attr(by_trial_heat_map_data[[ii]]$data, 'ylab') = ylab
+
                 by_trial_heat_map_data[[ii]]$Trial_num <- by_trial_heat_map_data[[ii]]$Trial_num[.clean]
                 by_trial_heat_map_data[[ii]]$trials <- by_trial_heat_map_data[[ii]]$trials[.clean]
                 by_trial_heat_map_data[[ii]]$range <- .fast_range(c(by_trial_heat_map_data[[ii]]$data))

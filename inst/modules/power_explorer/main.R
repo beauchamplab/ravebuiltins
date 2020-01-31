@@ -35,6 +35,10 @@ assertthat::assert_that(length(requested_electrodes) >= 1 &&
 # grab the subject code so it can be used later
 subject_code = subject$subject_code
 
+
+assertthat::assert_that(length(GROUPS) > 0,
+                        msg = 'Must have at least one group with data')
+
 # Clean group input data
 group_data = lapply(seq_along(GROUPS), function(idx) {
   g = GROUPS[[idx]]
@@ -225,9 +229,12 @@ for(ii in which(has_trials)){
   # for the scatter_bar_data we also need to get m_se within condition w/o the outliers
   scatter_bar_data[[ii]]$mse <- .fast_mse(scatter_bar_data[[ii]]$data[scatter_bar_data[[ii]]$is_clean])
   
-  flat_data %<>% rbind(data.frame('group'=ii,
-                                  'orig_trial_number' =group_data[[ii]]$Trial_num,
-                                  'y' = with(scatter_bar_data[[ii]], data[is_clean])))
+  flat_data %<>% rbind(
+    data.frame('group'= ii,
+               'orig_trial_number'= group_data[[ii]]$Trial_num[scatter_bar_data[[ii]]$is_clean],
+               'y' = with(scatter_bar_data[[ii]], data[is_clean])
+    )
+  )
   
   print('loop ' %&% ii)
   print(proc.time() - .time_stamp)
