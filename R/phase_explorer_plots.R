@@ -159,7 +159,7 @@ itpc_plot_heatmap = function(results, ...){
     #TODO make this first check if there is data here
     frequency = plot_data[[1]]$all_frequencies
 
-    max_zlim <- results$get_value('max_zlim')
+    max_zlim <- results$get_value('max_zlim', 0)
     if(max_zlim == 0) {
         max_zlim <- max(actual_lim)
     }

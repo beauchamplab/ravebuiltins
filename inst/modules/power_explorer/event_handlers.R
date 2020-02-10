@@ -14,6 +14,26 @@ local_data = reactiveValues(
 )
 
 
+# trigger 3d viewer rebuild
+rebuild_3d_viewer <- function() {
+    if(rave::rave_context()$context %in% c('rave_running', 'default')) {
+        dipsaus::cat2("Updating 3D viewer from r3dv")
+        btn_val = (input[['power_3d_btn']]) - 0.001
+        dipsaus::set_shiny_input(session = session, inputId = 'power_3d_btn',
+                                 value = btn_val, method = 'proxy', priority = 'event')
+    }
+}
+    
+###
+observeEvent(input$heatmap_color_palette, {
+    if(input$viewer_color_palette == 'Synch with heatmaps') {
+        rebuild_3d_viewer()
+    }
+})
+observeEvent(input$viewer_color_palette, {
+    rebuild_3d_viewer()
+})
+
 # observeEvent(input$btn_save_analysis_settings, {
 #     tstmp <- strftime(Sys.time(), format = '%Y-%h-%d')
 #     
@@ -362,27 +382,36 @@ observeEvent(input$windowed_by_trial_dbl_click, {
     update_trial_outlier_list()
 })
 
+observeEvent(input$synch_3d_viewer_bg, {
+    if(isTRUE(input$synch_3d_viewer_bg)) {
+        rebuild_3d_viewer()
+    }
+})
+
+observeEvent(input$background_plot_color_hint, {
+    if(isTRUE(input$synch_3d_viewer_bg)) {
+        rebuild_3d_viewer()
+    }
+})
+
+
+
 observeEvent(input$GROUPS, {
-    print('group_changed')
+    # print('group_changed')
     choices = c('Omnibus Activity (across all active trial types)')
     grp = input$GROUPS
-    
-    # assign('GROUPS', GROUPS, envir=globalenv())
     
     gnames = build_group_names(grp)
     if(length(gnames) > 1) {
         print('building labels')
         lbls = build_group_contrast_labels(gnames)
-        choices %<>% c(lbls)
+        choices %<>% c(as.character(gnames), lbls)
     }
     selected = input$which_result_to_show_on_electrodes
     if(!(selected %in% choices)) {
         selected = choices[1]
     }
     
-    # print('updating which_result_to_show_on_electrodes')
-    # print(choices)
-    # print(selected)
     updateSelectInput(session, 'which_result_to_show_on_electrodes',
                       choices=choices, selected=selected)
 })

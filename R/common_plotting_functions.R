@@ -23,11 +23,17 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
                                 show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
                                 PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), xrange=NULL, ...) {
     rave_context()
+    
     k <- sum(hmaps %>% get_list_elements('has_trials'))
     orig.pars <- layout_heat_maps(k)
     on.exit({
         par(orig.pars)
     })
+    
+    if(is.na(max_zlim)) {
+        max_zlim = 0
+    }
+    
 
     # this is to add some extra spacing on the LEFT margin to allow, e.g., longer axis titles
     # we could also set this adaptively based on the max(nchar(...)) for the appropriate labels from hmap[[ii]] condition names
@@ -44,7 +50,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
     # actual data range, as opposed to the max zlim which controls the plottable range
     actual_lim = get_data_range(hmaps)
 
-    if(max_zlim==0) {
+    if(max_zlim == 0) {
         max_zlim <- max(abs(actual_lim), na.rm=TRUE)
     }
 
@@ -1290,14 +1296,14 @@ cache_heatmap_palette <- function(pname, pal) {
     cache(key='current_rave_heatmap_palette', val=pal, 'current_rave_heatmap_palette', replace=TRUE)
 }
 
-expand_heatmap <- function(pal, results, ncolors) {
+expand_heatmap <- function(pal, results, ncolors, ...) {
     # interpolate_type=c('linear', 'spline'), color_space = c('Lab', 'rgb'),
     if(!missing(results)) {
         ncolors <- results$get_value('heatmap_number_color_values', 101)
         pal %?<-% results$get_value('heatmap_color_palette')
     }
     
-    colorRampPalette(pal, space='Lab')(ncolors)
+    colorRampPalette(pal, space='Lab', ...)(ncolors)
 }
 
 

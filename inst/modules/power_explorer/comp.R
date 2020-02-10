@@ -141,6 +141,10 @@ define_input(
 )
 
 define_input(
+  customizedUI('sheth_special')
+)
+
+define_input(
   definition = actionButton('save_new_epoch_file',
                             label=HTML("Save Outliers"),
                             icon =icon('file-export')),
@@ -154,14 +158,21 @@ define_input(
 
 define_input(
   definition = numericInput('max_zlim', 'Heat map range (0: data range)', value = 0, min = 0, step = 1))
+
 define_input(
   definition = checkboxInput('show_heatmap_range', 'Show data range on heat maps', value=TRUE))
+
+
+define_input(
+  definition = checkboxInput('synch_3d_viewer_bg',
+                             'Override 3d viewer background', value=FALSE))
 
 # define_input(
 #   definition = checkboxInput('log_scale', 'Log Freq (NI)'))
 
 define_input(
-  definition = checkboxInput('sort_trials_by_type', 'Sort Trials'))
+  definition = checkboxInput('sort_trials_by_type',
+                             'Arrange trials w/n condition by name'))
 
 # define_input(
 #     definition = checkboxInput('collapse_using_median', 'Collapse w/ Median (NI)'))
@@ -258,12 +269,7 @@ define_input(
   define_input(
     definition = selectInput('analysis_filter_elec', label = 'Values to include',
                              choices=NULL, selected = NULL, multiple = TRUE
-    ),
-    init_args = c('choices', 'selected'),
-    init_expr = {
-      choices =  unique(elec_labels)
-      selected = unique(elec_labels)
-    }
+    )
   )
   define_input(
     definition = selectInput('analysis_filter_elec_2', label = 'Values to include',
@@ -365,6 +371,19 @@ define_input(
   )
   
   define_input(
+    definition = selectInput(inputId = 'viewer_color_palette', label='3dViewer color palette', multiple=FALSE, 
+                             choices = c('Synch with heatmaps', get_heatmap_palette(get_palette_names = TRUE)),
+                             selected = 'Synch with heatmaps'),
+    
+    # cache the color palette across data reloads. needs init_args and init_expr
+    init_args = c('selected'),
+    init_expr = {
+      selected = cache_input('3dviewer_heatmap_color_palette', val = 'Synch with heatmaps')
+    }
+  )
+  
+  
+  define_input(
     definition = numericInput(inputId = 'heatmap_number_color_values', label='Unique Color Values',
                               value = 101, min=2, max=1001)
   )
@@ -384,10 +403,10 @@ define_input(
   #   definition = numericInput(inputId = 'heatmap_truncate_less_than', label='Heat map min (0: data range)', min=0)
   # )
   
-  define_input(
-    definition = numericInput('max_zlim', 'Heat map max (0: data range)', value = 0, min = 0, step = 1))
-  
-  
+  # define_input(
+  #   definition = numericInput('max_zlim', 'Heat map max (0: data range)', value = 0, min = 0, step = 1))
+  # 
+  # 
   # define_input(
   #   definition = numericInput('heatmap_truncate_greater_than', 'Heat map max (0: data range)', value = 0, min = 0, step = 1))
   # 
@@ -407,10 +426,12 @@ define_input(
                            choices = c('Omnibus Activity (across all active trial types)'), selected = 'Omnibus Activity (across all active trial types)')
 )
 
-define_input(
-  definition = checkboxInput(inputId = 'synch_to_3dviewer',
-                             label = 'Synch display variable to 3d Viewer', value=TRUE)
-)
+
+#TODO think about the right way to do this...
+# define_input(
+#   definition = checkboxInput(inputId = 'synch_to_3dviewer',
+#                              label = 'Synch display variable to 3d Viewer', value=TRUE)
+# )
 
 define_input(
   definition = customizedUI('graph_export')
@@ -452,9 +473,9 @@ define_input_auto_recalculate(
 #
 # determine which variables only need to be set, not triggering rendering nor executing
 manual_inputs <- c(
-  'graph_export', 'trial_type_filter', 'synch_with_trial_selector', 'download_electrodes_csv', 'movie_export_trials', 'plots_to_export',
+  'synch_3d_viewer_bg', 'viewer_color_palette', 'graph_export', 'trial_type_filter', 'synch_with_trial_selector', 'download_electrodes_csv', 'movie_export_trials', 'plots_to_export',
   'btn_save_analysis_settings', 'btn_load_analysis_settings', 'include_outliers_in_export',
-  'export_what', 'analysis_prefix', 'export_data', 'current_active_set', 'export_also_download', 'export_time_window'
+  'export_what', 'analysis_prefix', 'export_data', 'current_active_set', 'export_also_download', 'export_time_window', 'sheth_special'
 )
 
 # Define layouts if exists
@@ -498,6 +519,7 @@ input_layout = list(
     'plot_time_range',
     c('PLOT_TITLE'),
     'draw_decorator_labels',
+    c('sort_trials_by_type'),
     c('color_palette',
     'reverse_colors_in_palette', 'invert_colors_in_palette'),
     c('heatmap_color_palette', 'heatmap_number_color_values',
@@ -505,8 +527,8 @@ input_layout = list(
       c('max_zlim', 
         # 'heatmap_truncate_less_than',
         'show_heatmap_range'),
-    c('background_plot_color_hint'),
-    c('sort_trials_by_type')
+    c('viewer_color_palette'),
+    c('background_plot_color_hint', 'synch_3d_viewer_bg')
     #FIXME collapse_using_median should be in Analysis Settings???
     # c('log_scale', , 'collapse_using_median')
   ),
@@ -521,6 +543,8 @@ input_layout = list(
     'show_outliers_on_plots',
     'trial_outliers_list',
     'clear_outliers', 'save_new_epoch_file'
+  ), '[-]Custom Output Types' = list(
+    'sheth_special'
   )
 )
 

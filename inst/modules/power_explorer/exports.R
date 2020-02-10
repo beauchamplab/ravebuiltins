@@ -1,13 +1,24 @@
 input <- getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 
+
+fix_name_for_js <- function(nm) {
+  str_replace_all(nm, c(
+    '\\(' = '.',
+    '\\)' = '.',
+    '\\ ' = '.',
+    '-' = '.'
+  ))
+}
+
 power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   
   showNotification(p('Generating 3d viewer...'))
-  brain = rave::rave_brain2(subject = subject);
+  brain = rave::rave_brain2(subject = subject)
   
   if(is.null(brain)){
     rave::close_tab('power_explorer', 'Results on surface')
+    showNotification('No surface file is available...', duration=2)
   }
   
   shiny::validate(shiny::need(!is.null(brain), message = 'No surface/volume file found!'))
@@ -17,29 +28,16 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   
   zoom_level = shiny::isolate(viewer_proxy$main_camera$zoom)
   controllers = viewer_proxy$get_controllers()
-  # bgcolor = ifelse('dark' %in% rave::get_rave_theme()$themes, '#1E1E1E', '#FFFFFF')
   
-  bgcolor = input$background_plot_color_hint
-  if(bgcolor == 'Gray') {
-    bgcolor = '#1E1E1E'
-  } else {
-    bgcolor %<>% col2hex
-  }
-  if(any(c('#000000', '#1E1E1E', '#FFFFFF') %in% controllers[['Background Color']]) || !length(controllers[['Background Color']])){
-    # print('changing background color')
+  if(isolate(input$synch_3d_viewer_bg)) {
+    bgcolor = isolate(input$background_plot_color_hint)
+    if(bgcolor == 'Gray') {
+      bgcolor = '#1E1E1E'
+    } else {
+      bgcolor %<>% col2hex
+    }
     controllers[['Background Color']] = bgcolor
-  } else {
-    # print('not updating bg color')
-    # print(controllers[['Background Color']])
   }
-  
-  if(input$synch_to_3dviewer) {
-    
-    # set the display to mean and the threshold to t-score
-    
-    # controllers[['Display Data']] = 
-  }
-  
   
   if( need_calc ){
     or = cache(name='omnibus_results')
@@ -50,7 +48,7 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
     values$Time = 0
     
     brain$set_electrode_values(values)
-    assign('omnibus_results', omnibus_results, globalenv())
+    # assign('omnibus_results', omnibus_results, globalenv())
     
     # check to see if we've udpated the dependent variable. We do this by comparing this list of Possible DVs with the 
     # actual current DV
@@ -63,38 +61,47 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
       controllers[['Display Data']] = new_dv
       v = ceiling(max(abs(or[1,])) )
       controllers[['Display Range']] = sprintf('-%s,%s', v, v )
+      # tr = controllers[['Threshold Range']]
     }
     
-    if(!length(controllers[['Threshold Data']]) || controllers[['Threshold Data']] == '[None]'){
-      controllers[['Threshold Data']] = rownames(or)[2]
-      v = 1+ceiling(max(abs(or[2,])) )
-      controllers[['Threshold Range']] = sprintf('-%s,-2|2,%s', v, v)
-      # threshold format: -10,2|2,10
-    } else if(is_old_dv & controllers[['Threshold Data']] == 't') {
-      # we want to update the threshold range just in case
-      old_range = controllers[['Threshold Range']]
-      
-      if(str_detect(old_range, '|')) {
-        rng = str_split(str_split(old_range, '\\|')[[1]], ',')
-        new_mx = max(c(rng[[1]] %>% as.numeric %>% abs, 1+ceiling(max(abs(or[2,])) )))
-        controllers[['Threshold Range']] = sprintf('-%s,%s|%s,%s', new_mx, rng[[1]][2], rng[[2]][1], new_mx)
-      }
-    }
-    
+    # if(!length(controllers[['Threshold Data']]) || controllers[['Threshold Data']] == '[None]'){
+    #   controllers[['Threshold Data']] = rownames(or)[2]
+    #   v = 1+ceiling(max(abs(or[2,])) )
+    #   controllers[['Threshold Range']] = sprintf('-%s,-2|2,%s', v, v)
+    #   # threshold format: -10,2|2,10
+    # } else if(is_old_dv & controllers[['Threshold Data']] == 't') {
+    #   # we want to update the threshold range just in case
+    #   old_range = controllers[['Threshold Range']]
+    #   
+    #   if(str_detect(old_range, '|')) {
+    #     rng = str_split(str_split(old_range, '\\|')[[1]], ',')
+    #     new_mx = max(c(rng[[1]] %>% as.numeric %>% abs, 1+ceiling(max(abs(or[2,])) )))
+    #     controllers[['Threshold Range']] = sprintf('-%s,%s|%s,%s', new_mx, rng[[1]][2], rng[[2]][1], new_mx)
+    #   }
+    # }
+
     ### maybe we don't always want to show legend...
     controllers[['Show Legend']] = TRUE
-    pals = list('dv' = cache(name='current_rave_heatmap_palette'),
-                t = cache(name='current_rave_heatmap_palette'),
-                p = c('yellow', 'yellow', 'white')
-    )
-    names(pals)[1] = new_dv
     
-    re = brain$plot(symmetric = 0, palettes = pals,
-                    val_ranges = list(
-                      'p' = c(0,1),
-                      'FDR.p.' = c(0,1),
-                      'Bonf.p.' = c(0,1)
-                    ),
+    ##FIXME -- change this to use the 3dViewer heatmap selector. not yet built
+    cp = input$viewer_color_palette
+    if(is.null(cp) || cp == 'Synch with heatmaps') {
+      .colors = get_heatmap_palette(input$heatmap_color_palette)
+    } else {
+      .colors = get_heatmap_palette(cp)
+    }
+    pal = expand_heatmap(.colors, ncolors=128)
+    pval_pal = expand_heatmap(
+      rev(tail(.colors, ceiling(length(.colors)/2))),
+      ncolors=128, bias=10)
+    pals = list(pal)
+    pals[2:nrow(omnibus_results )] = pals
+    names(pals) = fix_name_for_js(rownames(omnibus_results))
+    
+    pals[str_detect(names(pals), 'p\\.')] = list(pval_pal)
+    pals[names(pals) %in% c('p')] = list(pval_pal)
+    
+     re = brain$plot(symmetric = 0, palettes = pals,
                     side_width = side_width / 2, side_canvas = TRUE, 
     side_display = display_side, start_zoom = zoom_level, controllers = controllers,
     control_presets = 'syncviewer', timestamp = FALSE)
@@ -128,6 +135,37 @@ graph_export = function(){
                           class = 'btn-primary text-white')
   )
 }
+
+
+customDownloadButton <- function(outputId, label='Download', class=NULL, icon_lbl="download", ...) {
+  
+  if(is.null(local_data$omnibus_results)) {
+    return(
+      tags$p('No data are available for export. Press calculate button.')
+    )
+  }
+  
+  tags$a(id = outputId,
+                 class = paste("btn btn-default shiny-download-link", class),
+                 href = "", target = "_blank", download = NA, 
+                 icon(icon_lbl), label, ...)
+}
+
+sheth_special <- function() {
+  tagList(customDownloadButton(ns('btn_sheth_special'),
+                         'Download heatmap results summary',
+                         label = "Sheth's special stat heatmap", icon_lbl = 'user-md'))
+}
+
+output$btn_sheth_special <- downloadHandler(
+  filename=function(...) {
+    paste0('sheth_special_',
+           format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.zip')
+  }, 
+  content = function(conn) {
+    write.csv(file=conn, cache(name='omnibus_results'))
+  }
+)
 
 download_electrodes_csv <- function() {
   tagList(downloadLink(ns('btn_electrodes_meta_download'), 'Download copy of meta data for all electrodes'),

@@ -159,8 +159,8 @@ default_plot <- function() {
 }
 
 
-ebars.x = function(x, y, sem, length = 0.05, ...) {
-  arrows(x - sem, y, x + sem, y, angle = 90, code = 3, length = length, ...)
+ebars.x = function(x, y, sem, length = 0.05, code = 3, ...) {
+  arrows(x - sem, y, x + sem, y, angle = 90, code = code, length = length, ...)
 }
 
 ebars.y = function(x, y, sem, length = 0.05, up = T, down = T, code = 2, ...) {
@@ -172,8 +172,7 @@ ebars.y = function(x, y, sem, length = 0.05, up = T, down = T, code = 2, ...) {
   }
 }
 
-plus_minus <- rutabaga::pm
-
+plus_minus <- rutabaga::plus_minus
 
 abs_cdiff <- function(m) {
   if(!is.matrix(m))

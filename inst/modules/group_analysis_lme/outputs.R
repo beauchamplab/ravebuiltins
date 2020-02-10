@@ -372,7 +372,6 @@ download_all_results <- function() {
 #     }) 
 # }
 
-
 output$btn_download_all_results <- downloadHandler(
     filename=function(...) {
         paste0('results_output_',

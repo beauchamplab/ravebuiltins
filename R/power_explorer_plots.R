@@ -18,9 +18,8 @@ draw_cut_point <- function(cut=NULL) {
     if(!is_null(cut) & length(cut)>0) {
         abline(h=cut, lwd=1, col='orangered', lty=2)
     }
-    return(cut)
+    invisible(cut)
 }
-
 
 across_electrode_statistics_plot <- function(results, ...) {
     validate(need(results$get_value('has_data', FALSE),
@@ -45,8 +44,12 @@ across_electrode_statistics_plot <- function(results, ...) {
     }
     par(mar=c(5.1, 4.1+2, 4.1, 2.1))
     
+    
+    passing_electrodes <- determine_passing_electrodes(results)
+    
     lapply(c('mean', 't'), function(sv) {
-        wrap_density(across_electrode_statistics_plot_helper(results, sv))
+        wrap_density(across_electrode_statistics_plot_helper(results, sv,
+                                                             passing_electrodes=passing_electrodes))
     })
     
     wrap_density(
@@ -55,7 +58,7 @@ across_electrode_statistics_plot <- function(results, ...) {
             TRANSFORM = function(p) {-log10(p)},
             PANEL.LAST = function(yat, ...){
                 for(tick in yat) {
-                    rave_axis(2, at=tick, labels=bquote(10**-.(tick)), tcl=0,
+                    rave_axis(2, at=tick, labels=bquote(10**.(-tick)), tcl=0,
                               cex.axis = rave_cex.axis*.5*get_cex_for_multifigure())
                 }
             }
@@ -73,16 +76,6 @@ plot_sideways_density <- function(x, xlim, cut=NULL) {
     
     draw_cut_point(cut)
 }
-
-
-# get_pretty_stat_name <- function(stat_var, results) {
-#     available_stats = c('mean', 'tval', 'pval')
-#     stat_var = match.arg(stat_var, available_stats)
-#     
-#     # need to take into account filters
-#     results$get_value(stat_var %&% '_filter')
-# }
-
 
 make_stat_filter <- function(fname) {
     ll = list(
@@ -105,7 +98,7 @@ across_electrode_statistics_plot_helper <- function(results,
                                                      TRANSFORM=force,
                                                      PANEL.LAST=NULL, 
                                                      show_yaxis_labels = !is.function(PANEL.LAST),
-                                                     ...) {
+                                                    passing_electrodes, ...) {
     available_stats = c('mean', 't', 'p')
     stat_var <- match.arg(stat_var, available_stats)
     stat_ind = which(stat_var == available_stats)
@@ -118,27 +111,35 @@ across_electrode_statistics_plot_helper <- function(results,
     res = get_active_result(results)[which(stat_var == available_stats),]
     
     # we need to see if there is an a priori transform being requested
+    # awkwardly this is called a filter...
     filter_name = results$get_value(stat_var %&% '_filter')
     FILT = make_stat_filter(filter_name)
     res %<>% FILT
+    cut_val = FILT(as.numeric(results$get_value(stat_var %&% '_operand')))
     
     # now apply the user supplied transform
     if(is.function(TRANSFORM)) {
         res %<>% TRANSFORM
+        # don't forget to transform the cut value!
+        cut_val %<>% TRANSFORM
     }
+    
     
     # if there is a cutpoint, we should force it to be shown on the plot
     # by building it into our ylim calculation
-    cut_val = as.numeric(results$get_value(stat_var %&% '_operand'))
     
-    ylim = pretty(c(cut_val, res), n=4) %>% pretty_round
-    plot_clean(seq_along(res), ylim)
+    ylim = pretty(c(cut_val, res), n=4)# %>% pretty_round
+    # if(min(ylim) %within% c(1e-3, 1-1e-3)) {
+    #     ylim = c(0, ylim)
+    # }
+    plot_clean(seq_along(res), c(ylim, res))
     
     across_electrodes_xaxis(vector_to_row_matrix(res))
-    rave_axis_labels(ylab=filter_name)
-    draw_passing_points(res, results)
+    rave_axis_labels(ylab=filter_name, mgp=c(3.5, 0,0))
+    draw_passing_points(res, results, passing_electrodes)
     
     yat = ylim#axTicks(2)# %>% pretty(n=4) %>% unique
+    #the ylab seems to be getting cutoff more often than not
     rave_axis(2, at=yat, labels = show_yaxis_labels)
     
     wrtsoe = results$get_value('which_result_to_show_on_electrodes')
@@ -148,7 +149,7 @@ across_electrode_statistics_plot_helper <- function(results,
                      get_result_name(wrtsoe), unit_of_analysis),
                cex = rave_cex.main*.75)
     
-    cut <- draw_cut_point(as.numeric(results$get_value(stat_var %&% '_operand')))
+    draw_cut_point(cut_val)
     
     if(is.function(PANEL.LAST)) {
         PANEL.LAST(yat=yat, ...)
@@ -157,7 +158,7 @@ across_electrode_statistics_plot_helper <- function(results,
     invisible(list(
         y=res,
         ylim=ylim,
-        cut=cut
+        cut=cut_val
     ))
 }
 
@@ -168,7 +169,10 @@ rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.la
 
 # several functions will need to use this
 determine_passing_electrodes <- function(results, ...) {
-    res <- results$get_value('omnibus_results')
+    
+    ### we need to update this to select the appropriate value!
+    # res <- results$get_value('omnibus_results')
+    res <- get_active_result(results)
     v <- c('mean', 'p', 't')
     filters <- sapply(v %&% '_filter', function(e) results$get_value(e))
     operators <- sapply(v %&% '_operator', function(e) results$get_value(e))
@@ -176,31 +180,26 @@ determine_passing_electrodes <- function(results, ...) {
     
     pass_the_test <- rep(TRUE, length(results$get_value('electrodes')))
     
-    pval_filters <- c('p', 'FDR(p)', 'Bonf(p)')
-    pval_funcs <- list('p' = c,
-                       'FDR(p)' = function(p) p.adjust(p, method='fdr'),
-                       'Bonf(p)' = function(p) p.adjust(p, method='bonferroni'))
-    
     # operands[1] = '50'
-    
     for(ii in seq_along(filters)) {
         # first check if there is a valid operand
         if(all(operands[ii] != "", not_NA(as.numeric(operands[ii]))) ) {
             # convert the operator to its corresponding method
             OP <- getMethod(operators[ii])
             # default to p-value
-            val = res[3,]
-            if(filters[ii] %in% pval_filters) {
-                val = pval_funcs[[filters[ii]]](val)
-            } else if (filters[ii] == 't') {
+            if(filters[ii] %in% c('p', 'FDR(p)', 'Bonf(p)')) {
+                val = res[3,]
+            } else if (filters[ii] %in% c('t', 'abs(t)')) {
                 val = res[2,]
-            } else if (filters[ii] == 'b0') {
+            } else if (filters[ii] %in% c('mean', 'abs(mean)')) {
                 val = res[1,]                
             }
-            pass_the_test = pass_the_test & OP(val,as.numeric(operands[ii]))
+            
+            FILT <- make_stat_filter(filters[ii])
+            
+            pass_the_test = pass_the_test & OP(FILT(val),as.numeric(operands[ii]))
         }
     }
-    
     
     # now we do the check on the anatomical filters
     emeta <- results$get_value('electrodes_csv')
@@ -250,26 +249,27 @@ across_electrodes_xaxis <- function(xmat) {
     invisible(xat)
 }
 
-draw_passing_points <- function(y, results) {
-    passing_els <- determine_passing_electrodes(results)
-    points(y, cex=1.1, pch=ifelse(passing_els, 19, 1), col=ifelse(passing_els, get_foreground_color(), 'gray50'))
+draw_passing_points <- function(y, results, passing_electrodes) {
+    if(missing(passing_electrodes)) {
+        passing_electrodes <- determine_passing_electrodes(results)
+    }
+    points(y, cex=1.1, pch=ifelse(passing_electrodes, 19, 1),
+           col=get_foreground_color())#ifelse(passing_els, get_foreground_color(), 'gray50'))
 }
 
 get_active_result <- function(results, ...) {
     res_name = results$get_value('which_result_to_show_on_electrodes')
-    if(res_name == "Omnibus Activity (across all active trial types)") {
-        ind = 1:3
-        if(results$get_value('p_filter')!='p') {
-            ind[3] = 4
-        }
-    } else {
-        # print('returning contrast results')
-        lbls = build_group_contrast_labels(build_group_names(results$get_value('GROUPS')))
-        b = 5 + 3*(which(res_name == lbls)-1)
-        ind = b:(b+2)
+    res = results$get_value('omnibus_results')
+    begin = 1
+    if(res_name != "Omnibus Activity (across all active trial types)") {
+        begin = which(endsWith(rownames(res), res_name))[1]
     }
-     
-    return (results$get_value('omnibus_results')[ind,])
+    ### also need to check if rownames of OR match those we just built
+    shiny::validate(shiny::need(length(begin) == 1 && !is.na(begin),
+                                message = 'Selected data not available. Press Recalculate button'))
+    ind = begin:(begin+2)
+    
+    return (res[ind,])
 }
 
 vector_to_row_matrix <- function(y) {
@@ -288,7 +288,8 @@ get_foreground_color <- function() {
            'black' = 'white',
            'white' = 'black',
            '#1E1E1E' = 'gray70',
-           'gray' = '#A5A5A5'
+           'gray' = '#A5A5A5', 
+           'black'
     ) 
 }
 
@@ -377,7 +378,7 @@ heat_map_plot <- function(results, ...){
     
     draw_many_heat_maps(hmaps = results$get_value('heat_map_data'),
                         log_scale = results$get_value('log_scale'),
-                        max_zlim = results$get_value('max_zlim'),
+                        max_zlim = results$get_value('max_zlim', 0),
                         xrange = results$get_value('plot_time_range'),
                         PANEL.LAST = spectrogram_heatmap_decorator(results=results),
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator,0)
