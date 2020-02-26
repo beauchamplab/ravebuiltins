@@ -767,10 +767,11 @@ write_out_data_function <- function(){
       flat$Electrode = e
       
       flat$uuid = paste0(flat$Trial, '_', formatC(flat$Time, width = 12, digits=10, flag='0'))
-      flat
+      
+      return(flat)
     }, USE.NAMES = TRUE, simplify = FALSE)
     
-    if(length(by_event_type) == 1) return (by_event_type)
+    if(length(by_event_type) == 1) return (by_event_type[[1]])
     
     full_matrix = by_event_type[[1]]
     
@@ -792,7 +793,7 @@ write_out_data_function <- function(){
     full_matrix
   }, .globals = c('unit_name', 'unit_dims', 'baseline_method', 'power', 'event_of_interest',
                   'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list'),
-  .gc = FALSE) 
+  .gc = FALSE)
   
   res = do.call('rbind', res)
   res$Project = project_name
@@ -813,6 +814,7 @@ write_out_data_function <- function(){
   fname = paste0(analysis_prefix, now, '.csv')
   dirname = file.path(subject$dirs$subject_dir, '..', '_project_data', 'power_explorer', 'exports')
   dir.create(dirname, showWarnings = FALSE, recursive = TRUE)
+  
   data.table::fwrite(res, file.path(dirname, fname), append = FALSE)
   
   save_inputs(file.path(dirname, paste0(fname, '.yaml')))
