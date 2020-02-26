@@ -4,20 +4,26 @@
 # rm(list = ls(all.names=T)); rstudioapi::restartSession()
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
-mount_demo_subject()
-# view_layout('power_explorer')
+mount_demo_subject(subject_code = 'YCZ', 'Sentences', epoch='YCZ_gingko', electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
+view_layout('power_explorer')
+
 if(FALSE) {
   attachDefaultDataRepository()
   init_module('power_explorer', TRUE)
-  GROUPS = list(list(group_name='B', group_conditions=c('known_av', 'last_a', 'drive_a', 'meant_a')),
-                list(group_name='Z', group_conditions=c('known_av', 'last_v', 'drive_v', 'meant_v')),
-                list(group_name='A', group_conditions=c('known_av', 'last_av', 'drive_av', 'meant_av')))
+  
+  GROUPS = list(list('group_name'='d', group_conditions=c('Dynamic')),
+                list(group_name = 's', group_conditions=c('Static'))
+  )
+  
+  GROUPS = list(list(group_name='A-only', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
+                list(group_name='V-only', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v')),
+                list(group_name='AV', group_conditions=c('known_av', 'last_av', 'drive_av', 'meant_av')))
   FREQUENCY = c(75,150)
   ELECTRODE_TEXT = '14-19'
 }
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
-
+# event_of_interest = '2ndWord'
 cat2_timestamp <- function() {
   t0 <- proc.time()[3]
   last_time = t0
@@ -116,22 +122,62 @@ flat_data <- data.frame()
 
 # for transforms, the idea is to apply at each trial for each frequency
 # then when things get it will already be done
-
-
 collapse_method = 'mean'
 
-for(ii in which(has_trials)){
+for(ii in which(has_trials)) {
+  #ii=1
   cat2t(sprintf('main calc loop %s of %s', ii, sum(has_trials)))
   
-  .power_all = bl_power$subset(Trial = Trial %in% group_data[[ii]]$Trial_num)
-  .power_all_clean <- .power_all$subset(Trial=! (Trial %in% trial_outliers_list))
-  .power_freq = .power_all$subset(Frequency=Frequency %within% FREQUENCY)
-  .power_freq_clean = .power_freq$subset(Trial=! (Trial %in% trial_outliers_list))
-  
-  N = dim(.power_all)[1L]
-  Nclean <- dim(.power_all_clean)[1L]
-  
   epoch_data_subset <- epoch_data %>% subset((.)$Trial %in% group_data[[ii]]$Trial_num)
+  
+  power_all = bl_power$subset(Trial = Trial %in% group_data[[ii]]$Trial_num)
+
+  events = get_events_data(epoch_event_types) %>%
+    subset((.)$Trial %in% group_data[[ii]]$Trial_num)
+  
+  # now check if we need shifted data
+  # R is copy on write, so no worries here about memory
+  power_all_shifted = power_all
+  shift_amount = NULL
+  # event_of_interest = '1stWord'
+  if(event_of_interest != epoch_event_types[1]) {
+    cat2t('Shifting data to: ' %&% event_of_interest)
+    new_range = determine_available_shift(event_of_interest, available_time = range(power$dimnames$Time), epoch_information = events)
+    cat2t('available shift: ' %&% paste0(new_range, collapse=':'))
+    
+    shift_amount = determine_shift_amount(event_time = events[[event_of_interest]], available_shift=new_range)
+    
+    cat2t('dispaus::shift')
+    
+    if(length(shift_amount) != dim(power_all)[1L]) {
+      assign('shift_amt', shift_amount, envir = globalenv())
+      assign('event_mat', events, envir = globalenv())
+      stop('shift amount != # trials... stopping')
+    }
+    
+    power_all_shifted = get_shifted_tensor(raw_tensor = power_all$get_data(), shift_amount = shift_amount, new_range = new_range,
+                       dimnames = dimnames(power_all), varnames = names(power_all$dimnames))
+    
+    
+    # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
+    cat2t('updating events file')
+    events[epoch_event_types[-1]] <- events[epoch_event_types[-1]] - events[[event_of_interest]]
+  }
+  
+  cat2t('done with shifting')
+    
+  # handle outliers
+  if(length(trial_outliers_list) == 0) {
+    power_all_clean <- power_all
+    power_all_shifted_clean <- power_all_shifted
+  } else {
+    cat2t('Handling outliers...')
+    power_all_clean <- power_all$subset(Trial = !(Trial %in% trial_outliers_list))
+    power_all_shifted_clean <- power_all_shifted$subset(Trial = !(Trial %in% trial_outliers_list))
+  }
+    
+  N = dim(power_all_shifted)[1L]
+  Nclean <- dim(power_all_shifted_clean)[1L]
   
   # This copies over some information from group_data that is needed by particular plots
   # as well as populating data/range 
@@ -148,7 +194,9 @@ for(ii in which(has_trials)){
       conditions = group_data[[ii]]$conditions,
       baseline_window = BASELINE_WINDOW,
       analysis_window = ANALYSIS_WINDOW,
-      frequency_window = FREQUENCY
+      frequency_window = FREQUENCY,
+      events = events,
+      trial_alignment = event_of_interest
       )
     
     vals = list(...)
@@ -174,28 +222,31 @@ for(ii in which(has_trials)){
   }
   
   # 1. power @ frequency over time
+  # this should definitely use the clean and shifted data
+  cat2t('Building spectrogam data')
   heat_map_data[[ii]] <- wrap_data(
-    .power_all_clean$collapse(keep = c(3,2), method = collapse_method),
+    hmd0 <-  power_all_shifted_clean$collapse(keep = c(3,2), method = collapse_method),
     xlab='Time (s)', ylab='Frequency', zlab='auto',
-    x = .power_all$dimnames$Time,
-    y = .power_all$dimnames$Frequency,
+    x = power_all_shifted_clean$dimnames$Time,
+    y = power_all_shifted_clean$dimnames$Frequency,
     # hmd is using the clean data
     N = Nclean
   )
   
   # 2. power @ trial over time
+  cat2t('Building by_trial heatmap data')
   by_trial_heat_map_data[[ii]] <- wrap_data(
-    .power_freq$collapse(keep = c(3,1), method = collapse_method),
-    x = .power_freq$dimnames$Time,
-    y = seq_along(.power_freq$dimnames$Trial),
+    power_all_shifted$collapse(keep = c(3,1), method = collapse_method),
+    x = power_all_shifted$dimnames$Time,
+    y = seq_along(power_all_shifted$dimnames$Trial),
     xlab='Time (s)', ylab='Trial', zlab='auto'
   )
-  
+
   # 2.5 by electrode over time
   by_electrode_heat_map_data[[ii]] <- wrap_data(
-    .power_freq$collapse(keep = c(3,4), method = collapse_method),
-    x=.power_freq$dimnames$Time,
-    y=.power_freq$dimnames$Electrode,
+    power_all_shifted_clean$collapse(keep = c(3,4), method = collapse_method),
+    x=power_all_shifted_clean$dimnames$Time,
+    y=power_all_shifted_clean$dimnames$Electrode,
     xlab='Time (s)', ylab='Electrode', zlab='auto'
   )
   
@@ -203,13 +254,12 @@ for(ii in which(has_trials)){
   # coll freq and trial for line plot w/ ebar. Because we're doing error bars, we have to know whether we have 1 vs. >1 electrodes
   # Single electrode, mean and mse for each time points
   over_time_data[[ii]] = wrap_data(t(
-    apply(.power_freq_clean$collapse(keep = 3:4, method = 'mean'), 1, .fast_mse)),
-    xlab='Time (s)', ylab='auto', N=dim(.power_freq_clean)[4L], x=.power_freq_clean$dimnames$Time
+    apply(power_all_shifted_clean$collapse(keep = 3:4, method = collapse_method), 1, .fast_mse)),
+    xlab='Time (s)', ylab='auto', N=dim(power_all_shifted_clean)[4L], x=power_all_shifted_clean$dimnames$Time
   )
   
   # set NA (divide by zero) error bars to 0  
   over_time_data[[ii]]$data[is.na(over_time_data[[ii]]$data[,2]),2] <- 0
-  
   
   # we want to make a special range for the line plot data that takes into account mean +/- SE
   over_time_data[[ii]]$range <- .fast_range(plus_minus(over_time_data[[ii]]$data))
@@ -217,8 +267,8 @@ for(ii in which(has_trials)){
   # scatter bar data -- here we want all of the data because we are going to highlight (or not) the outliers -- same for by-trial heatmap
   # if(show_outliers_on_plots) {
   scatter_bar_data[[ii]] <- wrap_data(
-    rowMeans(.power_freq$subset(Time = (Time %within% ANALYSIS_WINDOW), data_only = TRUE)),
-    N=Nclean, xlab='Group', ylab='auto', x=.power_freq$dimnames$Time
+    rowMeans(power_all_shifted$subset(Time = (Time %within% ANALYSIS_WINDOW), data_only = TRUE)),
+    N=Nclean, xlab='Group', ylab='auto', x=power_all_shifted$dimnames$Time
   )
   
   # Although this seems to be the wrong place to do this, not sure where else we can do it
@@ -267,6 +317,11 @@ get_p.adjust_method <- function(pval_filter=c('p', 'FDR(p)', 'Bonf(p)')) {
 get_stats_per_electrode <- function(ttypes){
   # ttypes = all_trial_types
   trial_numbers = epoch_data$Trial[epoch_data$Condition %in% ttypes]
+  
+  if(length(trial_outliers_list) > 0) {
+    trial_numbers <- trial_numbers[! trial_numbers %in% trial_outliers_list]
+  }
+  
   unit_dims = c(1,2,4)
   if(isTRUE(global_baseline)) {
     unit_dims = c(2,4)
@@ -296,16 +351,28 @@ get_stats_per_electrode <- function(ttypes){
   
   # Do not baseline all elecs simultaneously, otherwise memory will explode
   cat2t('starting elec calc')
-  # e = 14
+  # e = electrodes[1]
+  
+  
+  shift_amount = new_range = NULL
+  if(event_of_interest != epoch_event_types[1]) {
+    ev = get_events_data(epoch_event_types = epoch_event_types) %>% subset((.)$Trial %in% trial_numbers)
+    new_range = determine_available_shift(event_of_interest,
+                                          available_time = range(power$dimnames$Time),
+                                          epoch_information = ev)
+    
+    shift_amount = determine_shift_amount(event_time = ev[[event_of_interest]], available_shift=new_range)
+  }
+  
   res = #lapply(electrodes, function(e, ...){
     rave::lapply_async(electrodes, function(e){
     # Subset on electrode is memory optimized, and is fast
-      
     el = power$subset(Electrode = Electrode == e,
                       Frequency = Frequency %within% FREQUENCY,
-                      Trial=Trial %in% trial_numbers,
-                      Time = (Time %within% ANALYSIS_WINDOW) | (Time %within% BASELINE_WINDOW)
+                      Trial=Trial %in% trial_numbers
     )
+    # because of possible time re-alignment, we can't just take the analysis window :(, slow but true!
+    #,                      Time = (Time %within% ANALYSIS_WINDOW) | (Time %within% BASELINE_WINDOW)
     bl = dipsaus::baseline_array(
       x = el$get_data(),
       baseline_indexpoints = which(el$dimnames$Time %within% BASELINE_WINDOW),
@@ -313,16 +380,24 @@ get_stats_per_electrode <- function(ttypes){
       method = baseline_method,
       unit_dims = unit_dims
     )
-    bl = ECoGTensor$new(bl, dim = dim(el), dimnames = dimnames(el),
-                        varnames = el$varnames, hybrid = FALSE)
+    
+    # do we need to shift the array?
+    if(!is.null(shift_amount)) {
+      bl = get_shifted_tensor(bl, shift_amount, new_range = new_range,
+                              dimnames = dimnames(el), varnames = el$varnames)
+    } else {
+      bl = ECoGTensor$new(bl, dim = dim(el), dimnames = dimnames(el),
+                          varnames = el$varnames, hybrid = FALSE)
+    }
     
     bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
     
     trial_means = rowMeans(bl.analysis$get_data())
+    names(trial_means) = as.character(bl.analysis$dimnames$Trial)
+    
     mse = .fast_mse(trial_means)
     t = mse[1]/mse[2]
     p = 2*pt(abs(t), df = length(trial_means)-1, lower=F)
-    
     res = rbind(mse[1], t, p)
     
     # now we also need to run the contrasts
@@ -339,10 +414,9 @@ get_stats_per_electrode <- function(ttypes){
     }
     return(res)
   } ,
-  .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e', 'gnames', 'has_data',
-               'trial_numbers', 'FREQUENCY', 'ANALYSIS_WINDOW', 'BASELINE_WINDOW', '.fast_column_se', 'df_shell'),
+  .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e', 'gnames', 'has_data', 'shift_amount', 'new_range',
+               'trial_numbers', 'FREQUENCY', 'ANALYSIS_WINDOW', 'BASELINE_WINDOW', '.fast_mse', 'df_shell'),
   .gc = FALSE)
-  
   
   cat2t('Finished elec calc')
   
@@ -351,26 +425,22 @@ get_stats_per_electrode <- function(ttypes){
   rownames(combined_res)[1] <- format_unit_of_analysis_name(unit_of_analysis)
   colnames(combined_res) <- electrodes
   
-  # do we need to adjust the p-values?
-  # if they are using adjusted p-values in the filter, then put them in the result
-  if(p_filter != 'p') {
-    # assign('p', p, envir = globalenv())
-    adjusted_p = p.adjust(combined_res[3,], method=get_p.adjust_method(p_filter))
-    # print("pval adjustment:")
-    # print(m_sd(adjusted_p-combined_res[3,]))
+  # do we need to adjust the p-values? yes, just do this always
+  adjusted_p = p.adjust(combined_res[3,], method=get_p.adjust_method(p_filter))
+  # print("pval adjustment:")
+  # print(m_sd(adjusted_p-combined_res[3,]))
+  
+  if(nrow(combined_res) > 3) {
+    stat_lbls = c('m_', 't_', 'p_')
+    tmp = combined_res[4:nrow(combined_res),]
+    # add the names for these folks
+    rownames(tmp) = c(outer(stat_lbls, gnames, paste0), outer(stat_lbls, lbls, paste0))
     
-    if(nrow(combined_res) > 3) {
-      stat_lbls = c('m_', 't_', 'p_')
-      tmp = combined_res[4:nrow(combined_res),]
-      # add the names for these folks
-      rownames(tmp) = c(outer(stat_lbls, gnames, paste0), outer(stat_lbls, lbls, paste0))
-      
-      combined_res = rbind(combined_res[1:3,], adjusted_p, tmp)
-    } else {
-      combined_res %<>% rbind(adjusted_p)
-    }
-    rownames(combined_res)[4] = p_filter
+    combined_res = rbind(combined_res[1:3,], adjusted_p, tmp)
+  } else {
+    combined_res %<>% rbind(adjusted_p)
   }
+  rownames(combined_res)[4] = p_filter
   
   cat2t('Stats are labelled')
   
@@ -387,13 +457,21 @@ get_stats_per_electrode <- function(ttypes){
 cat2t('start calc result, generating digest...')
 # assign("GROUPS", GROUPS, envir = globalenv())
 omnibus_results <- cache(
-  key = list(subject$id, BASELINE_WINDOW, FREQUENCY, all_trial_types, GROUPS,
-                   ANALYSIS_WINDOW, unit_of_analysis, preload_info$epoch_name,
+  key = list(subject$id, BASELINE_WINDOW, FREQUENCY, all_trial_types, GROUPS,global_baseline,
+                   ANALYSIS_WINDOW, unit_of_analysis, preload_info$epoch_name, event_of_interest,
                    preload_info$reference_name, trial_outliers_list),
   val = get_stats_per_electrode(ttypes = all_trial_types),
   name = 'omnibus_results'
 )
+
+# assigning this here so that it can be exported easily
 local_data$omnibus_results = omnibus_results
+
+# if(has_data){
+#   
+# }
+
+
 cat2t('Finished calc')
 
 if(FALSE){
@@ -437,40 +515,39 @@ if(FALSE) {
 }
 
 # Debug
-# rm(list = ls(all.names=T)); rstudioapi::restartSession()
+rm(list = ls(all.names=T)); rstudioapi::restartSession()
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
 mount_demo_subject(force_reload_subject = T)
-# view_layout('power_explorer')
+view_layout('power_explorer')
 
 reload_module_package()
 module = rave::get_module(module='power_explorer', package = 'ravebuiltins', local=TRUE)
 
 # eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
 # attachDefaultDataRepository()
-result = module(ELECTRODE_TEXT = '13-24',
-                # GROUPS = list(
-                #   list(group_name='A',group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
+result = module(ELECTRODE_TEXT = '50', percentile_range = TRUE, 
+                GROUPS = list(
+                  list(group_name='A',group_conditions=c('Dynamic')), 
                 #   # putting in an empty group to test our coping mechanisms
-                #   list(group_name='YY', group_conditions=c('drive_av', 'last_av')),
+                  list(group_name='YY', group_conditions=c('Static'))
+                ),
                 #   list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
                 background_plot_color_hint='White', BASELINE_WINDOW = c(-1,-.4),
                 heatmap_color_palette = 'BlackWhiteRed',
-                plot_time_range = c(-0.5,1.25), unit_of_analysis = 'decibel',
-                FREQUENCY = c(70,150), show_outliers_on_plots = TRUE, max_zlim=NA,
-                sort_trials_by_type = T)
+                plot_time_range = c(-1,5), unit_of_analysis = 'decibel',
+                FREQUENCY = c(70,150), show_outliers_on_plots = TRUE, max_zlim=99,
+                event_of_interest = '1stWord')
 results = result$results
+by_trial_heat_map_plot(results)
 
 across_electrode_statistics_plot(results)
-result$heat_map_plot()
-
-heat_map_plot(results)
+# result$heat_map_plot()
+# heat_map_plot(results)
 windowed_comparison_plot(results)
-by_trial_heat_map_plot(results)
+dev.off()
 over_time_plot(results)
 by_electrode_heat_map_plot(results)
-
-
 
 mount_demo_subject()
 
@@ -491,36 +568,3 @@ m = rave::detect_modules('ravebuiltins')
 rave::start_rave()
 
 
-# env = environment(result$results$get_value)
-# r = jsonlite::serializeJSON(as.list(env))
-# 
-# f = '~/Desktop/junk.json'; writeLines(r, f); f
-# r = readLines('~/Desktop/junk.json')
-# results = jsonlite::unserializeJSON(paste(r, collapse = ''))
-# 
-# r = jsonlite::unserializeJSON(r)
-# 
-# results$get_value = function(k, ifNotFound = NULL){
-#   if(k %in% names(results)){
-#     results[[k]]
-#   }else{
-#     ifNotFound
-#   }
-# }
-# # 
-# rave::rave_context('rave_module_debug')
-# .__rave_package__. = 'ravebuiltins'
-# .__rave_module__. = 'power_explorer'
-# 
-# 
-# result$heat_map_plot()
-# rave::set_rave_theme()
-# ravebuiltins::heat_map_plot(results)
-# 
-# results=r
-
-
-# results$get_value('omnibus_results')
-# result$across_electrodes_corrected_pvalue()
-# attachDefaultDataRepository()
-# get_summary()

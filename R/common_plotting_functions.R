@@ -19,16 +19,17 @@
 #' By default it is setup for time/freq, but by swapping labels and decorators you can do anything.
 #' @seealso layout_heat_maps
 #' @seealso draw_img
-draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
+draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_scale=FALSE,
                                 show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
                                 PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), xrange=NULL, ...) {
     rave_context()
     
     k <- sum(hmaps %>% get_list_elements('has_trials'))
     orig.pars <- layout_heat_maps(k)
-    on.exit({
-        par(orig.pars)
-    })
+    # I'm getting error about pin here... let's just rely on the graphics device being reset?
+    # on.exit({
+        # par(orig.pars)
+    # })
     
     if(is.na(max_zlim)) {
         max_zlim = 0
@@ -50,8 +51,16 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
     # actual data range, as opposed to the max zlim which controls the plottable range
     actual_lim = get_data_range(hmaps)
 
-    if(max_zlim == 0) {
+    if(max_zlim <= 0) {
         max_zlim <- max(abs(actual_lim), na.rm=TRUE)
+    } else if(percentile_range) {
+        if(max_zlim >= 100) {
+            max_zlim = (max_zlim / 100)*max(abs(actual_lim), na.rm=TRUE)
+        } else {
+            max_zlim <- quantile(unlist(lapply(hmaps, getElement, 'data')),
+                                 probs = max_zlim / 100,
+                                 na.rm = TRUE)
+        }
     }
 
     log_scale <- if(isTRUE(log_scale)) {
@@ -67,12 +76,21 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, log_scale=FALSE,
             xrange %?<-% range(map$x)
 
             if (! all(map$x %within% xrange) ) {
+                # print('fixing x range')
+                .attr = attributes(map$data)
                 ind <- map$x %within% xrange
                 map$x <- map$x[ind]
+                
+                ## This is dropping attributes :(
                 map$data <- map$data[ind,,drop=FALSE]
+
+                # update to the new dim                
+                .attr$dim = attr(map$data, 'dim')
+                
+                attributes(map$data) <- .attr                
             }
             
-            # we are linearizing the x and y spaces so that we can use the fast raster
+            # we are linearizing the x and y spaces so that we can use the fast raster... is this worth it?
             x <- seq_along(map$x)
             y <- seq_along(map$y)
             
@@ -162,9 +180,19 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, xrang
     
     for(ii in seq_along(plot_data)) {
         if (! all(plot_data[[ii]]$x %within% xrange) ) {
+            
+            attrs = attributes(plot_data[[ii]]$data)
+            
             ind <- plot_data[[ii]]$x %within% xrange
             plot_data[[ii]]$x <- plot_data[[ii]]$x[ind]
             plot_data[[ii]]$data <- plot_data[[ii]]$data[ind,,drop=FALSE]
+            
+            attrs$dim = attributes(plot_data[[ii]]$data)$dim
+            attributes(plot_data[[ii]]$data) = attrs
+            
+            
+            # we need to update the range of the plots
+            plot_data[[ii]]$range <- .fast_range(plus_minus(plot_data[[ii]]$data))
         }
     }
     
@@ -243,8 +271,7 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
                       names.arg=bp_names[ind], axes=F, ...)
     par('fg'=.fg)
     
-    # putting this here, but move this out to a PANEL.FIRST argument
-    axis_label_decorator(group_data)
+    axis_label_decorator(group_data, label_alignment=FALSE)
     
     rave_axis(2, at=yax)
     
@@ -252,7 +279,9 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
 
     # grabbing an attribute from the group data
     if(not_null(attr(group_data, 'stats'))) {
-        rave_title(as.title(pretty(attr(group_data, 'stats'))))
+        # rave_title(as.title(pretty(
+            # legend('topleft', bty='n', legend=attr(group_data, 'stats'))
+            # )))
     } else {
         # 
     }
@@ -324,7 +353,6 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
     invisible(group_data)
 }
 
-
 trial_scatter_plot_decortator <- function(plot_data, results, ...) {
     tspd <- function(plot_data, ...) {
         title_decorator(plot_data, results=results, allow_cond = FALSE, allow_sample_size = FALSE)
@@ -337,6 +365,17 @@ trial_scatter_plot_decortator <- function(plot_data, results, ...) {
     tspd(plot_data)
 }
 
+
+
+draw.box <- function(x0,y0,x1,y1, ...) {
+    segments(x0, y0, x1=x1, ...)
+    segments(x1, y0, y1=y1, ...)
+    segments(x1, y1, x1=x0, ...)
+    segments(x0, y1, y1=y0, ...)
+}
+
+
+
 # the Xmap and Ymap here are functions that allow for transformation of the plot_data $x and $y into
 # the coordinate system of the plot
 spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=force, btype='line', atype='box', 
@@ -348,7 +387,7 @@ spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=f
         
         do.call(title_decorator, args=title_options)
         
-        axis_label_decorator(plot_data)
+        axis_label_decorator(plot_data, Xmap = Xmap, Ymap = Ymap)
         
         # check if the analysis and baseline windows are fully contained within the plotting window. If not, switch baseline type 
         # to just be a label. This can, of course, be turned off using the regular options.
@@ -358,6 +397,11 @@ spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=f
         
         if(!all(plot_data$analysis_window %within% plot_data$x)) {
             atype = 'label'
+        }
+        
+        # would be nice to have a TRIAL_ONSET or something here, rather than a string...
+        if(plot_data$trial_alignment != 'Trial Onset') {
+            btype = 'n'
         }
         
         windows <- list(
@@ -383,7 +427,7 @@ spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=f
         )
 
         lapply(names(windows), function(nm) {
-            if(paste(nm, 'Window') %in% results$get_value('PLOT_TITLE')) {
+            if(paste(nm, 'Window') %in% results$get_value('PLOT_TITLE') & windows[[nm]]$type != 'n') {
                 with(windows[[nm]],
                      window_decorator(
                          window=window, type=type,
@@ -393,6 +437,10 @@ spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=f
                 )
             }
         })
+        # if(results$get_value('draw_decorator_labels')) {
+        #     rave_axis(1, at=Xmap(0), labels = plot_data$trial_alignment, mgpx=c(1,2,1), lwd=0, tcl=0)
+        # }
+        
         invisible(plot_data)
     }
     
@@ -410,6 +458,10 @@ by_trial_heat_map_decorator <- function(plot_data=NULL, results, Xmap=force, Yma
         title_options = list(allow_sample_size=FALSE),
         ...
     )
+    
+    if(results$get_value('sort_trials_by_type') %in% results$get_value('epoch_event_types')[-1]) {
+        args$atype = 'n'
+    }
     
     if(is.null(plot_data)) {
         return(do.call(spectrogram_heatmap_decorator, args = args))
@@ -466,7 +518,6 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
         }
     }
     
-    
     col %?<-% get_currently_active_heatmap()
     # col %?<-% if(par('bg') == 'black') {
     #     rave_heat_map_dark_colors
@@ -475,6 +526,11 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
     # }else {
     #     rave_heat_map_colors
     # }
+    
+    
+    if(!('matrix' %in% class(mat))) {
+        assign('mat', mat, globalenv())
+    }
 
     image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
           add=add, axes=F, xlab='', ylab='', main='')
@@ -530,34 +586,29 @@ fix_pdf_name <- function(fname) {
     return(fname)
 }
 
-str_rng <- function(rng) sprintf('[%s]', paste0(rng, collapse=':'))
+str_rng <- function(rng) {
+    sprintf('[%s]', paste0(rng, collapse=':'))
+}
 
-rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change',
-                           mar=c(5.1, 5.1, 2, 2)) {
+
+rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change', ylab.line=1.5,
+                           mar=c(5.1, 5.1, 2, 2), cex.lab = rave_cex.lab, cex.axis=rave_cex.axis) {
     rave_context()
 
     clrs %?<-% get_currently_active_heatmap()
-        # clrs %?<-% if(par('bg') == 'black') {
-    #     rave_heat_map_dark_colors
-    # } else if(par('bg') == '#1E1E1E') {
-    #     rave_heat_map_gray_colors
-    # }else {
-    #     rave_heat_map_colors
-    # }
-    
     cbar <- matrix(seq(-zlim, zlim, length=length(clrs))) %>% t
     par(mar=mar)
     image(cbar,
-          col=clrs, axes=F, ylab=ylab, main='', col.lab = get_foreground_color(),
-          cex.main=rave_cex.main*.8*get_cex_for_multifigure(),
-          cex.lab=rave_cex.lab*get_cex_for_multifigure(),
-          cex.axis=rave_cex.axis*get_cex_for_multifigure())
+          col=clrs, axes=F, ylab='', main='', col.lab = get_foreground_color())
 
-    # rave_main(str_rng(actual_lim %>% round))
-    rave_axis(2, at=0:1, labels = c(-zlim, zlim) %>% round, tcl=0)
-    rave_axis(2, at=0.5, labels = 0, tcl=0.3)
+    rave_axis_labels(ylab=ylab, line=ylab.line, cex.lab = cex.lab)
+    rave_axis(2, at=0:1, labels = c(-zlim, zlim) %>% pretty_round, tcl=0,
+              cex.axis=cex.axis)
+    rave_axis(2, at=0.5, labels = 0, tcl=0.3,
+              cex.axis=cex.axis)
     box()
 
+    # par(mar=orig.mar)
     invisible(zlim)
 }
 
@@ -571,6 +622,9 @@ midpoint <- function(x) {
 # this is really only used by the by_trial heat map,
 # but that gets used in multiple modules, so it's here....
 reorder_trials_by_type <- function(bthmd) {
+    
+    stop('No longer maintained, use: reorder_trials_by_event')
+    
     # we want to sort but preserve the order that the conditions were added to the group
     ind <- sapply(bthmd$conditions, function(ttype) which(ttype==bthmd$trials), simplify = FALSE)
 
@@ -592,6 +646,42 @@ reorder_trials_by_type <- function(bthmd) {
 
     return(bthmd)
 }
+
+reorder_trials_by_event <- function(bthmd, event_name) {
+    # we want to sort but preserve the order that the conditions were added to the group
+    new_order = order(bthmd$events[[event_name]])
+    
+    .xlab <- attr(bthmd$data, 'xlab')
+    .zlab <- attr(bthmd$data, 'zlab')
+    
+    # note that data is the transpose of what might be expected...
+    # this saves a transpose during plotting and doesn't cause issues if you're careful
+    bthmd$data <- bthmd$data[, new_order]
+    bthmd$events <- bthmd$events[new_order, ]
+    
+    # set the axis labels
+    attr(bthmd$data, 'xlab') <- .xlab
+    if(event_name != 'Condition') {
+        attr(bthmd$data, 'ylab') <- 'Trial # (sorted by ' %&% event_name %&% ')'
+    }
+    attr(bthmd$data, 'zlab') <- .zlab
+    
+    # if we're sorting by condition (or any categorical variable) 
+    # we can show labels
+    if(event_name == 'Condition') {
+        ind <- sapply(bthmd$conditions, function(ttype) which(ttype==bthmd$trials), simplify = FALSE)
+        bthmd$lines <- cumsum(c(sapply(ind, length)))
+        bthmd$ttypes <- names(ind)
+    }
+    
+    bthmd$trials <-  bthmd$trials[new_order]
+    bthmd$Trial_num <-  bthmd$Trial_num[new_order]
+    bthmd$is_clean <-  bthmd$is_clean[new_order]
+    
+    return(bthmd)
+}
+
+
 
 #sometimes we don't need the last item
 # if you give me < 1 I will return the full vector with a warning
@@ -651,6 +741,33 @@ trial_type_boundaries_hm_decorator <- function(map, ...) {
     invisible(map)
 }
 
+by_trial_analysis_window_decorator <- function(map, event_name, show_label=TRUE, Xmap=force, Ymap=force, font=2, show_0=TRUE, ...) {
+    force(event_name)
+    
+    btawd <- function(map, Xmap, Ymap, ...) {
+        points(Xmap(map$events[[event_name]]), y = Ymap(seq_len(ncol(map$data))),
+               type='p', bg=adjustcolor('black', 1), pch=22, cex=0.25)
+        
+        
+        if(show_label) {
+            text(Xmap(quantile(map$events[[event_name]], 0.75)),
+                 y=Ymap(0.75*ncol(map$data)), label = event_name, cex=rave_cex.lab, pos=2,
+                 font=font)
+        }
+        
+        if(show_0) {
+            abline(v=Xmap(0), lty=2, col=rave_colors$TRIAL_TYPE_SEPARATOR)
+            
+        }
+        
+    }
+    if(missing(map)) {
+        return(btawd)        
+    }
+    
+    btawd(map, Xmap, Ymap, ...)
+}
+
 # here we're overriding the rutabaga do_poly because we can't update rutabaga without getting dipsaus...
 do_poly <- function(x, y, col, alpha=50/255, border=NA, ...) {
     if(alpha>1) alpha/255
@@ -662,7 +779,6 @@ do_poly <- function(x, y, col, alpha=50/255, border=NA, ...) {
 heatmap_outlier_highlighter_decorator <- function(map, Xmap=force, Ymap=force, ...) {
     with(map, {
         sapply(which(!is_clean), function(ti) {
-            
             # because the data may be sorted by trial type
             # we need to make sure ti (trial index) is actually where it should be
             # this should handle non-squentiall trials
@@ -752,34 +868,96 @@ create_multi_window_shader <- function(TIMES, clrs) {
 # }
 
 # 
-axis_label_decorator <- function(plot_data, col) {
+axis_label_decorator <- function(plot_data, col, Xmap=force, Ymap=force, label_alignment=TRUE, label_alignment.line = 2, ...) {
     # here we are assuming that everything in plot_data 
     # is of the same x/y type
     
     # we  need to check if we've been give a list of things to plot (as is common for line plots),
-    # or a single thing (as is common for the case for heatmaps)
-    # test if there are plot variables at the highest level, if so, then we have k=1
+    # or a single thing (as is common for heatmaps)
+    # test if there are plot variables at the highest level, if so, then we are in the latter condition
     pd <- plot_data
     if(is.null(pd[['has_trials']])) {
         ii = which(get_list_elements(pd, 'has_trials'))[1]
         pd <- pd[[ii]]
     } 
     
-    if(missing(col)) {
-        col = get_foreground_color()
+    if(!is.null(pd$trial_alignment) && label_alignment) {
+        rave_axis(1, at=Xmap(0), labels = pd$trial_alignment, mgpx=c(1,label_alignment.line,1), lwd=0, tcl=0, ...)
     }
     
-    
-    title(xlab=attr(pd$data, 'xlab'),
-          ylab=attr(pd$data, 'ylab'),
-          cex.lab=rave_cex.lab*get_cex_for_multifigure(), col.lab=col)
+    rave_axis_labels(xlab=attr(pd$data, 'xlab'), ylab=attr(pd$data, 'ylab'), ...)
 }
-
 
 round_to_nearest <- function(x, val=10) {
     val*round(x/val)
 }
 
+rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.lab, ...) {
+    # print(paste("RAL", xlab, ylab))
+    
+    col %?<-% get_foreground_color()
+    title(xlab=xlab, ylab=ylab, cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, ...)
+}
+
+get_foreground_color <- function() {
+    switch(par('bg'),
+           'white' = 'black',
+           'black' = 'white',
+           '#1E1E1E' = 'gray70',
+           'gray' = '#A5A5A5', 
+           'black'
+    ) 
+}
+
+invert_palette <- function(pal) {
+    inv = c(255, 255, 255, 255) - col2rgb(pal, alpha=TRUE)
+    rgb(t(inv), alpha=255, maxColorValue = 255)    
+}
+
+#works by side effect to change the palette used by the current graphics device
+# and set the RAVE theme to light or dark
+set_palette_helper <- function(results, ...) {
+    rave_context()
+    
+    .bg <- results$get_value('background_plot_color_hint', 'White')
+    # session = shiny::getDefaultReactiveDomain()
+    if(.bg %in%  c('white', 'White')) {
+        theme = set_rave_theme('light')
+    }else{
+        theme = set_rave_theme('dark')
+    }
+    
+    # setting the background color here triggers a cascade of color changes
+    if(.bg == 'Gray') {
+        par('bg'=rave_colors$DARK_GRAY)
+    } else {
+        par('bg'=.bg)
+    }
+    
+    pal <- get_palette(results$get_value('color_palette'))
+    
+    if(results$get_value('invert_colors_in_palette', FALSE)) {
+        pal %<>% invert_palette
+    }
+    
+    if(results$get_value('reverse_colors_in_palette', FALSE)) {
+        pal %<>% rev
+    }
+    
+    set_palette(pal)
+    
+    par(col=get_foreground_color())
+    
+    invisible()
+}
+
+
+shiny_is_running <- function() {
+    return(shiny::isRunning())
+    
+    # cls <- class(getDefaultReactiveDomain())
+    # any(cls %in% c('ShinySession', 'session_proxy'))
+}
 
 
 # by default we use PLOT_TITLE variable in results to see what to put in the title string
@@ -797,7 +975,6 @@ title_decorator <- function(plot_data, results,
     add_if_selected <- function(id, expr) {
         do_on_inclusion(id, expr, .plot_options)
     }
-    
     
     if(allow_cond)
         add_if_selected('Condition', {
@@ -859,23 +1036,31 @@ do_on_inclusion <- function(needle, expr, haystack) {
 time_series_decorator <- function(plot_data, results, ...) {
     .plot_options <- results$get_value('PLOT_TITLE')
     
-    do_tsd <- function(plot_data) {
+    do_tsd <- function(plot_data, label_hint=label_hint) {
         # plot title
         title_decorator(plot_data, results, allow_sample_size=FALSE, allow_cond = FALSE)
         
         # axis labels
         axis_label_decorator(plot_data)
         
-        sapply(c('Baseline', 'Analysis'), function(nm) {
-            if(paste(nm, 'Window') %in% .plot_options) {
+        windows = c('Analysis')
+        
+        if(plot_data[[1]]$trial_alignment == 'Trial Onset') {
+            windows %<>% c("Baseline")
+        }
+        
+        sapply(windows, function(nm) {
+            if(paste(nm, 'Window') %in% .plot_options ) {
                 full_name <- toupper(nm) %&% '_WINDOW'
-                if(!results$get_value('draw_decorator_labels'))
+                if(!results$get_value('draw_decorator_labels')) {
                     nm <- FALSE
+                }
                 
                 window_decorator(results$get_value(full_name),
-                                 type='shaded', shade.col = rave_colors[[full_name]], text = nm, label_placement_offset = ifelse(
-                                     nm == 'Baseline', 0.9, 0.8
-                                 ))
+                                 type='shaded', shade.col = rave_colors[[full_name]], text = nm,
+                                 label_placement_offset = ifelse(
+                                     nm == 'Baseline', 0.9, 0.8)
+                )
             }
         })
         
@@ -922,6 +1107,25 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
 
     invisible(plot_data)
 }
+
+
+pretty_round <- function(x) {
+    max_x <- max(abs(x))
+    dig = 0
+    if(max_x < 1) {
+        dig = abs(floor(log10(max_x)))
+    } 
+    round(x, dig)
+}
+
+color_bar_title_decorator <- function(m, cex = rave_cex.lab * 0.8) {
+    rave_title(paste0('Range\n[', 
+                      paste0(pretty_round(get_data_range(m)), collapse = ':'),
+                      ']'),
+               font = 1,
+               cex = cex)
+}
+
 
 
 format_unit_of_analysis_name <- function(unit_of_analysis) {
@@ -1003,7 +1207,10 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
                text.x = window[[1]]
                x = window
                y = par('usr')[3:4]
-               text.y = par('usr')[4]*0.95
+               
+               amt = diff(par('usr')[3:4])*.10
+               text.y = par('usr')[4] - amt
+               
                if(is.list(window)) {
                    x = window$x
                    y = window$y

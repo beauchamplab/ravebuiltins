@@ -2,7 +2,6 @@ input = getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 session = getDefaultReactiveDomain()
 
-
 local_data %?<-% reactiveValues(
     # Full data has two parts: local_data$analysis_data_raw, and local_data$additional_data
     # together makes analysis_data
@@ -54,12 +53,15 @@ local_filters = reactiveValues(
 # })
 
 observe({
+    print('assigning raw')
     raw = local_data$analysis_data_raw
     
     if( !is.list(raw) ){
         local_data$analysis_data_filtered = NULL
         return()
     }
+    
+    # raw = list(data = local_data$analysis_data_raw)
     local_data$analysis_data_filtered = raw$data
     
     conditions = unique(raw$data$Condition); if(!length(conditions)){ conditions = '' }
@@ -76,24 +78,19 @@ observe({
     # store this in local_data so that we have everything in one place
     local_data$analysis_window = analysis_window
     
-    dipsaus::updateCompoundInput2(session, 'cond_group', ncomp = length(groups), 
+    dipsaus::updateCompoundInput2(session, 'cond_group', ncomp = max(length(groups), 1), 
                                   initialization = list(
                                       group_conditions = list( choices = conditions )
                                   ), value = groups)
-    # # Update cond_group 
-    # lapply(seq_len(20), function(ii){
-    #     g = list(group_name = '', group_conditions = character(0))
-    #     if( length(groups) >= ii ){
-    #         g = groups[[ii]]
-    #     }
-    #     updateSelectInput(session, inputId = sprintf('%s_%d', 'cond_group_group_conditions', ii),
-    #                       choices = conditions, selected = g$group_conditions)
-    #     updateTextInput(session, inputId = sprintf('%s_%d', 'cond_group_group_name', ii),
-    #                     value = g$group_name)
-    # })
     
     updateSliderInput(session, 'analysis_window', min = time_range[[1]], 
                       max=time_range[[2]], value=analysis_window)
+    
+    dipsaus::updateCompoundInput2(session, 'multi_window_analysis', 
+                                  initialization = list(
+                                      analysis_window = list(min = time_range[1], max = time_range[2], value = time_range)
+                                  ))
+    
 })
 
 # observeEvent(input$cond_group, {
@@ -104,6 +101,8 @@ observe({
 
 # Get additional data
 observe({
+    print('building condition groups')
+    
     cond_groups = lapply(1:20, function(jj){input[[paste0('cond_group_group_conditions_', jj)]]})
     cond_groups = dipsaus::drop_nulls(cond_groups)
     conditions = NULL
@@ -113,7 +112,6 @@ observe({
     }
     
     if(length(cond_groups) && length(conditions)){
-        
         cols = lapply(cond_groups, function(conds){
             as.numeric(conditions %in% unlist(conds))
         })
@@ -123,8 +121,26 @@ observe({
     }else{
         local_data$additional_data = NULL
     }
-    
 })
+
+
+# the idea here is to add terms while ensuring no duplicates
+add_term <- function(x, value) {
+    unique(c(x, value))
+}
+
+remove_term <- function(x, value) {
+    x[x!=value]
+}
+
+observeEvent(input$multi_window_analysis, {
+    if(sum(sapply(multi_window, '[[', 'window_is_active')) > 0) {
+        local_data$var_fixed_effects %<>% add_term('TimeWindow')
+    } else {
+        local_data$var_fixed_effects %<>% remove_term('TimeWindow')
+    }
+})
+
 
 
 # Combine raw and additional_data, update analysis window range
@@ -147,15 +163,15 @@ observe({
 
 
 # build Model 
-# observe({
-#     if(!is.data.frame(local_data$analysis_data)){
-#         local_data$table_headers = NULL
-#         local_data$sample_table = NULL
-#     }else{
-#         local_data$sample_table = head(local_data$analysis_data)
-#         local_data$table_headers = names(local_data$analysis_data)
-#     }
-# })
+observe({
+    if(!is.data.frame(local_data$analysis_data_filtered)){
+        local_data$table_headers = NULL
+        local_data$sample_table = NULL
+    }else{
+        local_data$sample_table = head(local_data$analysis_data_filtered)
+        local_data$table_headers = names(local_data$analysis_data_filtered)
+    }
+})
 
 
 get_table_headers = function(){
@@ -168,23 +184,14 @@ get_table_headers = function(){
     vars
 }
 
-# observe({
-#     vars = get_table_headers()
-#     dep = 'Power'
-#     if(!dep %in% vars){
-#         tmp = vars[!vars %in% c('Time', 'splines::bs(Time)')]
-#         if(length(tmp)){
-#             dep = tmp[[1]]
-#         }else{
-#             dep = vars[[1]]
-#         }
-#     }
-#     
-#     vars2 = vars[!vars %in% dep]; if(length(vars2) == ''){vars2 = ''}
-#     updateSelectInput(session, 'model_fixed_effects', choices = vars2, selected = shiny::isolate(local_data$fixed))
-#     updateSelectInput(session, 'model_random_effects', choices = vars2, selected = shiny::isolate(local_data$rand))
-#     updateSelectInput(session, 'model_dependent', choices = vars, selected = dep)
-# })
+observe({
+    vars = local_data$table_headers
+    
+    # we may not know the DVs, but we know some of the IVs
+    vars = vars[! vars %in% c('Electrode', 'Time', 'Trial', 'Condition', 'uuid', 'Subject', 'Project', 'TrialIsOutlier')]
+    
+    updateSelectInput(session, 'model_dependent', choices = vars, selected = vars[1])
+})
 
 collect_model = function(..., exclude = NULL){
     re = list()
@@ -202,26 +209,6 @@ collect_model = function(..., exclude = NULL){
     }
     re
 }
-
-# rave::sync_shiny_inputs(
-#     input = input, session = session, inputIds = c('model_dependent', 'model_fixed_effects', 'model_random_effects'),
-#     uniform = list(
-#         function(var_y){ 
-#             vars = get_table_headers()
-#             vars = vars[!vars %in% c('Project', var_y)]
-#             if(!length(vars)){ vars = '' }
-#             updateSelectInput(session, 'model_fixed_effects', choices = vars)
-#             updateSelectInput(session, 'model_random_effects', choices = vars)
-#             collect_model(dependent = var_y, exclude = var_y)
-#         },
-#         function(fixed_x){ collect_model(fixed = fixed_x, exclude = fixed_x) },
-#         function(rand_x){ collect_model(random = rand_x, exclude = rand_x) }
-#     ), updates = list(
-#         function(val){ updateSelectInput(session, 'model_dependent', selected = val$dependent) },
-#         function(val){ updateSelectInput(session, 'model_fixed_effects', selected = val$fixed) },
-#         function(val){ updateSelectInput(session, 'model_random_effects', selected = val$random) }
-#     )
-# )
 
 
 # Formula
@@ -265,22 +252,56 @@ collect_model = function(..., exclude = NULL){
 #     fo    
 # }
 
+
+
+
+
+
+observeEvent(input$analysis_window, {
+    local_data$analysis_window = input$analysis_window
+})
+
 observeEvent(input$run_analysis, {
     cond_group <- dipsaus::drop_nulls(lapply(input$cond_group, function(g){
         if(length(g$group_conditions) == 0) return( NULL )
         return(g)
     }))
-    if(!length(cond_group)) {
-        showNotification(p('Must specify at least 1 Group to run analysis'),
+    if(length(cond_group) < 2) {
+        showNotification(p('Must specify at least 2 Groups to run analysis'),
                          duration=5, type='warning', id=ns('noti'))
         
         return()
     }
+    
+    if(exists('.__DEBUG__')) {
+        assign('..local_data', value = shiny::isolate(shiny:::reactiveValuesToList(local_data)), envir = globalenv())
+        assign('..rm_windows', input$multi_window_analysis, envir=globalenv())        
+    }
+    
+    # multi_window = ..rm_windows
+    multi_window = input$multi_window_analysis
+    # if(length(multi_window))
+    if(sum(sapply(multi_window, '[[', 'window_is_active')) == 1) {
+        showNotification(p('Must mark at least 2 windows as active to run repeated-measures analysis. Uncheck "Active" to revert to single-window analysis'),
+                         duration=5, type='warning', id=ns('noti'))
+        
+        return()
+    }
+    
+    
     # first we need to collapse the data
     # print(str(local_data$analysis_data_filtered))
     
-    # assign('ldf', value = local_data$analysis_data_filtered, envir = globalenv())
+    # if(exists('.__DEBUG__')) assign('ldf', value = local_data$analysis_data_filtered, envir = globalenv())
+    
     all_trial_types <- cond_group %>% lapply(`[[`, 'group_conditions') %>% unlist %>% unique
+    
+    # make sure all the groups have a name
+    for (ii in seq_along(cond_group)) {
+        if(!isTRUE(nchar(cond_group[[ii]]$group_name) > 0)) {
+            # cond_group[[ii]]$group_name = 'Group_' %&% 
+        }
+    }
     
     # create a joint variable representing the Group as a factor
     showNotification(p('Fitting mixed effect model. Please wait...'), duration = NULL, type = 'default', id = ns('noti'))
@@ -293,21 +314,28 @@ observeEvent(input$run_analysis, {
     }
     subset_data$Group %<>% factor(levels = sapply(cond_group, `[[`, 'group_name'))
     
+    
+    print(paste('assigning ', input$model_dependent, ' to y'))
+    subset_data$y = subset_data[[input$model_dependent]]
+    
     local_data$over_time_data = subset_data
+    analysis_window = local_data$analysis_window
     subset_data %<>% subset(Time %within% analysis_window)
-    collapsed_data <- do_aggregate(Power ~ Group + Electrode + Subject, data=subset_data, FUN=mean)
+    
+    collapsed_data <- do_aggregate(y ~ Group + Electrode + Subject, data=subset_data, FUN=mean)
+    
     local_data$collapsed_data = collapsed_data
-    local_data$agg_over_trial = aggregate(Power ~ Group + Time + Subject + Electrode,
-                                          local_data$over_time_data, FUN=mean) %>% do_aggregate(Power ~ Group + Time, .fast_mse)
+    local_data$agg_over_trial = aggregate(y ~ Group + Time + Subject + Electrode,
+                                          local_data$over_time_data, FUN=mean) %>% do_aggregate(y ~ Group + Time, .fast_mse)
     by_el_data = local_data$over_time_data %>%
         subset((.)$Time %within% analysis_window) %>% 
-        do_aggregate(Power ~ Condition + Trial + Subject + Electrode + Project + Group, mean)
+        do_aggregate(y ~ Condition + Trial + Subject + Electrode + Project + Group, mean)
     by_el_data$UUID = by_el_data %$% {Subject %&% Electrode}
     
     by_el_data %>% split((.)$UUID) %>% lapply(function(bed) {
         # bed <- by_el_data %>% split((.)$UUID) %>% extract2(1)
         summ = summary(lsmeans::lsmeans(
-                            lm(Power ~ Group, data=bed),
+                            lm(y ~ Group, data=bed),
                             pairwise ~ Group),
                        infer=TRUE)
         
@@ -345,12 +373,16 @@ observeEvent(input$run_analysis, {
     by_el_results$Electrode <-  as.numeric(as.character(by_el_results$Electrode))
     local_data$by_electrode_results = by_el_results
     
-    fo = input$model_formula
-    fo %<>% as.formula #fo=as.formula('Power ~ Group + (1|Subject/Electrode)')
+    fo <-  str_replace_all(input$model_formula, input$model_dependent, 'y')
+    
+    fo %<>% as.formula #fo=as.formula('y ~ Group + (1|Subject/Electrode)')
     tryCatch({
+        print('trying LME')
         lmer_results = lmerTest::lmer(fo, data=collapsed_data, na.action=na.omit)
-        
+        print('LME succeeded')
         local_data$lmer_results_summary <- summary(lmer_results)
+        print('summary succeeded')
+        
         local_data$lmer_results = lmer_results
         
         if(exists('.__DEBUG__'))
@@ -370,84 +402,29 @@ observeEvent(input$run_analysis, {
     })
 })
 
-#### File upload to MLE source ####
-# Once data is loaded, 
-# 1. local_data$full_table will be a data.frame
-# 2. local_data$all_vars will be a vector 
-# is_reactive_context = function(){
-#     any(c('ShinySession', 'session_proxy') %in% class(session))
-# }
-# 
-# # Find csv file within directory
-# find_source = function(fname){
-#     fpath = file.path(group_analysis_src, fname)
-#     if( !file.exists(fpath) ){
-#         fpath = file.path(power_explorer_dir, fname)
-#     }
-#     if( !file.exists(fpath) ){
-#         fpath = NULL
-#     }
-#     return(fpath)
-# }
-# 
-# observeEvent(input$csv_file, {
-#     csv_headers = c('Project', 'Subject', 'Electrode')
-#     path = input$csv_file$datapath
-#     tryCatch({
-#         # try to load as csv, check column names
-#         dat = read.csv(path, header = TRUE, nrows = 10)
-#         if(all(csv_headers %in% names(dat))){
-#             now = strftime(Sys.time(), '-%Y%m%d-%H%M%S(manual).csv')
-#             # pass, write to group_analysis_src with name
-#             fname = input$csv_file$name
-#             fname = stringr::str_replace_all(fname, '[\\W]+', '_')
-#             fname = stringr::str_to_lower(fname)
-#             fname = stringr::str_replace(fname, '_csv$', now)
-#             if(!dir.exists(group_analysis_src)){
-#                 dir.create(group_analysis_src, recursive = TRUE, showWarnings = FALSE)
-#             }
-#             file.copy(path, file.path(group_analysis_src, fname), overwrite = TRUE)
-#             rescan_source(new_selected = fname)
-#             return()
-#         }
-#         showNotification(p('The file uploaded does not have enough columns.'), type = 'error')
-#     }, error = function(e){
-#         showNotification(p('Upload error: ', e), type = 'error')
-#     })
-# })
-# 
-# observeEvent(input$load_csvs, {
-#     progress = rave::progress('Loading analysis', max = length(source_files) + 1)
-#     on.exit({ progress$close() })
-#     
-#     progress$inc('Checking files...')
-#     # find all the source files and get headers
-#     metas = lapply(source_files, function(fpath){
-#         fpath = find_source(fpath)
-#         if( is.null(fpath) ){ return(NULL) }
-#         dat = read.csv( fpath , header = TRUE, nrows = 1)
-#         list(
-#             fpath = fpath,
-#             header = names(dat)
-#         )
-#     })
-#     metas = dipsaus::drop_nulls(metas)
-#     headers = unique(unlist(lapply(metas, '[[', 'header')))
-#     
-#     # Read all data
-#     res = lapply(metas, function(x){
-#         progress$inc('Loading...')
-#         tbl = data.table::fread(file = x$fpath, stringsAsFactors = FALSE, header = TRUE)
-#         mish = headers[!headers %in% names(tbl)]
-#         for(m in mish){
-#             tbl[[m]] = NA
-#         }
-#         return( tbl )
-#     })
-#     local_data$all_vars = headers
-#     local_data$full_table = do.call('rbind', res)
-# })
 
+# update_model_formula <- function() {
+#     updateTextInput(session, 'model_formula', value=new_formula)
+# }
+
+observeEvent(input$model_dependent, {
+    if(is.null(local_data$analysis_data_filtered)) return(1)
+    
+    orig = input$model_formula
+    # if(!str_detect())
+    
+    # just update the LHS
+    tokens = unlist(stringr::str_split(orig, '~'))
+    
+    re = '(1|Electrode)'
+    if(length(unique(local_data$analysis_data_filtered$Subject)) > 1) {
+        re = '(1|Subject/Electrode)'
+    }
+    
+    new_formula = sprintf("%s ~ Group + %s", input$model_dependent, re)
+    
+    updateTextInput(session, 'model_formula', value=new_formula)
+})
 
 #### Feature selection field handlers ####
 

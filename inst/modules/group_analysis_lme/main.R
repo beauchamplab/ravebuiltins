@@ -4,7 +4,8 @@
 devtools::document()
 ravebuiltins:::dev_ravebuiltins(T)
 mount_demo_subject()
-
+# mount_demo_subject(subject_code = 'YCZ', 'Sentences', epoch='YCZ_gingko',
+#                    electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
 init_module(module_id = 'group_analysis_lme', debug = TRUE)
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
@@ -22,12 +23,6 @@ mount_demo_subject(force_reload_subject = T)
 
 # module_id = 'group_analysis_lme'
 module = ravebuiltins:::debug_module('group_analysis_lme')
-# 
-# result = module(ANALYSIS_WINDOW = 0)
-# result$phase_histogram()
-# result$itpc_plot()
-# result$itpc_time_plot()
-# result$phase_plot()
 
 results = result$results
 

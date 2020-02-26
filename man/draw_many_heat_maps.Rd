@@ -7,6 +7,7 @@
 draw_many_heat_maps(
   hmaps,
   max_zlim = 0,
+  percentile_range = FALSE,
   log_scale = FALSE,
   show_color_bar = TRUE,
   useRaster = TRUE,

@@ -37,12 +37,11 @@ define_output_3d_viewer <- function(
       
       if(is.null(!!height)){
         client_size = get_client_size()
-        client_height = client_size$available_size[[2]] - 200
+        client_height = client_size$available_size[[2]] - 600
         height = sprintf('%.0fpx', client_height)
       }else{
         height = !!height
       }
-      
       
       htmltools::tagList(
         htmltools::div(

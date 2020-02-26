@@ -35,8 +35,9 @@ across_electrode_statistics_plot <- function(results, ...) {
             plot_sideways_density(y, ylim, cut)
         })
     }
+    passing_electrodes <- determine_passing_electrodes(results)
     
-    if(isTRUE(results$get_value('show_result_densities'))) {
+    if(isTRUE(results$get_value('show_result_densities')) & length(passing_electrodes) > 1) {
         layout(matrix(1:6, nrow=1), widths = rep(c(3.5,1), 3))
     } else {
         layout(matrix(1:3, nrow=1), widths = 1)
@@ -45,7 +46,6 @@ across_electrode_statistics_plot <- function(results, ...) {
     par(mar=c(5.1, 4.1+2, 4.1, 2.1))
     
     
-    passing_electrodes <- determine_passing_electrodes(results)
     
     lapply(c('mean', 't'), function(sv) {
         wrap_density(across_electrode_statistics_plot_helper(results, sv,
@@ -94,10 +94,10 @@ make_stat_filter <- function(fname) {
 }
 
 across_electrode_statistics_plot_helper <- function(results, 
-                                                     stat_var,
-                                                     TRANSFORM=force,
-                                                     PANEL.LAST=NULL, 
-                                                     show_yaxis_labels = !is.function(PANEL.LAST),
+                                                    stat_var,
+                                                    TRANSFORM=force,
+                                                    PANEL.LAST=NULL, 
+                                                    show_yaxis_labels = !is.function(PANEL.LAST),
                                                     passing_electrodes, ...) {
     available_stats = c('mean', 't', 'p')
     stat_var <- match.arg(stat_var, available_stats)
@@ -162,17 +162,17 @@ across_electrode_statistics_plot_helper <- function(results,
     ))
 }
 
-rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.lab, ...) {
-    col %?<-% get_foreground_color()
-    title(xlab=xlab, ylab=ylab, cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, ...)
-}
-
 # several functions will need to use this
 determine_passing_electrodes <- function(results, ...) {
     
     ### we need to update this to select the appropriate value!
     # res <- results$get_value('omnibus_results')
     res <- get_active_result(results)
+    
+    # if(!is.matrix(res)) {
+    #     res = matrix(res, nrow=1, dimnames = list(NULL, names(res)))
+    # }
+    
     v <- c('mean', 'p', 't')
     filters <- sapply(v %&% '_filter', function(e) results$get_value(e))
     operators <- sapply(v %&% '_operator', function(e) results$get_value(e))
@@ -232,13 +232,6 @@ determine_passing_electrodes <- function(results, ...) {
     return(pass_the_test)
 }
 
-shiny_is_running <- function() {
-    return(shiny::isRunning())
-    
-    # cls <- class(getDefaultReactiveDomain())
-    # any(cls %in% c('ShinySession', 'session_proxy'))
-}
-
 across_electrodes_xaxis <- function(xmat) {
     xat = as.integer(pretty(seq_along(xmat[1,])))
     xat[xat==0] = 1 
@@ -269,7 +262,7 @@ get_active_result <- function(results, ...) {
                                 message = 'Selected data not available. Press Recalculate button'))
     ind = begin:(begin+2)
     
-    return (res[ind,])
+    return (res[ind,,drop=FALSE])
 }
 
 vector_to_row_matrix <- function(y) {
@@ -281,58 +274,6 @@ get_result_name <- function(full_name) {
         return ("Across all trials")
     }
     return(full_name)
-}
-
-get_foreground_color <- function() {
-    switch(par('bg'),
-           'black' = 'white',
-           'white' = 'black',
-           '#1E1E1E' = 'gray70',
-           'gray' = '#A5A5A5', 
-           'black'
-    ) 
-}
-
-invert_palette <- function(pal) {
-    inv = c(255, 255, 255, 255) - col2rgb(pal, alpha=TRUE)
-    rgb(t(inv), alpha=255, maxColorValue = 255)    
-}
-
-
-#works by side effect to change the palette used by the current graphics device
-set_palette_helper <- function(results, ...) {
-    rave_context()
-    
-    .bg <- results$get_value('background_plot_color_hint', 'White')
-    # session = shiny::getDefaultReactiveDomain()
-    if(.bg %in%  c('white', 'White')) {
-        theme = set_rave_theme('light')
-    }else{
-        theme = set_rave_theme('dark')
-    }
-
-    # setting the background color here triggers a cascade of color changes
-    if(.bg == 'Gray') {
-        par('bg'='#1E1E1E')
-    } else {
-        par('bg'=.bg)
-    }
-    
-    pal <- get_palette(results$get_value('color_palette'))
-    
-    if(results$get_value('invert_colors_in_palette', FALSE)) {
-        pal %<>% invert_palette
-    }
-    
-    if(results$get_value('reverse_colors_in_palette', FALSE)) {
-        pal %<>% rev
-    }
-    
-    set_palette(pal)
-    
-    par(col=get_foreground_color())
-    
-    invisible()
 }
 
 
@@ -379,28 +320,12 @@ heat_map_plot <- function(results, ...){
     draw_many_heat_maps(hmaps = results$get_value('heat_map_data'),
                         log_scale = results$get_value('log_scale'),
                         max_zlim = results$get_value('max_zlim', 0),
+                        percentile_range=results$get_value('percentile_range'),
                         xrange = results$get_value('plot_time_range'),
                         PANEL.LAST = spectrogram_heatmap_decorator(results=results),
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator,0)
     )
 }
-
-# create_results_object <- function(...) {
-#     env <- new.env(parent = baseenv())
-#     local({
-#         .current_env = environment()
-#         get_value = function(nm, default = NULL){
-#             if(exists(nm, envir = .current_env)){
-#                 return( .current_env[[nm]] )
-#             }else{
-#                 default
-#             }
-#         }
-#     }, envir = env)
-#     list2env(list(...), envir = env)
-#     env
-# }
-
 
 by_electrode_heat_map_plot <- function(results, ...) {
     rave_context()
@@ -413,25 +338,12 @@ by_electrode_heat_map_plot <- function(results, ...) {
     by_electrode_heat_map_data <- results$get_value('by_electrode_heat_map_data')
     
     draw_many_heat_maps(by_electrode_heat_map_data,
+                        percentile_range=results$get_value('percentile_range'),
                         max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
                         xrange = results$get_value('plot_time_range'),
                         PANEL.LAST=by_electrode_heat_map_decorator(results=results),
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator, 0)
                         )
-}
-
-pretty_round <- function(x) {
-    max_x <- max(abs(x))
-    dig = 0
-    if(max_x < 1) {
-        dig = abs(floor(log10(max_x)))
-    } 
-    round(x, dig)
-}
-
-color_bar_title_decorator <- function(m) {
-    rave_title(paste0('Range\n[', paste0(pretty_round(get_data_range(m)), collapse = ':'), ']'),
-               font=1, cex = rave_cex.lab*.8)
 }
 
 # the only difference between this plot and the time x freq heat_map_plot
@@ -452,13 +364,18 @@ by_trial_heat_map_plot <- function(results) {
     
     # if the user wants the data to be sorted by trial type (rather than trial number) then we
     # need to sort the data
-    sort_trials_by_type <- results$get_value('sort_trials_by_type', FALSE)
-    if(sort_trials_by_type) {
+    sort_trials_by_type <- results$get_value('sort_trials_by_type', 'Trial Number')
+    if(sort_trials_by_type != 'Trial Number') {
         for(ii in which(results$get_value('has_trials'))) {
-            by_trial_heat_map_data[[ii]] %<>% reorder_trials_by_type
+            by_trial_heat_map_data[[ii]] %<>% reorder_trials_by_event(event_name = sort_trials_by_type)
         }
         # add a decorator that can draw the trial labels
-        decorator %<>% add_decorator(trial_type_boundaries_hm_decorator)
+        if(sort_trials_by_type == 'Condition') {
+            decorator %<>% add_decorator(trial_type_boundaries_hm_decorator)
+        } else  {
+            decorator %<>% add_decorator(by_trial_analysis_window_decorator(event_name= sort_trials_by_type,
+                                                                            show_label = results$get_value('draw_decorator_labels')))
+        }
     }
     
     show_outliers <- results$get_value('show_outliers_on_plots', FALSE)
@@ -473,6 +390,8 @@ by_trial_heat_map_plot <- function(results) {
             if(sum(.clean) == 0) {
                 by_trial_heat_map_data[[ii]]$has_trials <- FALSE
                 print('no trials')
+            } else if(all(.clean)){
+                # do nothign
             } else {
                 
                 xlab = attr(by_trial_heat_map_data[[ii]]$data, 'xlab')
@@ -488,7 +407,7 @@ by_trial_heat_map_plot <- function(results) {
                 by_trial_heat_map_data[[ii]]$Trial_num <- by_trial_heat_map_data[[ii]]$Trial_num[.clean]
                 by_trial_heat_map_data[[ii]]$trials <- by_trial_heat_map_data[[ii]]$trials[.clean]
                 by_trial_heat_map_data[[ii]]$range <- .fast_range(c(by_trial_heat_map_data[[ii]]$data))
-                by_trial_heat_map_data[[1]]$y <- seq_along(by_trial_heat_map_data[[ii]]$Trial_num)
+                by_trial_heat_map_data[[ii]]$y <- seq_along(by_trial_heat_map_data[[ii]]$Trial_num)
             }
         }
     }
@@ -496,12 +415,14 @@ by_trial_heat_map_plot <- function(results) {
     # the y variable is changing each time,
     # so we provide a function that will be used to calculate the
     # y variable on a per map basis
+    need_wide = ('Condition' == sort_trials_by_type)
     draw_many_heat_maps(by_trial_heat_map_data,
                         max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
-                        wide = sort_trials_by_type,
+                        percentile_range=results$get_value('percentile_range'),
+                        wide = need_wide,
                         PANEL.LAST=decorator,
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator,0),
                         xrange = results$get_value('plot_time_range'),
                         # we always want the x axis, but we only want the y axis if we are NOT sorting by type
-                        axes=c(TRUE, !sort_trials_by_type))
+                        axes=c(TRUE, !need_wide))
 }

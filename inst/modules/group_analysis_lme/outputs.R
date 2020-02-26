@@ -167,18 +167,19 @@ windowed_activity <- function(lmer_results, collapsed_data) {
     
     shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
     
-    .y <- aggregate(Power ~ Group, m_se, data=collapsed_data)
+    .y <- aggregate(y ~ Group, m_se, data=collapsed_data)
     
-    xp <- rutabaga::rave_barplot(.y$Power[,1], axes=F, col = adjustcolor(1:nrow(.y), 0.7),
+    xp <- rutabaga::rave_barplot(.y$y[,1], axes=F, col = adjustcolor(1:nrow(.y), 0.7),
                            border=NA,
-                           ylim = range(pretty(c(0, plus_minus(.y$Power[,1], .y$Power[,2])))),
+                           ylim = range(pretty(c(0, plus_minus(.y$y[,1], .y$y[,2])))),
                            names.arg=.y$Group)
     
     rave_axis(2, at=axTicks(2))
-    rave_axis_labels(xlab='Group', ylab='Power')
+    warning('Need to label the ylab better!')
+    rave_axis_labels(xlab='Group', ylab='Activity')
     abline(h=0)
     
-    ebars(xp, .y$Power, col=1:nrow(.y), code=0, lwd=2, lend=0)
+    ebars(xp, .y$y, col=1:nrow(.y), code=0, lwd=2, lend=0)
 }
 
 mass_univariate_results <-  function(){
@@ -211,17 +212,17 @@ power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analys
     
     shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
 
-    sample_size = collapsed_data %>% do_aggregate(Power ~ Group, length) %$% {
-        names(Power) = Group
-        Power
+    sample_size = collapsed_data %>% do_aggregate(y ~ Group, length) %$% {
+        names(y) = Group
+        y
     }
     
     lpd <- agg_over_trial %>% split((.)$Group) %>% lapply(function(aot) {
         res = list(
             x = aot$Time,
-            data = aot$Power,
+            data = aot$y,
             N= sample_size[as.character(aot$Group[1])],
-            range = range(plus_minus(aot$Power[,1], aot$Power[,2])),
+            range = range(plus_minus(aot$y[,1], aot$y[,2])),
             has_trials = TRUE,
             name = aot$Group[1]
         )
@@ -235,6 +236,7 @@ power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analys
     time_series_plot(plot_data = lpd)
     axis_label_decorator(lpd)
     
+    print(paste0('analysis window: ', paste(analysis_window, collapse=':')))
     abline(v=analysis_window, lty=2)
     
     legend_decorator(lpd, include = c('name', 'N'))
@@ -352,6 +354,15 @@ lmer_diagnosis = function(){
         
     }
     
+}
+
+repeated_measures_note <- function() {
+    tagList(tags$p(tags$b('How to run repeated measures analyses on your data')),
+            tags$p('You must specify and activate at least two analysis windows. The module supports up to 5 analysis windows. Checking the ',
+                   tags$i('Active'), 'box for any window will override the ', tags$i('Analysis Window'),
+                   'set in ', tags$b('Analysis Settings'),
+                   ' above. Uncheck all ', tags$i('Active'), ' boxes to return to using a single analysis window.')
+    )
 }
 
 download_all_results <- function() {

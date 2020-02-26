@@ -9,7 +9,10 @@ local_data = reactiveValues(
     windowed_by_trial_click_location = NULL,
     click_info = NULL,
     calculate_flag = 0,
-    
+    sheth_special_include_contrasts = FALSE, 
+    highlight_significant_results = FALSE,
+    sheth_special_height = 10,
+    sheth_special_width = 15,
     autocalc_disclaimer = "<div style='margin-top:10px'><b>Auto-calculate is currently off.</b>&nbsp;Outliers are only removed during a calculate cycle.</div>"
 )
 
@@ -50,6 +53,44 @@ observeEvent(input$viewer_color_palette, {
 #     ))
 # })
 
+rave_is_loaded <- function() {
+    c('ECoGTensor') %in% class(power)
+}
+
+
+observeEvent(input$event_of_interest, {
+    if(!rave_is_loaded()) {
+        return()
+    }
+    
+    #based on the chosen event of interest, we need to set the available plot range 
+    # print(input$event_of_interest)
+    available_time = range(power$dimnames$Time)
+    # eot = tail(epoch_event_types,1)
+    eot = input$event_of_interest
+    # eot = '1stWord'
+    max_range = available_time
+    if(eot != epoch_event_types[1]) {
+        max_range = determine_available_shift(eot, available_time,
+                                              epoch_information = get_events_data(epoch_event_types))
+    }
+    
+    current_window = input$plot_time_range
+    
+    if(length(current_window) != 2) {
+        current_window = available_time
+    }
+    current_window %<>% clip_x(max_range)
+    local_data$shifted_data_range = max_range
+    # print('---NEW---')
+    # print(current_window) 
+
+    updateSliderInput(session = session, inputId = 'plot_time_range',
+                      value = current_window, min=max_range[1], max = max_range[2])
+
+    updateSliderInput(session = session, inputId = 'ANALYSIS_WINDOW',
+                      value = clip_x(input$ANALYSIS_WINDOW, max_range), min=max_range[1], max = max_range[2])
+})
 
 # observeEvent(input$btn_do_save_analysis, {
 #     # save
@@ -331,6 +372,10 @@ disable_save_button <- function() {
     updateActionButton(session, 'save_new_epoch_file', label=HTML("<span style='color:#ddd'>Save Outliers</span>"))
 }
 
+
+observeEvent(input$do_quick_calculate_btn, {
+    trigger_recalculate()
+})
 
 update_click_information <- function() {
     .loc <- local_data$windowed_by_trial_click_location

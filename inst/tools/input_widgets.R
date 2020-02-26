@@ -136,7 +136,6 @@ define_input_3d_viewer_generator <- function(
   eval_dirty(quo, env = parent_frame)
 }
 
-
 define_input_multiple_electrodes <- function(inputId, label = 'Electrodes'){
   quo = rlang::quo({
     define_input(
@@ -146,7 +145,7 @@ define_input_multiple_electrodes <- function(inputId, label = 'Electrodes'){
 
         electrodes = preload_info$electrodes
 
-        last_input = cache_input(!!inputId, val = as.character(electrodes))
+        last_input = cache_input(!!inputId, val = as.character(electrodes)[1])
         e = dipsaus::parse_svec(last_input)
         e = e[e %in% electrodes]
         if(!length(e)){
@@ -338,7 +337,6 @@ define_input_time <- function(inputId, label = 'Time Range', is_range = TRUE, ro
 # 
 # }
 
-
 define_input_condition_groups <- function(
   inputId, label = 'Group', initial_groups = 1, max_group = 10, min_group = 1,
   label_color = rep('black', max_group), init_args, init_expr, quoted = FALSE, ...
@@ -399,7 +397,6 @@ define_input_condition_groups <- function(
   eval_dirty(quo, env = parent_frame)
   
 }
-
 
 define_input_analysis_data_csv <- function(
   inputId, label, paths, reactive_target = sprintf('local_data[[%s]]', inputId),
@@ -505,6 +502,7 @@ define_input_analysis_data_csv <- function(
           path = input[[!!input_uploader]]$datapath
           group_analysis_src = .local_data$group_analysis_src
           tryCatch({
+            print('Observe input_uploader')
             # try to load as csv, check column names
             dat = read.csv(path, header = TRUE, nrows = 10)
             if(all(csv_headers %in% names(dat))){
@@ -528,6 +526,7 @@ define_input_analysis_data_csv <- function(
         }, event.env = .env, handler.env = .env)
         
         observeEvent(input[[!!input_btn]], {
+          print('Observe input_btn')
           source_files = input[[!!input_selector]]
           search_paths = .local_data$search_paths
           progress = rave::progress('Loading analysis', max = length(source_files) + 1)
@@ -550,6 +549,9 @@ define_input_analysis_data_csv <- function(
           # Read all data
           project_name = subject$project_name
           tbls = dipsaus::drop_nulls(lapply(metas, function(x){
+            
+            print('trying to load ' %&% x$fpath)
+            
             progress$inc('Loading...')
             tbl = data.table::fread(file = x$fpath, stringsAsFactors = FALSE, header = TRUE)
             tbl = tbl[tbl$Project %in% project_name, ]
@@ -569,7 +571,7 @@ define_input_analysis_data_csv <- function(
                 conf = yaml::read_yaml(yaml_path)
               }
             }
-            
+            print('returning loaded data ')
             return(list(
               data = tbl,
               conf = conf,

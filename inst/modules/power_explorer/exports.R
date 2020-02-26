@@ -79,7 +79,7 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
     #     controllers[['Threshold Range']] = sprintf('-%s,%s|%s,%s', new_mx, rng[[1]][2], rng[[2]][1], new_mx)
     #   }
     # }
-
+    
     ### maybe we don't always want to show legend...
     controllers[['Show Legend']] = TRUE
     
@@ -101,10 +101,10 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
     pals[str_detect(names(pals), 'p\\.')] = list(pval_pal)
     pals[names(pals) %in% c('p')] = list(pval_pal)
     
-     re = brain$plot(symmetric = 0, palettes = pals,
+    re = brain$plot(symmetric = 0, palettes = pals,
                     side_width = side_width / 2, side_canvas = TRUE, 
-    side_display = display_side, start_zoom = zoom_level, controllers = controllers,
-    control_presets = 'syncviewer', timestamp = FALSE)
+                    side_display = display_side, start_zoom = zoom_level, controllers = controllers,
+                    control_presets = 'syncviewer', timestamp = FALSE)
     
   }else{
     # optional, if you want to change the way 3D viewer looks in additional tab
@@ -120,7 +120,6 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   # brain$view(value_range = c(-1,1) * max(abs(values)),
   #            color_ramp = rave_heat_map_colors, side_shift = c(-265, 0))
 }
-
 
 ## modified from downloadButton
 fix_font_color_button <- function (outputId, label = "Download", class = NULL, ...)  {
@@ -138,34 +137,299 @@ graph_export = function(){
 
 
 customDownloadButton <- function(outputId, label='Download', class=NULL, icon_lbl="download", ...) {
-  
-  if(is.null(local_data$omnibus_results)) {
-    return(
-      tags$p('No data are available for export. Press calculate button.')
-    )
-  }
-  
   tags$a(id = outputId,
-                 class = paste("btn btn-default shiny-download-link", class),
-                 href = "", target = "_blank", download = NA, 
-                 icon(icon_lbl), label, ...)
+         class = paste("btn btn-default shiny-download-link", class),
+         href = "", target = "_blank", download = NA, 
+         icon(icon_lbl), label, ...)
 }
 
 sheth_special <- function() {
-  tagList(customDownloadButton(ns('btn_sheth_special'),
-                         'Download heatmap results summary',
-                         label = "Sheth's special stat heatmap", icon_lbl = 'user-md'))
+  # if(is.null(local_data$omnibus_results)) {
+  #   return(
+  #     tags$p('No data are available for export. Press calculate button.')
+  #   )
+  # }
+  tagList(div(class='rave-grid-inputs',
+              div(style='flex-basis: 100%', customDownloadButton(ns('btn_sheth_special'),
+                               label = "Sheth's special stat heatmap", icon_lbl = 'user-md')),
+              div(style='flex-basis: 25%', numericInput(ns('sheth_special_width'), label='width (inches)', value=15, min=5, step = 1)),
+              div(style='flex-basis: 25%', numericInput(ns('sheth_special_height'), label='height (inches)', value=10, min=3, step = 1))
+          )
+          # ,checkboxInput(ns('highlight_significant_results'), 'Highlight significant results in output', value=TRUE)
+  )
+}
+
+observeEvent(input$sheth_special_height, {
+  local_data$sheth_special_height = input$sheth_special_height
+  
+  if(local_data$sheth_special_height < 3) {
+    local_data$sheth_special_height = 3
+    showNotification('Height cannot be less than 3')
+    updateNumericInput(session, 'sheth_special_height', value = 3)
+  }
+  
+})
+
+observeEvent(input$sheth_special_width, {
+  local_data$sheth_special_width = input$sheth_special_width
+  
+  if(local_data$sheth_special_width < 5) {
+    local_data$sheth_special_width = 5
+    showNotification('Width cannot be less than 5')
+    updateNumericInput(session, 'sheth_special_width', value=5)
+  }
+})
+
+
+build_sheth_matrices <- function() {
+  unit_dims = c(1,2,4)
+  if(isTRUE(global_baseline)) {
+    unit_dims = c(2,4)
+  }
+  baseline_method = get_unit_of_analysis(unit_of_analysis)
+  
+  # see if there are contrasts to run
+  gnames = sort(unique(c(unlist(sapply(GROUPS, '[[', 'group_conditions')))))
+  
+  # we are doing this here instead of when lmmeans is called because that is called inside the lapply_async
+  # the critical thing is the call to factory above that ensure the levels are ordered based on how they are entered
+  # into the condtion groups.
+  lbls = build_group_contrast_labels(gnames)
+  
+  berger_bands <- list(
+    delta = 0:3,
+    theta = 4:7,
+    alpha = 8:12,
+    beta = 13:31,
+    'low gamma' = 32:70,
+    'high gamma' = 75:150
+  )
+  
+  show_contrasts = local_data$sheth_special_include_contrasts
+  epoch_data_Condition = epoch_data$Condition
+  
+  shift_amount = new_range = NULL
+  if(event_of_interest != epoch_event_types[1]) {
+    ev = get_events_data(epoch_event_types = epoch_event_types)
+    new_range = determine_available_shift(event_of_interest,
+                                          available_time = range(power$dimnames$Time),
+                                          epoch_information = ev)
+    
+    shift_amount = determine_shift_amount(event_time = ev[[event_of_interest]], available_shift=new_range)
+  }
+  
+  res = #lapply(electrodes, function(e, ...){
+    rave::lapply_async(electrodes, function(e){
+      # e = electrodes[1]
+      
+      if(is.null(shift_amount)) {
+        el = power$subset(Electrode = Electrode == e,
+                          Frequency = Frequency %within% 0:151,
+                          Time = (Time %within% ANALYSIS_WINDOW) | (Time %within% BASELINE_WINDOW)
+        )
+        if(prod(dim(el)) < 1) return (NULL)
+        
+        bl = dipsaus::baseline_array(
+          x = el$get_data(),
+          baseline_indexpoints = which(el$dimnames$Time %within% BASELINE_WINDOW),
+          along_dim = 3L, method = baseline_method, unit_dims = unit_dims)
+        bl = ECoGTensor$new(bl, dim = dim(el), dimnames = dimnames(el),
+                            varnames = el$varnames, hybrid = FALSE)
+      } else {
+        el = power$subset(Electrode = Electrode == e,
+                          Frequency = Frequency %within% 0:151)
+        # can't do this because of the shift
+        # ,Time = (Time %within% ANALYSIS_WINDOW) | (Time %within% BASELINE_WINDOW))
+        if(prod(dim(el)) < 1) return (NULL)
+        
+        bl = dipsaus::baseline_array(
+          x = el$get_data(),
+          baseline_indexpoints = which(el$dimnames$Time %within% BASELINE_WINDOW),
+          along_dim = 3L, method = baseline_method, unit_dims = unit_dims)
+        bl = get_shifted_tensor(bl, shift_amount, new_range = new_range,
+                                dimnames = dimnames(el), varnames = el$varnames)
+      }
+      
+      bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)$get_data()
+      
+      t2p <- function(t,df) {
+        2*pt(abs(t), df=df, lower.tail = F)
+      }
+      
+      result_by_band = lapply(berger_bands, function(band) {
+        # band = berger_bands[[1]]
+        trial_means = rowMeans(bl.analysis[,el$dimnames$Frequency %within% band,,1,drop=FALSE])
+        # trial_means = rowMeans(bl.analysis$subset(get_data())
+        
+        mse = .fast_mse(trial_means)
+        t = mse[1]/mse[2]
+        mean_res = matrix(c(mse[1], t, t2p(t, length(trial_means)-1)), nrow=1,
+                          dimnames = list(
+                            'Omnibus', c('m', 't', 'p'))
+        )
+        median_res = matrix(
+          c(median(trial_means), wilcox.test(trial_means)$p.value),
+          nrow=1, dimnames = list('Omnibus', c('med', 'p'))
+        )
+        
+        # now we also need to run the contrasts
+        mtp = tapply(trial_means, epoch_data_Condition, function(x) {
+          m = .fast_mse(x)
+          .t <- m[1]/m[2]
+          c(m[1], .t, t2p(.t, length(x)-1))
+        }) %>% rbind_list
+        mean_res %<>% rbind(mtp)
+        
+        medp = tapply(trial_means, epoch_data_Condition, function(x) {
+          m = median(x)
+          c(m,(wilcox.test(x)$p.value))
+        }) %>% rbind_list
+        median_res %<>% rbind(medp)
+        
+        if(show_contrasts) {
+          showNotification(p('Ignoring request to generate contrasts... not yet implemented'),
+                           type='warning', duration = 4)
+        }
+        
+        return(list(
+          'median' = median_res,
+          'mean' = mean_res
+        ))
+      })
+      
+      return(result_by_band)
+    } ,
+    .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e', 'gnames', 'berger_bands', 'epoch_data_Condition',
+                 'FREQUENCY', 'ANALYSIS_WINDOW', 'BASELINE_WINDOW', 'shift_amount',
+                 '.fast_mse', 'df_shell', 'show_contrasts'),
+    .gc = FALSE)
+  
+  by_band <- sapply(names(berger_bands), function(band) {
+    .band = lapply(res, '[[', band)
+    
+    if(is.null(.band)) {
+      return (NULL)
+    }
+    mean = list(
+      m = sapply(.band, function(x) x$mean[,1]),
+      t = sapply(.band, function(x) x$mean[,2]),
+      p = sapply(.band, function(x) x$mean[,3])
+    )
+    mean %<>% lapply(function(x) {
+      colnames(x) = electrodes
+      x
+    })
+    
+    median = list(
+      m = sapply(.band, function(x) x$median[,1]),
+      p = sapply(.band, function(x) x$median[,2])
+    )
+    median %<>% lapply(function(x) {
+      colnames(x) = electrodes
+      x
+    })
+    
+    list('mean'=mean, 'median'=median)    
+  }, simplify = FALSE)
+  
+  attr(by_band, 'band_structure') = sapply(berger_bands, dipsaus::deparse_svec)
+  
+  return(by_band)
 }
 
 output$btn_sheth_special <- downloadHandler(
   filename=function(...) {
     paste0('sheth_special_',
-           format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.zip')
+           format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.pdf')
   }, 
   content = function(conn) {
-    write.csv(file=conn, cache(name='omnibus_results'))
+    
+    progress = rave::progress("Making Sheth's special", max = 4)
+    
+    on.exit({progress$close()}, add=TRUE)
+    
+    progress$inc('Building matrices')
+    mats = build_sheth_matrices()
+    # assign('.mats', mats, envir=globalenv())
+    # mats = .mats
+    
+    progress$inc('Building PDF')
+    
+    bpch = input$background_plot_color_hint
+    if(bpch == 'Gray') {
+      bpch = rave_colors$DARK_GRAY
+    }
+    
+    pdf(file = conn, width = local_data$sheth_special_width, bg = bpch,
+        height = local_data$sheth_special_height, useDingbats = FALSE)
+    
+    on.exit(dev.off(), add = TRUE)
+    
+    max_char_count = max(unlist(lapply(mats, function(x) {
+      nchar(rownames(x$mean$m))
+    })))
+    mar = c(1, 4 + max(0, (max_char_count - 5) * 0.95), 4, 1)
+    
+    layout(matrix(1:12, ncol=4, byrow=TRUE),
+           widths = rep(c(1,lcm(3)), 6))
+    
+    # mean and t-score maps
+    progress$inc('writing mean and t(mean)')
+    for(current_stat in c('m', 't')) {
+      mapply(make_stat_heatmap, mats, names(mats),
+             attr(mats, 'band_structure'), MoreArgs = list(type='mean', 'stat'=current_stat, 'mar'=mar)
+      )
+    }
+    #median maps
+    progress$inc('writing median results')
+    mapply(make_stat_heatmap, mats, names(mats), attr(mats, 'band_structure'),
+           MoreArgs = list(type='median', stat='m', 'mar'=mar))
+    
   }
 )
+
+make_stat_heatmap <- function(mat, nm, band, stat, type='mean', mar) {
+  # print(nm)
+  .m = t(mat[[type]][[stat]])
+  
+  x = 1:nrow(.m)
+  y = 1:ncol(.m)
+  zlim = max(pretty(abs(quantile(.m, c(0.01, 0.99)))))
+  
+  if(!missing(mar)) {
+    par(mar=mar)
+  }
+  # 
+  rutabaga::plot_clean(range(x)+c(-0.5,0.5),
+                       range(y)+c(-1, 1))
+  make_image(.m[,ncol(.m):1,drop=FALSE], y=y, x=x, add=TRUE, useRaster = FALSE, zlim = c(-zlim, zlim))
+  rave_axis(3, 1:nrow(.m), labels=row.names(.m), tcl=0, lwd=0, cex.axis=0.75, mgpx = c(0, -1, 0))
+  rave_axis(2, 1:ncol(.m), labels=rev(colnames(.m)), tcl=0, lwd=0, cex.axis=0.75)
+  rave_title(sprintf("%s (%s)", nm, band), cex=1)
+  
+  if(local_data$highlight_significant_results) {
+    pvals = t(mat[[type]][['p']])
+    for(ii in 1:nrow(pvals)) {
+      for(jj in 1:ncol(pvals)) {
+        if(pvals[ii,jj] < 0.05) {
+          # which(pvals < 0.05, arr.ind = TRUE)
+          draw.box(x0 = ii-0.539, y0=jj-0.5,
+                   x1 = ii+0.539, y1=jj+0.5,
+                   lty = if(pvals[ii,jj] < 0.01) {1} else {3}, lwd=0.5)
+        }
+      }
+    }
+  }
+  
+  .ylab = paste(type, unit_of_analysis)
+  if(stat == 't') {
+    .ylab = paste0('t(mean ', unit_of_analysis, ')')
+  }
+  
+  rave_color_bar(zlim, ylab=.ylab, mar = c(2,4.1,4,2),
+                 cex.lab = 0.75, cex.axis = 0.75)
+  color_bar_title_decorator(list(list(range=range(.m))), cex=0.75)
+}
 
 download_electrodes_csv <- function() {
   tagList(downloadLink(ns('btn_electrodes_meta_download'), 'Download copy of meta data for all electrodes'),
@@ -295,13 +559,12 @@ write_out_graphs <- function(conns=NA, plot_functions, dir, prefix, ...) {
     sapply(find_open_pdfs(), dev.off)
   }, add = TRUE)
   
-  
   plot_for_el <- function(etext, write_out_data=FALSE) {
     if(length(etext) > 1) {
       etext %<>% deparse_svec
     }
     # if(shiny_is_running()) {
-      progress$inc(sprintf('Rendering graphs for %s', etext))
+    progress$inc(sprintf('Rendering graphs for %s', etext))
     # }
     
     args[['ELECTRODE_TEXT']] = etext
@@ -373,9 +636,9 @@ observeEvent(input$export_data_only, {
 
 
 # observeEvent(input$GROUPS, {
-  
-  # print('groups changed')
-  
+
+# print('groups changed')
+
 # })
 
 
@@ -424,7 +687,7 @@ write_out_data_function <- function(){
   
   # Get timepoints,frequency range
   time_points = preload_info$time_points
-  time_points = time_points[time_points %within% input$export_time_window]
+  # time_points = time_points[time_points %within% input$export_time_window]
   freq_range = preload_info$frequencies
   freq_range = freq_range[freq_range %within% input$FREQUENCY]
   
@@ -447,7 +710,6 @@ write_out_data_function <- function(){
     ))), type = 'error', id = ns('export_csv'))
     return()
   }
-  
   # Baseline
   progress$inc('Generating results... (might take a while)')
   
@@ -457,40 +719,18 @@ write_out_data_function <- function(){
   # condition list
   cond_list = list(); cond_list[trials$Trial] = trials$Condition
   
-  # Use async lapply to speed up the calculation as it's really per electrode analysis
-  # res = rave::lapply_async(electrodes, function(e){
-  #   bl = baseline(power$subset(Trial = Trial %in% trial_number,
-  #                         Time = Time %within% time_points,
-  #                         Frequency = Frequency %within% freq_range,
-  #                         Electrode = Electrode %in% e), 
-  #            from = baseline_range[1], to = baseline_range[2], hybrid = FALSE, mem_optimize = FALSE)
-  #   flat = bl$collapse(keep = c(1,3))
-  #   dimnames(flat) = dimnames(bl)[c(1,3)]
-  #   flat = reshape2::melt(flat, value.name = 'Power') # trial time, value
-  #   flat$Condition = unlist(cond_list[flat$Trial])
-  #   flat$Electrode = e
-  #   flat
-  # }, .call_back = function(ii){
-  #   progress$inc(sprintf('Electrode %d', electrodes[[ii]]))
-  # # specify all variables in .globals, in this way we can avoid the whole memory mappings
-  # }, .globals = c('power', 'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list'))
-  
   unit_dims = c(1,2,4)
   if(isTRUE(input$global_baseline)) {
     unit_dims = c(2,4)
   }
-  method <- list(
-    '% Change Power' = 'percentage',
-    '% Change Amplitude' = 'sqrt_percentage',
-    'z-score Power' = 'zscore',
-    'z-score Amplitude' = 'sqrt_zscore',
-    'decibel' = 'decibel'
-  )
+  baseline_method = get_unit_of_analysis(input$unit_of_analysis)
   unit_of_analysis <- input$unit_of_analysis
-  baseline_method = method[[unit_of_analysis]]
   unit_name = format_unit_of_analysis_name(unit_of_analysis)
   
+  # here we want to take into the event of interest as well I think we just shift the entire data set here. we can
+  
   res = rave::lapply_async(electrodes, function(e){
+    # e = electrodes[1]
     progress$inc(sprintf('Electrode %d', e))
     # Important p_sub is assigned, otherwise, it will get gc before baselined
     p_sub = power$subset(Trial = Trial %in% trial_number,
@@ -498,24 +738,59 @@ write_out_data_function <- function(){
                          Electrode = Electrode %in% e)
     
     # bl = baseline(p_sub, from = baseline_range[1], to = baseline_range[2], hybrid = FALSE, mem_optimize = FALSE)
-    bl = dipsaus::baseline_array(
-      x = p_sub$get_data(),
-      baseline_indexpoints = which(p_sub$dimnames$Time %within% baseline_range),
-      along_dim = 3L,
-      method = baseline_method,
-      unit_dims = unit_dims
-    )
-    bl = ECoGTensor$new(bl, dim = dim(p_sub), dimnames = dimnames(p_sub),
-                        varnames = p_sub$varnames, hybrid = FALSE)
+    bl = dipsaus::baseline_array(x = p_sub$get_data(), baseline_indexpoints = which(p_sub$dimnames$Time %within% baseline_range),
+      along_dim = 3L, unit_dims = unit_dims, method = baseline_method)
     
-    bl = bl$subset(Time = Time %within% time_points)
-    flat = bl$collapse(keep = c(1,3))
-    dimnames(flat) = dimnames(bl)[c(1,3)]
-    flat = reshape2::melt(flat, value.name = unit_name) # trial time, value
-    flat$Condition = unlist(cond_list[flat$Trial])
-    flat$Electrode = e
-    flat
-  }, .globals = c('unit_name', 'unit_dims', 'baseline_method', 'power',
+    ### here I think we just want to export all the events...
+    by_event_type <- sapply(epoch_event_types, function(eot) {
+      if(eot != epoch_event_types[1]) {
+        epoch_info = get_events_data(epoch_event_types)
+        new_range = determine_available_shift(eot, range(power$dimnames$Time), epoch_information = epoch_info)
+        
+        shift_amount = determine_shift_amount(event_time = epoch_info[[eot]],
+                                              available_shift=new_range)
+        
+        analysis = get_shifted_tensor(bl, shift_amount, new_range = new_range,
+                                dimnames = dimnames(p_sub), varnames = p_sub$varnames)
+      } else {
+        analysis = ECoGTensor$new(bl, dim = dim(p_sub), dimnames = dimnames(p_sub),
+                            varnames = p_sub$varnames, hybrid = FALSE)
+      }
+      # analysis = analysis$subset(Time = Time %within% time_points)
+      flat = analysis$collapse(keep = c(1,3))
+      
+      dimnames(flat) = dimnames(analysis)[c(1,3)]
+      flat = reshape2::melt(flat, value.name = sprintf('%s_%s', unit_name, 
+                                                       str_replace_all(eot, ' ', '_'))
+                            ) # trial time, value
+      flat$Condition = unlist(cond_list[flat$Trial])
+      flat$Electrode = e
+      
+      flat$uuid = paste0(flat$Trial, '_', formatC(flat$Time, width = 12, digits=10, flag='0'))
+      flat
+    }, USE.NAMES = TRUE, simplify = FALSE)
+    
+    if(length(by_event_type) == 1) return (by_event_type)
+    
+    full_matrix = by_event_type[[1]]
+    
+    if(any(duplicated(full_matrix$uuid))) {
+      stop('Cannot export data with duplicate row ids....')
+    }
+    
+    rownames(full_matrix) = full_matrix$uuid
+    for(ii in 2:length(by_event_type)) {
+      bet = by_event_type[[ii]]
+      val = names(bet)[! names(bet) %in% names(full_matrix)]
+      full_matrix[[val]] = NA
+      column_index = ncol(full_matrix)
+      
+      bet = bet[bet$uuid %in% full_matrix$uuid,]
+      
+      full_matrix[bet$uuid, column_index] = bet[[val]]
+    }
+    full_matrix
+  }, .globals = c('unit_name', 'unit_dims', 'baseline_method', 'power', 'event_of_interest',
                   'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list'),
   .gc = FALSE) 
   
@@ -528,7 +803,6 @@ write_out_data_function <- function(){
   if(!is.null(.trial_outlier_list)) {
     res$TrialIsOutlier[res$Trial %in% .trial_outlier_list] = TRUE
   }
-  
   
   # Write out results
   progress$inc('Writing out on server, preparing...')
@@ -544,10 +818,12 @@ write_out_data_function <- function(){
   save_inputs(file.path(dirname, paste0(fname, '.yaml')))
   
   # Collapse Trial and save to 3D viewer
-  collapsed_trial = reshape2::dcast(res, Project+Subject+Electrode+Time~Condition, mean, value.var = unit_name)
+  # res$Pct_Change_Power_Trial_Onset
+  
+  collapsed_trial = reshape2::dcast(res, Project+Subject+Electrode+Time~Condition, mean, value.var = paste0(unit_name, '_', 'Trial_Onset'))
   dirname_viewer = file.path(subject$dirs$subject_dir, '..', '_project_data', '3dviewer')
   dir.create(dirname_viewer, showWarnings = FALSE, recursive = TRUE)
-  data.table::fwrite(collapsed_trial, file.path(dirname_viewer, paste0(analysis_prefix, '-collapse_trial-', now, '.csv')), append = FALSE)
+  data.table::fwrite(collapsed_trial, file.path(dirname_viewer, paste0(analysis_prefix, '-collapsed_trial-_epoch_trial_onset_', now, '.csv')), append = FALSE)
   
   return(normalizePath(file.path(dirname, fname)))
 }

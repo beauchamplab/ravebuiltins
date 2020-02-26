@@ -39,6 +39,14 @@ define_initialization({
   time_points = preload_info$time_points
   electrodes = preload_info$electrodes
   epoch_data = module_tools$get_meta('trials')
+  
+  
+  epoch_event_types = str_subset(colnames(epoch_data), 'Event_*')
+  if(length(epoch_event_types) > 0) {
+    epoch_event_types %<>% str_remove_all('Event_')
+  }
+  epoch_event_types <- c("Trial Onset", epoch_event_types)
+  
   # here we're limiting the meta data to the electrodes that are currently loaded
   # we can't export unloaded electrodes
   electrodes_csv = module_tools$get_meta('electrodes') %>% subset((.)$Electrode %in% electrodes)
@@ -79,12 +87,13 @@ define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT', label = 'Select ele
 
 # we also want to be able to select electrodes categorically
 define_input(
-  definition = selectInput('electrode_category_selector', label='Select electrodes by category', choices=NULL, selected=NULL)
-  , init_args = c('choices', 'selected'),
+  definition = selectInput('electrode_category_selector', label='Select electrodes by category', choices=NULL, selected=NULL),
+  init_args = c('choices', 'selected'),
   init_expr = {
     choices = names(electrodes_csv)
     selected = elec_filter
   })
+
 define_input(
   definition = selectInput('electrode_category_selector_choices', label = 'Electrodes to display',
                            choices=NULL, selected = NULL, multiple = TRUE
@@ -96,12 +105,20 @@ define_input(
   }
 )
 
-
 define_input_condition_groups(inputId = 'GROUPS')
-
 define_input_frequency(inputId = 'FREQUENCY', initial_value = c(70,150))
-define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis', initial_value = c(0,1))
-define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline', initial_value = c(-1,0))
+define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis time (relative to analysis event)', initial_value = c(0,1))
+define_input_time(inputId = 'plot_time_range', label='Plot Time Range (relative to analysis event)')
+define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline time (relative to trial onset)', initial_value = c(-1,0))
+
+define_input(definition = selectInput('event_of_interest', 'Analysis Event',
+                                      choices=c('Trial Onset'), selected=c('Trial Onset'), multiple = FALSE),
+             init_args = c('choices'),
+             init_expr = {
+               choices = epoch_event_types
+             }
+)
+
 
 # define_input_analysis_file_chooser('analysis_settings', read_source = c('Analysis Settings' = 'analysis_yamls'))
 define_input_analysis_yaml_chooser(
@@ -131,7 +148,6 @@ define_input(
   }
 )
 
-
 define_input(
   definition = checkboxInput('global_baseline', 'Use Global Baseline (across trials)', value = FALSE)
 )
@@ -157,7 +173,10 @@ define_input(
   definition = checkboxInput('show_outliers_on_plots', 'Show outliers on plots', value = TRUE))
 
 define_input(
-  definition = numericInput('max_zlim', 'Heat map range (0: data range)', value = 0, min = 0, step = 1))
+  definition = numericInput('max_zlim', 'Heat map range (0: data range)', value = 99, min = 0, step = 1))
+
+define_input(
+  definition = checkboxInput('percentile_range', 'Range is percentile', value=TRUE))
 
 define_input(
   definition = checkboxInput('show_heatmap_range', 'Show data range on heat maps', value=TRUE))
@@ -171,14 +190,14 @@ define_input(
 #   definition = checkboxInput('log_scale', 'Log Freq (NI)'))
 
 define_input(
-  definition = checkboxInput('sort_trials_by_type',
-                             'Arrange trials w/n condition by name'))
+  definition = selectInput('sort_trials_by_type', 'How should trials be sorted?',
+                           choices = NULL, selected = NULL), init_args = c('choices', 'selected'), init_expr = {
+                             choices = c('Trial Number', 'Condition', epoch_event_types[-1])
+                             selected = 'Trial Number'
+                           })
 
 # define_input(
 #     definition = checkboxInput('collapse_using_median', 'Collapse w/ Median (NI)'))
-
-
-
 
 
 # let people decide how much information to include in the plots. It's up to the individual plot to actually make
@@ -188,8 +207,6 @@ define_input(
                            choices =c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range', 'Sample Size', 'Baseline Window', 'Analysis Window'),
                            selected=c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range', 'Sample Size', 'Baseline Window', 'Analysis Window'))
 )
-
-define_input_time('plot_time_range', label='Plot Time Range', initial_value = c(-1e5,1e5))
 
 define_input(
   definition = selectInput(inputId = 'plots_to_export', label='Plots to download', multiple=TRUE,
@@ -229,13 +246,11 @@ define_input(
   #   definition = checkboxInput('analysis_mask_export',value = FALSE,
   #                              label = 'Export Electrode Mask'))
   
-  define_input_time(inputId = 'export_time_window', label='Export time window')
+  # define_input_time(inputId = 'export_time_window', label='Export time window')
   
   define_input(
     definition = checkboxInput('include_outliers_in_export', "Include outliers in export", value=FALSE)
   )
-  
-  
   
     define_input(
     definition = selectInput('trial_type_filter', label=HTML('<br/>Trials to include in export file'), choices=NULL, selected=NULL, multiple =TRUE),
@@ -416,7 +431,6 @@ define_input(
                            choices = c('White', 'Black', 'Gray'), selected = 'White')
 )
 
-
 define_input(
   definition = checkboxInput(inputId = 'show_result_densities', label='Show frequency plots beside results output', value=TRUE)
 )
@@ -450,7 +464,7 @@ render_inputs <- c(
   'which_result_to_show_on_electrodes', 'synch_to_3dviewer',
   'sort_trials_by_type', 'draw_decorator_labels', 'PLOT_TITLE', 'show_outliers_on_plots', 'background_plot_color_hint',
   'invert_colors_in_palette', 'reverse_colors_in_palette', 'color_palette', 'heatmap_color_palette', 'heatmap_number_color_values',
-  'max_zlim','plot_time_range', 'invert_colors_in_heatmap_palette', 'reverse_colors_in_heatmap_palette',
+  'max_zlim','plot_time_range', 'invert_colors_in_heatmap_palette', 'reverse_colors_in_heatmap_palette', 'percentile_range',
   # 'heatmap_truncate_less_than',
   't_filter', 'p_filter', 'mean_filter', 'show_result_densities',
   't_operator', 'p_operator', 'mean_operator', 
@@ -465,9 +479,18 @@ define_input_auto_recalculate(
 )
 
 define_input_auto_recalculate(
-  inputId = 'do_calculate_btn', label = 'Recalculate analysis for all selected electrodes', 
+  inputId = 'do_calculate_btn', label = 'Recalculate everything', 
   type = 'button', button_type = 'primary'
 )
+
+
+# this is hard because we need to figure out which pieces of data are need for quick calculation vs. full calculation
+# define_input_auto_recalculate(
+#   inputId = 'do_quick_calculate_btn', label = 'Recalculate across-electrode stats only', 
+#   type = 'button', button_type = 'success'
+# )
+
+
 
 
 #
@@ -490,7 +513,9 @@ input_layout = list(
     'BASELINE_WINDOW',
     'global_baseline',
     'ANALYSIS_WINDOW',
-    'do_calculate_btn', 'auto_calculate'
+    'plot_time_range',
+    c('event_of_interest', 'sort_trials_by_type'),
+    'do_calculate_btn', 'auto_calculate', 'do_quick_calculate_btn'
   ),
   '[-]Create condition contrasts' = list(
     'GROUPS',
@@ -516,17 +541,15 @@ input_layout = list(
     'export_also_download'
   ),
   '[-]Configure plots' = list(
-    'plot_time_range',
     c('PLOT_TITLE'),
     'draw_decorator_labels',
-    c('sort_trials_by_type'),
     c('color_palette',
     'reverse_colors_in_palette', 'invert_colors_in_palette'),
     c('heatmap_color_palette', 'heatmap_number_color_values',
       'reverse_colors_in_heatmap_palette', 'invert_colors_in_heatmap_palette'),
-      c('max_zlim', 
+      c('max_zlim','percentile_range'),
         # 'heatmap_truncate_less_than',
-        'show_heatmap_range'),
+        'show_heatmap_range',
     c('viewer_color_palette'),
     c('background_plot_color_hint', 'synch_3d_viewer_bg')
     #FIXME collapse_using_median should be in Analysis Settings???
@@ -619,7 +642,7 @@ define_output(
 
 define_output(
   definition = plotOutput('across_electrode_statistics_plot'),
-  title = 'Per electrode statitical tests [Filled circles pass all filters, open circles do not]',
+  title = 'Per electrode statistical tests [Filled circles pass all filters, open circles do not]',
   width = 12,
   order = -1#,
   # alt_text = 'This does...'

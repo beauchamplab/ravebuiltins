@@ -139,7 +139,7 @@ rave_axis <- function(side, at, tcl=-0.3, labels=at, las=1, cex.axis=rave_cex.ax
   col %?<-% get_foreground_color()
   col.axis %?<-% col
   
-  ruta_axis(
+  rutabaga::ruta_axis(
     side = side,
     at = at,
     tcl = tcl,
@@ -157,6 +157,7 @@ rave_axis <- function(side, at, tcl=-0.3, labels=at, las=1, cex.axis=rave_cex.ax
 default_plot <- function() {
   plot_clean(1, 1, type='n', main='No Conditions Specified')
 }
+
 
 
 ebars.x = function(x, y, sem, length = 0.05, code = 3, ...) {
@@ -230,7 +231,7 @@ get_color <- function(ii) {
 }
 
 rave_colors <- list('BASELINE_WINDOW'='gray60', 'ANALYSIS_WINDOW' = 'salmon2', 'GROUP'=group_colors,
-                    'TRIAL_TYPE_SEPARATOR'='gray40')
+                    'TRIAL_TYPE_SEPARATOR'='gray40', 'DARK_GRAY' = '#1E1E1E')
 
 rave_title <- function(main, cex=rave_cex.main, col, font=1) {
   if(missing(col)) {
@@ -246,6 +247,71 @@ rave_title <- function(main, cex=rave_cex.main, col, font=1) {
   title(main=list(main, cex=cex*get_cex_for_multifigure(), col=col, font=font))
 }
 
+get_shifted_tensor <- function(raw_tensor, shift_amount, new_range, dimnames, varnames, shift_idx=3, shift_by=1, data_env = rave::getDefaultDataRepository()) {
+  stopifnot(exists("module_tools", envir = data_env))
+  mt = data_env$module_tools
+    
+  shifted_array = dipsaus::shift_array(raw_tensor, shift_idx = 3, shift_by = 1, shift_amount = shift_amount)
+  
+  shifted_tensor = ECoGTensor$new(data = shifted_array, dim=dim(raw_tensor), dimnames = dimnames, varnames = varnames, hybrid=FALSE)
+  
+  # here we're going to start time at the right spot, but then we're going to let it go past the "correct" time into the NA territory
+  # then we'll subset later. this avoids having a dimname with length unequal to the dimension it's naming
+  shifted_tensor$dimnames$Time = round(seq(from=new_range[1], by = 1/mt$get_sample_rate(), length.out = dim(raw_tensor)[3L]), 7)
+  
+  shifted_tensor = shifted_tensor$subset(Time = Time %within% new_range)
+  
+  return(shifted_tensor)
+}
+
+get_events_data <- function(epoch_event_types, data_env = rave::getDefaultDataRepository()) {
+  stopifnot(exists("module_tools", envir = data_env))
+  mt = data_env$module_tools
+  
+  ep = mt$get_meta('trials')
+  ev = ep[c('Trial', 'Time', 'Condition')]
+  
+  eet = epoch_event_types %>% str_subset('Trial Onset', negate = TRUE)
+  if(length(eet) > 0) {
+    ev[eet] = ep[,'Event_' %&% eet]
+    
+    ev[eet] %<>% lapply(function(x) {
+      as.numeric(x) - as.numeric(ep$Time)
+    })
+  }
+  
+  ev %<>% as.data.frame
+  
+  return(ev)
+}
+
+signed_floor <- function(x) {
+  sign(x)*floor(abs(x))
+}
+
+determine_available_shift <- function(event_of_interest, available_time, epoch_information, data_env = rave::getDefaultDataRepository()) {
+  stopifnot(exists("module_tools", envir = data_env))
+  sr = data_env$module_tools$get_sample_rate()
+  
+  # round(range(as.numeric(epoch_information[[event_of_interest]]) - as.numeric(epoch_information$Time)), 7)
+  # the events file is assumed to already be referenced to the trial start time
+  time_range = round(range(epoch_information[[event_of_interest]]),7)
+  
+  # we want to be conservative, so we want to shrink the range as needed. so we use signed_floor
+  signed_floor(sr * (available_time-time_range))/sr
+}
+
+determine_shift_amount <- function(available_shift, event_time, data_env = rave::getDefaultDataRepository()) {
+  stopifnot(exists("module_tools", envir = data_env))
+  mt = data_env$module_tools
+  
+  new_range_ind = abs(round(available_shift*mt$get_sample_rate()))
+  
+  # we need to add one here to account for 0
+  new_0_ind = 1 + round(mt$get_sample_rate()*(event_time - min(mt$get_power()$dimnames$Time)))
+  
+  return(new_0_ind - new_range_ind[1])
+}
 
 is.blank <- function(x){
   isTRUE(x == '')

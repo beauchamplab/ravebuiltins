@@ -121,9 +121,9 @@ load_scripts(rlang::quo({
 }))
 
 
-# define_input(
-#     selectInput('model_dependent', 'Dependent', choices = '', selected = character(0))
-# )
+define_input(
+    selectInput('model_dependent', 'Dependent', choices = '', selected = character(0))
+)
 # define_input(
 #     selectInput('model_fixed_effects', 'Fixed effects', choices = '', selected = character(0), multiple = TRUE)
 # )
@@ -181,6 +181,26 @@ define_input(
                            min = 0, max = 1, value=c(0,1), round=-2, step=0.01)
 )
 
+
+define_input(customizedUI('repeated_measures_note'))
+
+
+define_input(
+  definition = dipsaus::compoundInput2(
+    inputId = 'multi_window_analysis', label = 'Time Window', inital_ncomp = 2, min_ncomp = 2, max_ncomp = 5,
+    label_color = 'grey40', 
+    components = htmltools::div(
+      textInput('window_name', 'Name', value = '', placeholder = 'window name'),
+      sliderInput('analysis_window', ' ', value =0:1, post = 's', min=-2, max=2, step = 0.01),
+      checkboxInput('window_is_active', 'Active', value = FALSE)
+    )
+  )
+  # init_args = !!init_args,
+  
+  # init_expr = !!init_expr
+)
+
+
 manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'analysis_window',
                   'model_dependent', 'model_fixed_effects', 'model_random_effects', 'model_splinetime',
                   'model_formula', 'model_embedsubject', 'run_analysis','download_all_results'
@@ -199,11 +219,17 @@ input_layout = list(
         # 'source_files', 'csv_file', 'load_csvs'
         'analysis_data'
     ),
-    'Analysis Settings' = list(
+    'Choose Conditions' = list(
       'cond_group',
-      'cond_group_ui',
-      'analysis_window'
+      'cond_group_ui'
       ),
+    'Single time window analysis' = list(
+      'analysis_window'
+    ),
+    '[-]Multiple time window analysis' = list(
+      'repeated_measures_note', 
+      'multi_window_analysis'
+    ),
     # 'Filter Data' = list(
     #   'var_sel'
     # ),
@@ -211,7 +237,7 @@ input_layout = list(
     #     c('omnibus_f', 'fcutoff')
     # ),
     'Build Model' = list(
-        # c('model_dependent'),
+        c('model_dependent'),
         # c('model_fixed_effects', 'model_random_effects'),
         # 'model_embedsubject',
         # 'model_splinetime',
@@ -243,14 +269,14 @@ define_output(
 
 define_output(
   definition = plotOutput('power_over_time', height='500px'),
-  title = 'Power over time',
+  title = 'Activity over time',
   width = 8,
   order = 1
 )
 
 define_output(
   definition = plotOutput('windowed_activity', height='500px'),
-  title = 'Mean power in analysis window',
+  title = 'Mean activity in analysis window',
   width = 4,
   order = 1
 )
