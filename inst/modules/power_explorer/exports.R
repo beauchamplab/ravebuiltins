@@ -800,7 +800,7 @@ write_out_data_function <- function(){
   
   # flag outliers as needed
   res$TrialIsOutlier = FALSE
-  if(!is.null(.trial_outlier_list)) {
+  if(!is.null(.trial_outlier_list) && length(.trial_outlier_list) > 0) {
     res$TrialIsOutlier[res$Trial %in% .trial_outlier_list] = TRUE
   }
   
