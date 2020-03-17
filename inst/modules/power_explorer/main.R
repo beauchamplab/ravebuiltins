@@ -10,11 +10,11 @@ view_layout('power_explorer')
 if(FALSE) {
   attachDefaultDataRepository()
   init_module('power_explorer', TRUE)
-  
-  GROUPS = list(list('group_name'='d', group_conditions=c('Dynamic')),
-                list(group_name = 's', group_conditions=c('Static'))
-  )
-  
+  FREQUENCY = c(76,130)
+  # frequencies
+  # GROUPS = list(list('group_name'='d', group_conditions=c('Dynamic')),
+  #               list(group_name = 's', group_conditions=c('Static'))
+  # )
   GROUPS = list(list(group_name='A-only', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
                 list(group_name='V-only', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v')),
                 list(group_name='AV', group_conditions=c('known_av', 'last_av', 'drive_av', 'meant_av')))
@@ -163,7 +163,6 @@ for(ii in which(has_trials)) {
     cat2t('updating events file')
     events[epoch_event_types[-1]] <- events[epoch_event_types[-1]] - events[[event_of_interest]]
   }
-  
   cat2t('done with shifting')
     
   # handle outliers
@@ -233,20 +232,24 @@ for(ii in which(has_trials)) {
     N = Nclean
   )
   
+  
+  power_all_shifted_clean_freq_subset = power_all_shifted_clean$subset(Frequency = Frequency %within% FREQUENCY)
+  
+  
   # 2. power @ trial over time
   cat2t('Building by_trial heatmap data')
   by_trial_heat_map_data[[ii]] <- wrap_data(
-    power_all_shifted$collapse(keep = c(3,1), method = collapse_method),
-    x = power_all_shifted$dimnames$Time,
-    y = seq_along(power_all_shifted$dimnames$Trial),
+    power_all_shifted_clean_freq_subset$collapse(keep = c(3,1), method = collapse_method),
+    x = power_all_shifted_clean_freq_subset$dimnames$Time,
+    y = seq_along(power_all_shifted_clean_freq_subset$dimnames$Trial),
     xlab='Time (s)', ylab='Trial', zlab='auto'
   )
 
   # 2.5 by electrode over time
   by_electrode_heat_map_data[[ii]] <- wrap_data(
-    power_all_shifted_clean$collapse(keep = c(3,4), method = collapse_method),
-    x=power_all_shifted_clean$dimnames$Time,
-    y=power_all_shifted_clean$dimnames$Electrode,
+    power_all_shifted_clean_freq_subset$collapse(keep = c(3,4), method = collapse_method),
+    x=power_all_shifted_clean_freq_subset$dimnames$Time,
+    y=power_all_shifted_clean_freq_subset$dimnames$Electrode,
     xlab='Time (s)', ylab='Electrode', zlab='auto'
   )
   
@@ -254,8 +257,8 @@ for(ii in which(has_trials)) {
   # coll freq and trial for line plot w/ ebar. Because we're doing error bars, we have to know whether we have 1 vs. >1 electrodes
   # Single electrode, mean and mse for each time points
   over_time_data[[ii]] = wrap_data(t(
-    apply(power_all_shifted_clean$collapse(keep = 3:4, method = collapse_method), 1, .fast_mse)),
-    xlab='Time (s)', ylab='auto', N=dim(power_all_shifted_clean)[4L], x=power_all_shifted_clean$dimnames$Time
+    apply(power_all_shifted_clean_freq_subset$collapse(keep = 3:4, method = collapse_method), 1, .fast_mse)),
+    xlab='Time (s)', ylab='auto', N=dim(power_all_shifted_clean_freq_subset)[4L], x=power_all_shifted_clean_freq_subset$dimnames$Time
   )
   
   # set NA (divide by zero) error bars to 0  
@@ -267,8 +270,8 @@ for(ii in which(has_trials)) {
   # scatter bar data -- here we want all of the data because we are going to highlight (or not) the outliers -- same for by-trial heatmap
   # if(show_outliers_on_plots) {
   scatter_bar_data[[ii]] <- wrap_data(
-    rowMeans(power_all_shifted$subset(Time = (Time %within% ANALYSIS_WINDOW), data_only = TRUE)),
-    N=Nclean, xlab='Group', ylab='auto', x=power_all_shifted$dimnames$Time
+    rowMeans(power_all_shifted_clean_freq_subset$subset(Time = (Time %within% ANALYSIS_WINDOW), data_only = TRUE)),
+    N=Nclean, xlab='Group', ylab='auto', x=power_all_shifted_clean_freq_subset$dimnames$Time
   )
   
   # Although this seems to be the wrong place to do this, not sure where else we can do it

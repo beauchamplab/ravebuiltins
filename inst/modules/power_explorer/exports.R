@@ -743,6 +743,9 @@ write_out_data_function <- function(){
     
     ### here I think we just want to export all the events...
     by_event_type <- sapply(epoch_event_types, function(eot) {
+      
+      # eot = epoch_event_types[7]
+      
       if(eot != epoch_event_types[1]) {
         epoch_info = get_events_data(epoch_event_types)
         new_range = determine_available_shift(eot, range(power$dimnames$Time), epoch_information = epoch_info)

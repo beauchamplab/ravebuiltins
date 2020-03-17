@@ -375,7 +375,6 @@ draw.box <- function(x0,y0,x1,y1, ...) {
 }
 
 
-
 # the Xmap and Ymap here are functions that allow for transformation of the plot_data $x and $y into
 # the coordinate system of the plot
 spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=force, btype='line', atype='box', 
@@ -519,17 +518,10 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
     }
     
     col %?<-% get_currently_active_heatmap()
-    # col %?<-% if(par('bg') == 'black') {
-    #     rave_heat_map_dark_colors
-    # } else if(par('bg') == '#1E1E1E') {
-    #     rave_heat_map_gray_colors
-    # }else {
-    #     rave_heat_map_colors
-    # }
-    
     
     if(!('matrix' %in% class(mat))) {
-        assign('mat', mat, globalenv())
+        warning('mat is not a matrix... check it out: make_image_mat')
+        assign('make_image_mat', mat, globalenv())
     }
 
     image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
@@ -1131,6 +1123,27 @@ color_bar_title_decorator <- function(m, cex = rave_cex.lab * 0.8) {
 format_unit_of_analysis_name <- function(unit_of_analysis) {
     str_replace_all(unit_of_analysis, c(' '='_', '%'='Pct', '-'='_'))
 }
+
+# the color_variable will be recycled to length of strings to provide a (possibly the same) color for each string
+add_strings_to_plot_title <- function(strings, color_variable, width_factor=1.5, ...) {
+    if(!("character" %in% class(strings))) {
+        warn('Casting strings to character to get character count')
+        strings %<>% as.character
+    }
+    
+    nchars = cumsum(round(width_factor*nchar(strings)))
+    nchars = nchars - nchars[1]
+    
+    color_variable %<>% rep(length.out = length(strings))
+    
+    mapply(function(nm, spacer, col, tots = max(nchars)) {
+        .main = paste0(rep(' ', spacer), collapse='') %&% nm %&% paste0(rep(" ", tots-spacer), collapse='')
+        title(main = .main, font=3, family='mono', col.main = col, ...)
+        
+    }, strings, nchars, color_variable)
+}
+
+
 
 get_unit_of_analysis <- function(requested_unit, names=FALSE) {
     ll = list(
