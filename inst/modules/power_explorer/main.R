@@ -36,6 +36,11 @@ cat2_timestamp <- function() {
   })
 }
 
+if(sum(frequencies %within% FREQUENCY) < 1) {
+  stop('No frequencies available within specified range')
+}
+
+
 cat2t <- cat2_timestamp()
 
 # attributes(GROUPS) <- NULL
@@ -128,7 +133,8 @@ for(ii in which(has_trials)) {
   #ii=1
   cat2t(sprintf('main calc loop %s of %s', ii, sum(has_trials)))
   
-  epoch_data_subset <- epoch_data %>% subset((.)$Trial %in% group_data[[ii]]$Trial_num)
+  epoch_data_subset <- subset(epoch_data, 
+                              epoch_data$Trial %in% group_data[[ii]]$Trial_num)
   
   power_all = bl_power$subset(Trial = Trial %in% group_data[[ii]]$Trial_num)
 
@@ -145,7 +151,8 @@ for(ii in which(has_trials)) {
     new_range = determine_available_shift(event_of_interest, available_time = range(power$dimnames$Time), epoch_information = events)
     cat2t('available shift: ' %&% paste0(new_range, collapse=':'))
     
-    shift_amount = determine_shift_amount(event_time = events[[event_of_interest]], available_shift=new_range)
+    shift_amount = determine_shift_amount(event_time = events[[event_of_interest]],
+                                          available_shift=new_range)
     
     cat2t('dispaus::shift')
     
@@ -157,7 +164,6 @@ for(ii in which(has_trials)) {
     
     power_all_shifted = get_shifted_tensor(raw_tensor = power_all$get_data(), shift_amount = shift_amount, new_range = new_range,
                        dimnames = dimnames(power_all), varnames = names(power_all$dimnames))
-    
     
     # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
     cat2t('updating events file')
@@ -224,7 +230,7 @@ for(ii in which(has_trials)) {
   # this should definitely use the clean and shifted data
   cat2t('Building spectrogam data')
   heat_map_data[[ii]] <- wrap_data(
-    hmd0 <-  power_all_shifted_clean$collapse(keep = c(3,2), method = collapse_method),
+    power_all_shifted_clean$collapse(keep = c(3,2), method = collapse_method),
     xlab='Time (s)', ylab='Frequency', zlab='auto',
     x = power_all_shifted_clean$dimnames$Time,
     y = power_all_shifted_clean$dimnames$Frequency,
@@ -254,8 +260,7 @@ for(ii in which(has_trials)) {
   )
   
   # 3. Time only
-  # coll freq and trial for line plot w/ ebar. Because we're doing error bars, we have to know whether we have 1 vs. >1 electrodes
-  # Single electrode, mean and mse for each time points
+  # coll freq and trial for line plot w/ ebar.
   over_time_data[[ii]] = wrap_data(t(
     apply(power_all_shifted_clean_freq_subset$collapse(keep = 3:4, method = collapse_method), 1, .fast_mse)),
     xlab='Time (s)', ylab='auto', N=dim(power_all_shifted_clean_freq_subset)[4L], x=power_all_shifted_clean_freq_subset$dimnames$Time
@@ -266,6 +271,15 @@ for(ii in which(has_trials)) {
   
   # we want to make a special range for the line plot data that takes into account mean +/- SE
   over_time_data[[ii]]$range <- .fast_range(plus_minus(over_time_data[[ii]]$data))
+  
+  if(!all(is.finite(over_time_data[[ii]]$range))) {
+    assign('otd_ii',over_time_data[[ii]], envir=globalenv())
+    if(any(is.nan(otd_ii$data[,1]))) {
+      stop('Unable to plot data, data are NaN')
+    } else {
+      stop(paste0('non-finite range... ', paste(over_time_data[[ii]]$range, collapse='|')))
+    }
+  }
   
   # scatter bar data -- here we want all of the data because we are going to highlight (or not) the outliers -- same for by-trial heatmap
   # if(show_outliers_on_plots) {
