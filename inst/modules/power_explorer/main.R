@@ -168,8 +168,8 @@ for(ii in which(has_trials)) {
     # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
     cat2t('updating events file')
     events[epoch_event_types[-1]] <- events[epoch_event_types[-1]] - events[[event_of_interest]]
+    cat2t('done with shifting')
   }
-  cat2t('done with shifting')
     
   # handle outliers
   if(length(trial_outliers_list) == 0) {
@@ -240,14 +240,15 @@ for(ii in which(has_trials)) {
   
   
   power_all_shifted_clean_freq_subset = power_all_shifted_clean$subset(Frequency = Frequency %within% FREQUENCY)
+  power_all_shifted_freq_subset = power_all_shifted$subset(Frequency = Frequency %within% FREQUENCY)
   
   
   # 2. power @ trial over time
   cat2t('Building by_trial heatmap data')
   by_trial_heat_map_data[[ii]] <- wrap_data(
-    power_all_shifted_clean_freq_subset$collapse(keep = c(3,1), method = collapse_method),
-    x = power_all_shifted_clean_freq_subset$dimnames$Time,
-    y = seq_along(power_all_shifted_clean_freq_subset$dimnames$Trial),
+    power_all_shifted_freq_subset$collapse(keep = c(3,1), method = collapse_method),
+    x = power_all_shifted_freq_subset$dimnames$Time,
+    y = seq_along(power_all_shifted_freq_subset$dimnames$Trial),
     xlab='Time (s)', ylab='Trial', zlab='auto'
   )
 
@@ -284,8 +285,8 @@ for(ii in which(has_trials)) {
   # scatter bar data -- here we want all of the data because we are going to highlight (or not) the outliers -- same for by-trial heatmap
   # if(show_outliers_on_plots) {
   scatter_bar_data[[ii]] <- wrap_data(
-    rowMeans(power_all_shifted_clean_freq_subset$subset(Time = (Time %within% ANALYSIS_WINDOW), data_only = TRUE)),
-    N=Nclean, xlab='Group', ylab='auto', x=power_all_shifted_clean_freq_subset$dimnames$Time
+    rowMeans(power_all_shifted_freq_subset$subset(Time = (Time %within% ANALYSIS_WINDOW), data_only = TRUE)),
+    xlab='Group', ylab='auto', x=power_all_shifted_freq_subset$dimnames$Time
   )
   
   # Although this seems to be the wrong place to do this, not sure where else we can do it
@@ -303,16 +304,16 @@ for(ii in which(has_trials)) {
   set.seed(jitter_seed)
   scatter_bar_data[[ii]]$x <- .xp[xpi] + runif(length(scatter_bar_data[[ii]]$data), -.r, .r)
   
-  # for the scatter_bar_data we also need to get m_se within condition w/o the outliers
+  # for the scatter_bar_data we also need to get m_se within condition, this is ALWAYS with the clean data
   scatter_bar_data[[ii]]$mse <- .fast_mse(scatter_bar_data[[ii]]$data[scatter_bar_data[[ii]]$is_clean])
   
+  # for the analysis, we use the clean data
   flat_data %<>% rbind(
     data.frame('group'= ii,
-               'orig_trial_number'= group_data[[ii]]$Trial_num[scatter_bar_data[[ii]]$is_clean],
+               orig_trial_number = group_data[[ii]]$Trial_num[scatter_bar_data[[ii]]$is_clean],
                'y' = with(scatter_bar_data[[ii]], data[is_clean])
     )
   )
-  
   cat2t(paste0('Loop ', ii))
 }
 
