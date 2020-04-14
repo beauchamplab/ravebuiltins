@@ -16,7 +16,7 @@ draw_many_heat_maps(
   PANEL.LAST = NULL,
   PANEL.COLOR_BAR = NULL,
   axes = c(TRUE, TRUE),
-  xrange = NULL,
+  plot_time_range = NULL,
   ...
 )
 }
@@ -44,7 +44,7 @@ Don't depend on this call order, use PANEL.LAST if you want to draw things on to
 
 \item{axes}{vector of logicals, whether to draw axis}
 
-\item{xrange}{x range, similar to \code{xlim}}
+\item{plot_time_range}{x range, similar to \code{xlim}}
 }
 \description{
 Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar.

@@ -4,7 +4,8 @@
 # rm(list = ls(all.names=T)); rstudioapi::restartSession()
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
-mount_demo_subject(subject_code = 'YCZ', 'Sentences', epoch='YCZ_gingko', electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
+mount_demo_subject()
+# mount_demo_subject(subject_code = 'YCZ', 'Sentences', epoch='YCZ_gingko', electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
 view_layout('power_explorer')
 
 if(FALSE) {
@@ -200,9 +201,11 @@ for(ii in which(has_trials)) {
       baseline_window = BASELINE_WINDOW,
       analysis_window = ANALYSIS_WINDOW,
       frequency_window = FREQUENCY,
+      electrodes = requested_electrodes,
       events = events,
-      trial_alignment = event_of_interest
-      )
+      trial_alignment = event_of_interest,
+      subject_code=subject_code
+    )
     
     vals = list(...)
     
@@ -330,6 +333,7 @@ get_p.adjust_method <- function(pval_filter=c('p', 'FDR(p)', 'Bonf(p)')) {
   c('p'='none', 'FDR(p)'='fdr', 'Bonf(p)'='bonferroni')[pval_filter]
 }
 
+
 # calculate some statistics across electrodes
 # we need the omnibus result per-electrode, do for all electrodes, not just selected
 get_stats_per_electrode <- function(ttypes){
@@ -384,57 +388,57 @@ get_stats_per_electrode <- function(ttypes){
   
   res = #lapply(electrodes, function(e, ...){
     rave::lapply_async(electrodes, function(e){
-    # Subset on electrode is memory optimized, and is fast
-    el = power$subset(Electrode = Electrode == e,
-                      Frequency = Frequency %within% FREQUENCY,
-                      Trial=Trial %in% trial_numbers
-    )
-    # because of possible time re-alignment, we can't just take the analysis window :(, slow but true!
-    #,                      Time = (Time %within% ANALYSIS_WINDOW) | (Time %within% BASELINE_WINDOW)
-    bl = dipsaus::baseline_array(
-      x = el$get_data(),
-      baseline_indexpoints = which(el$dimnames$Time %within% BASELINE_WINDOW),
-      along_dim = 3L,
-      method = baseline_method,
-      unit_dims = unit_dims
-    )
-    
-    # do we need to shift the array?
-    if(!is.null(shift_amount)) {
-      bl = get_shifted_tensor(bl, shift_amount, new_range = new_range,
-                              dimnames = dimnames(el), varnames = el$varnames)
-    } else {
-      bl = ECoGTensor$new(bl, dim = dim(el), dimnames = dimnames(el),
-                          varnames = el$varnames, hybrid = FALSE)
-    }
-    
-    bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
-    
-    trial_means = rowMeans(bl.analysis$get_data())
-    names(trial_means) = as.character(bl.analysis$dimnames$Trial)
-    
-    mse = .fast_mse(trial_means)
-    t = mse[1]/mse[2]
-    p = 2*pt(abs(t), df = length(trial_means)-1, lower=F)
-    res = rbind(mse[1], t, p)
-    
-    # now we also need to run the contrasts
-    if(has_data > 1) {
-      df2 = df_shell
-      df2$y = trial_means[as.character(df_shell$flat_data.orig_trial_number)]
-      df2$group_f %<>% factor(levels = gnames)
-      .lsm <- lsmeans::lsmeans(lm(y ~ group_f, data=df2), pairwise ~ group_f)
-      lmat = matrix(c(t(summary(.lsm$lsmeans, infer = T)[c('lsmean', 't.ratio', 'p.value')])))
-      cntr = summary(.lsm, adjust='none')$contrasts
-      cmat = as.matrix(c(t(as.matrix(cntr[,c('estimate','t.ratio', 'p.value')]))))
+      # Subset on electrode is memory optimized, and is fast
+      el = power$subset(Electrode = Electrode == e,
+                        Frequency = Frequency %within% FREQUENCY,
+                        Trial=Trial %in% trial_numbers
+      )
+      # because of possible time re-alignment, we can't just take the analysis window :(, slow but true!
+      #,                      Time = (Time %within% ANALYSIS_WINDOW) | (Time %within% BASELINE_WINDOW)
+      bl = dipsaus::baseline_array(
+        x = el$get_data(),
+        baseline_indexpoints = which(el$dimnames$Time %within% BASELINE_WINDOW),
+        along_dim = 3L,
+        method = baseline_method,
+        unit_dims = unit_dims
+      )
       
-      res = rbind(res, lmat, cmat)
-    }
-    return(res)
-  } ,
-  .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e', 'gnames', 'has_data', 'shift_amount', 'new_range',
-               'trial_numbers', 'FREQUENCY', 'ANALYSIS_WINDOW', 'BASELINE_WINDOW', '.fast_mse', 'df_shell'),
-  .gc = FALSE)
+      # do we need to shift the array?
+      if(!is.null(shift_amount)) {
+        bl = get_shifted_tensor(bl, shift_amount, new_range = new_range,
+                                dimnames = dimnames(el), varnames = el$varnames)
+      } else {
+        bl = ECoGTensor$new(bl, dim = dim(el), dimnames = dimnames(el),
+                            varnames = el$varnames, hybrid = FALSE)
+      }
+      
+      bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)
+      
+      trial_means = rowMeans(bl.analysis$get_data())
+      names(trial_means) = as.character(bl.analysis$dimnames$Trial)
+      
+      mse = .fast_mse(trial_means)
+      t = mse[1]/mse[2]
+      p = 2*pt(abs(t), df = length(trial_means)-1, lower=F)
+      res = rbind(mse[1], t, p)
+      
+      # now we also need to run the contrasts
+      if(has_data > 1) {
+        df2 = df_shell
+        df2$y = trial_means[as.character(df_shell$flat_data.orig_trial_number)]
+        df2$group_f %<>% factor(levels = gnames)
+        .lsm <- lsmeans::lsmeans(lm(y ~ group_f, data=df2), pairwise ~ group_f)
+        lmat = matrix(c(t(summary(.lsm$lsmeans, infer = T)[c('lsmean', 't.ratio', 'p.value')])))
+        cntr = summary(.lsm, adjust='none')$contrasts
+        cmat = as.matrix(c(t(as.matrix(cntr[,c('estimate','t.ratio', 'p.value')]))))
+        
+        res = rbind(res, lmat, cmat)
+      }
+      return(res)
+    } ,
+    .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e', 'gnames', 'has_data', 'shift_amount', 'new_range',
+                 'trial_numbers', 'FREQUENCY', 'ANALYSIS_WINDOW', 'BASELINE_WINDOW', '.fast_mse', 'df_shell'),
+    .gc = FALSE)
   
   cat2t('Finished elec calc')
   
@@ -485,10 +489,26 @@ omnibus_results <- cache(
 # assigning this here so that it can be exported easily
 local_data$omnibus_results = omnibus_results
 
-# if(has_data){
-#   
-# }
+# grab all the details needed for plotting and put them in a list that
+# can be passed around (and I guess modified?)
 
+plot_options <- build_plot_options()
+## is this safe???
+to_copy = names(plot_options) %in% ls(envir=globalenv())
+if(any(to_copy)) {
+  for(ii in which(to_copy)) {
+    plot_options[[names(plot_options)[ii]]] = get(names(plot_options)[ii], envir = global_env())
+  }
+}
+
+
+# load up local data the plot data and the plot options
+local_data$plot_options = plot_options
+local_data$over_time_data = over_time_data
+local_data$heat_map_data = heat_map_data
+local_data$scatter_bar_data = scatter_bar_data
+local_data$by_electrode_heat_map_data = by_electrode_heat_map_data
+local_data$by_trial_heat_map_data = by_trial_heat_map_data
 
 cat2t('Finished calc')
 
@@ -543,19 +563,21 @@ reload_module_package()
 module = rave::get_module(module='power_explorer', package = 'ravebuiltins', local=TRUE)
 
 # eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
-# attachDefaultDataRepository()
-result = module(ELECTRODE_TEXT = '50', percentile_range = TRUE, 
-                GROUPS = list(
-                  list(group_name='A',group_conditions=c('Dynamic')), 
+# attachDefaultDataRepository() 
+result = module(ELECTRODE_TEXT = '14', percentile_range = TRUE, 
+                # GROUPS = list(
+                  # list(group_name='A',group_conditions=c('Dynamic')), 
                 #   # putting in an empty group to test our coping mechanisms
-                  list(group_name='YY', group_conditions=c('Static'))
-                ),
+                  # list(group_name='YY', group_conditions=c('Static'))
+                # ),
                 #   list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
-                background_plot_color_hint='White', BASELINE_WINDOW = c(-1,-.4),
+                background_plot_color_hint='white', BASELINE_WINDOW = c(-1,-.4),
                 heatmap_color_palette = 'BlackWhiteRed',
-                plot_time_range = c(-1,5), unit_of_analysis = 'decibel',
-                FREQUENCY = c(70,150), show_outliers_on_plots = TRUE, max_zlim=99,
-                event_of_interest = '1stWord')
+                # plot_time_range = c(-1.5,3),
+                unit_of_analysis = 'decibel',
+                FREQUENCY = c(70,150), show_outliers_on_plots = TRUE, max_zlim=99
+                # ,                event_of_interest = '1stWord'
+                )
 results = result$results
 by_trial_heat_map_plot(results)
 

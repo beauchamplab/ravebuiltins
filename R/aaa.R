@@ -85,17 +85,16 @@ dev_ravebuiltins <- function(expose_functions = FALSE, reload = TRUE){
   env
 }
 
-
-
 rave_cex.main <- 1.5
 rave_cex.axis <- 1.3
 # putting this to 1.4 because 1.5 causes some clipping of the axis(2) label, we could also try to increase
 # the left margin to compensate
 rave_cex.lab <- 1.4
 
+rave_axis_tcl = -0.3
+
 rave_color_ramp_palette <- colorRampPalette(c('navy', 'white', 'red'), interpolate='linear', space='Lab')
 rave_color_ramp_dark_palette <- colorRampPalette(c('#13547a', 'black', '#ff758c'), interpolate='linear', space='Lab')
-
 
 ..dark_blue_to_red <- rev(c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#ffffff", 
                         "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061"))
@@ -131,7 +130,7 @@ get_cex_for_multifigure <- function() {
 
 
 # Internal use, not exported
-rave_axis <- function(side, at, tcl=-0.3, labels=at, las=1, cex.axis=rave_cex.axis,
+rave_axis <- function(side, at, tcl=rave_axis_tcl, labels=at, las=1, cex.axis=rave_cex.axis,
                       cex.lab=rave_cex.lab, mgpy=c(3, .6, 0), mgpx=c(3, .75, 0), col, col.axis, ...) {
   
   # if the color isn't specified, then we are free to set the color to what we want.
@@ -231,7 +230,8 @@ get_color <- function(ii) {
 }
 
 rave_colors <- list('BASELINE_WINDOW'='gray60', 'ANALYSIS_WINDOW' = 'salmon2', 'GROUP'=group_colors,
-                    'TRIAL_TYPE_SEPARATOR'='gray40', 'DARK_GRAY' = '#1E1E1E')
+                    'TRIAL_TYPE_SEPARATOR'='gray40', 'DARK_GRAY' = '#1E1E1E', 'BAR_PLOT_ALPHA' = 0.7)
+rave_colors[tolower(names(rave_colors))] = rave_colors
 
 rave_title <- function(main, cex=rave_cex.main, col, font=1) {
   if(missing(col)) {

@@ -22,19 +22,19 @@ load_scripts(
 
 define_initialization({
   # assign('aaa', session, envir = globalenv())
-  ##
-  ## Make sure power (referenced) exists
-  ## with the following line, RAVE will pop up a dialogue if
-  ## power is not loaded and ask users to load data
-  ##
+  #
+  # Make sure power (referenced) exists
+  # with the following line, RAVE will pop up a dialogue if
+  # power is not loaded and ask users to load data
+  #
   rave_checks('power referenced')
 
-  ##
-  ## Get referenced power (Wavelet power)
-  ##
+  #
+  # Get referenced power (Wavelet power)
+  #
   power = module_tools$get_power(referenced = TRUE)  # ,units = rave_options('default_power_unit'))
 
-  ## Shared variables
+  # Shared variables
   frequencies = preload_info$frequencies
   time_points = preload_info$time_points
   electrodes = preload_info$electrodes
@@ -161,6 +161,10 @@ define_input(
 )
 
 define_input(
+  customizedUI('custom_plot_download')
+)
+
+define_input(
   definition = actionButton('save_new_epoch_file',
                             label=HTML("Save Outliers"),
                             icon =icon('file-export')),
@@ -203,7 +207,7 @@ define_input(
 # let people decide how much information to include in the plots. It's up to the individual plot to actually make
 # use of this information, probably through shared decorators
 define_input(
-  definition = selectInput(inputId = 'PLOT_TITLE', label = 'Plot Decorations', multiple=TRUE,
+  definition = selectInput(inputId = 'plot_title_options', label = 'Plot Decorations', multiple=TRUE,
                            choices =c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range', 'Sample Size', 'Baseline Window', 'Analysis Window'),
                            selected=c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range', 'Sample Size', 'Baseline Window', 'Analysis Window'))
 )
@@ -428,7 +432,7 @@ define_input(
 
 define_input(
   definition = selectInput(inputId = 'background_plot_color_hint', label = 'Plot background color', multiple=FALSE,
-                           choices = c('White', 'Black', 'Gray'), selected = 'White')
+                           choices = c('white', 'black', 'gray'), selected = 'white')
 )
 
 define_input(
@@ -448,7 +452,7 @@ define_input(
 # )
 
 define_input(
-  definition = customizedUI('graph_export')
+  definition = customizedUI('download_all_graphs')
 )
 
 }
@@ -462,7 +466,7 @@ define_input(
 # deterime which varibles only need to trigger a render, not an exectute
 render_inputs <- c(
   'which_result_to_show_on_electrodes', 'synch_to_3dviewer',
-  'sort_trials_by_type', 'draw_decorator_labels', 'PLOT_TITLE', 'show_outliers_on_plots', 'background_plot_color_hint',
+  'sort_trials_by_type', 'draw_decorator_labels', 'plot_title_options', 'show_outliers_on_plots', 'background_plot_color_hint',
   'invert_colors_in_palette', 'reverse_colors_in_palette', 'color_palette', 'heatmap_color_palette', 'heatmap_number_color_values',
   'max_zlim','plot_time_range', 'invert_colors_in_heatmap_palette', 'reverse_colors_in_heatmap_palette', 'percentile_range',
   # 'heatmap_truncate_less_than',
@@ -541,7 +545,7 @@ input_layout = list(
     'export_also_download'
   ),
   '[-]Configure plots' = list(
-    c('PLOT_TITLE'),
+    c('plot_title_options'),
     'draw_decorator_labels',
     c('color_palette',
     'reverse_colors_in_palette', 'invert_colors_in_palette'),
@@ -561,12 +565,14 @@ input_layout = list(
     c('export_what'),
     c('movie_export_trials'),
     # 'export_plots_and_data'#
-    c('graph_export')
+    c('download_all_graphs')
   ),'[-]Manage trial outliers' = list(
     'show_outliers_on_plots',
     'trial_outliers_list',
     'clear_outliers', 'save_new_epoch_file'
-  ), '[-]Custom Output Types' = list(
+  ), '[-]Download hi-res single figure' = list(
+    'custom_plot_download'
+  ), '[-]Download stat heatmaps' = list(
     'sheth_special'
   )
 )

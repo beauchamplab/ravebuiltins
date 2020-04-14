@@ -48,27 +48,6 @@ define_initialization({
 
 
 #  ---------------------------------  Inputs -----------------------------------
-# Define inputs
-
-# Part 1: data selector:
-
-# define_input(
-#     selectInput('source_files', 'Data files', choices = '', selected = NULL, multiple = TRUE),
-#     init_args = c('choices', 'selected'),
-#     init_expr = {
-#         # Check csv files in project/_project_data/power_explorer and project/_project_data/group_analysis_lme/source
-#         choices = rescan_source(update = FALSE)
-#         selected = cache_input('source_files', val = character(0))
-#     }
-# )
-# define_input(
-#     definition = shiny::fileInput('csv_file', label = 'Upload a csv Data File', accept = 'text/csv', multiple = FALSE)
-# )
-# # define_input(definition = customizedUI('file_check', width = '100%'))
-# define_input(
-#     definition = actionButtonStyled('load_csvs', 'Load analysis tables', type = 'primary')
-# )
-
 define_input_analysis_data_csv(
     inputId= 'analysis_data', label = "Data files located in this project's RAVE directory", 
     paths = c('_project_data/group_analysis_lme/source', '_project_data/power_explorer/exports'),
@@ -90,7 +69,6 @@ data_dir = rave_options('data_dir'); names(data_dir) = NULL
 #   default_path = 'power_explorer'
 # )
 
-
 load_scripts(rlang::quo({
   observeEvent(input$lmer_yaml_load, {
     fdata = input$lmer_yaml_load
@@ -108,83 +86,107 @@ load_scripts(rlang::quo({
     print(f_path)
     conf = yaml::read_yaml(f_path)
     print(conf)
-    
-    # updateCheckboxInput(session, inputId = 'auto_calculate', value = FALSE)
-    # lapply(1:10, function(ii){
-    #   gc_id = sprintf('GROUPS_group_conditions_%d', ii)
-    #   gc = conf[[gc_id]]
-    #   if(!length(gc)){ gc = character(0) }
-    #   print(paste(ii, c(gc)))
-    #   updateSelectInput(session, gc_id, selected = gc)
-    # })
   })
 }))
 
 
+define_input(definition = selectInput('omnibus_plots_color_palette', label="Subject color palette",
+                                      choices = get_palette(get_palette_names = TRUE),
+                                      selected = 'Beautiful Field'))
+
+define_input(selectInput('omnibus_plots_legend_location', label='Legend Location',
+                         choices = c('topleft', 'top', 'topright', 'left', 'center', 'right', "bottomleft", "bottom", "bottomright"),
+                         selected='top')
+)
 define_input(
     selectInput('model_dependent', 'Dependent', choices = '', selected = character(0))
 )
-# define_input(
-#     selectInput('model_fixed_effects', 'Fixed effects', choices = '', selected = character(0), multiple = TRUE)
-# )
-# define_input(
-#     selectInput('model_random_effects', 'Random effects', choices = '', selected = character(0), multiple = TRUE)
-# )
 define_input(
-    textInput('model_formula', 'Formula', value = 'Power ~ Group + (1|Subject/Electrode)')
+    selectInput('model_fixed_effects', 'Fixed effects', choices = '', selected = character(0), multiple = TRUE)
 )
-# define_input(
-#     checkboxInput('model_embedsubject', HTML('Embed subject into electrode <small style="color:#a1a1a1">[only if both Subject and Electrode are selected as random effect]</small>'), value = TRUE)
-# )
-# define_input(
-#     checkboxInput('model_splinetime', HTML('Wrap <span style="font-style:italic">Time</span> with Splines <small style="color:#a1a1a1">[use splines::bs(Time)]</small>'), value = TRUE)
-# )
+define_input(
+    selectInput('model_random_effects', 'Random effects (Subject/Electrode required for multi-subject)', choices = '', selected = character(0), multiple = TRUE)
+)
+define_input(
+    textAreaInput('model_formula', 'Formula', placeholder = 'y ~ X1 + X2 + (1|Subject/Electrode)')
+)
 
 define_input(
     actionButtonStyled('run_analysis', 'Run Analysis', type = 'primary', width = '100%')
 )
 
+define_input(definition = customizedUI('download_all_results'))
+
+
+define_input(definition = customizedUI('hide_everything_but_post_hoc_plot'))
+
+define_input(definition = selectInput('post_hoc_plot_xvar', label = 'X variable', multiple = FALSE, choices=NULL))
+define_input(definition = textInput('post_hoc_plot_xvar_custom', label = 'Custom X variable', placeholder = 'm(Group_A) - m(Group_B)'))
+define_input(definition = textInput('post_hoc_plot_xlim', label='X range', value = ''))
+
+
+define_input(definition = selectInput('post_hoc_plot_yvar', label = 'Y variable', multiple = FALSE, choices=NULL))
+define_input(definition = textInput('post_hoc_plot_yvar_custom', label = 'Custom Y variable', placeholder = 'm(Group_C) - m(Group_D)'))
+define_input(definition = textInput('post_hoc_plot_ylim', label='Y range', value = ''))
+
+
+define_input(definition = selectInput('post_hoc_plot_zvar', label = 'Partial/Regress out Z', multiple = FALSE, choices=NULL))
+define_input(definition = textInput('post_hoc_plot_zvar_custom', label = 'Custom Z variable', placeholder = 'm(Group_E)'))
+
+
+define_input(definition = selectInput('post_hoc_plot_highlight_subject', label="Highlight subjects' data", multiple=TRUE,
+                                      choices = c('Separate Colors', 'Separate Plots'), selected = 'Separate Colors'))
+
+define_input(definition = selectInput('post_hoc_plot_highlight_subject_color_palette', label="Subject color palette",
+                                      choices = get_palette(get_palette_names = TRUE),
+                                      selected = 'Set1'))
+
+define_input(definition = checkboxInput('post_hoc_plot_regression_line', label = 'Add regression line', value=FALSE))
+define_input(definition = checkboxInput('post_hoc_plot_equality_line', label = 'Add line of equality', value=FALSE))
+
 define_input(
-  definition = customizedUI('download_all_results')
+  selectInput('post_hoc_plot_show_stats', label = 'Show stats on graph', multiple = TRUE,
+              choices = c('Correlation (Pearson)', 'R2', 'Correlation (Spearman)', 'Difference test (t)', 'Difference test (Wilcoxon)'))
 )
 
+define_input(selectInput('post_hoc_plot_legend_location', label='Legend Location',
+                         choices = c('topleft', 'top', 'topright', 'left', 'center', 'right', "bottomleft", "bottom", "bottomright"),
+                         selected='topleft'
+))
 
-# We can't use define_input_condition_groups as it defaults to preload_info$condition
-# In fact every project might have different stimulus for each subjects, then condition is not
-# the same sometime
-# define_input(
-#     definition = compoundInput(
-#         inputId = 'cond_group', prefix= 'Condition Group', inital_ncomp = 1, components = {
-#             textInput('group_name', 'Name', value = '', placeholder = 'Condition Name')
-#             selectInput('group_conditions', ' ', choices = '', multiple = TRUE, selected = character(0))
-#         }, max_ncomp = 20)
-# )
+define_input(definition = selectInput('post_hoc_plot_vertical_reference_line',
+                                      label = 'Vertical reference', choices=c('None', '0', 'Mean', '0%', '25%', '50%', '75%', '100%')))
 
-# define_input(
-#   definition = customizedUI('cond_group_ui')
-# )
+define_input(definition = selectInput('post_hoc_plot_horizontal_reference_line',
+                                      label = 'Horizontal reference', choices=c('None', '0', 'Mean', '0%', '25%', '50%', '75%', '100%')))
+
+define_input(definition = textInput('post_hoc_plot_vertical_reference_line_custom', label = 'Custom Vertical',
+                                    placeholder = '0, 2:3'))
+
+define_input(definition = textInput('post_hoc_plot_horizontal_reference_line_custom', label = 'Custom Horizontal',
+                                    placeholder = '0.05, 0.01'))
+
+
+define_input(numericInput('post_hoc_plot_width_hint', label='Plot Width', value = 17, min = 1, max=85, step=0.5))
+
+
+define_input(numericInput('post_hoc_plot_column_count', label='# Columns', value = 4, min = 1, max=10, step=1))
+
 
 define_input_condition_groups(
   inputId = 'cond_group', label = 'Condition Group', initial_groups = 2,
   max_group = 20, min_group = 2, label_color = 'grey40', 
   init_args = NULL, init_expr = NULL
 )
-# dipsaus::compoundInput2(
-  #         inputId = ns('cond_group'), prefix= 'Condition Group', inital_ncomp = 1, components = {
-  #             textInput('group_name', 'Name', value = '', placeholder = 'Condition Name')
-  #             selectInput('group_conditions', ' ', choices = '', multiple = TRUE, selected = character(0))
-  #         }, max_ncomp = 20)
-
 
 define_input(
   definition = sliderInput('analysis_window', 'Analysis Window',
                            min = 0, max = 1, value=c(0,1), round=-2, step=0.01)
 )
+define_input(definition = checkboxInput('single_analysis_window', 'Active', value=TRUE))
 
 
-define_input(customizedUI('repeated_measures_note'))
-
-
+# define_input(customizedUI('repeated_measures_note'))
 define_input(
   definition = dipsaus::compoundInput2(
     inputId = 'multi_window_analysis', label = 'Time Window', inital_ncomp = 2, min_ncomp = 2, max_ncomp = 5,
@@ -192,58 +194,63 @@ define_input(
     components = htmltools::div(
       textInput('window_name', 'Name', value = '', placeholder = 'window name'),
       sliderInput('analysis_window', ' ', value =0:1, post = 's', min=-2, max=2, step = 0.01),
-      checkboxInput('window_is_active', 'Active', value = FALSE)
+      # checkboxInput('window_is_active', 'Active', value = FALSE)
     )
   )
-  # init_args = !!init_args,
-  
-  # init_expr = !!init_expr
 )
 
 
-manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'analysis_window',
-                  'model_dependent', 'model_fixed_effects', 'model_random_effects', 'model_splinetime',
-                  'model_formula', 'model_embedsubject', 'run_analysis','download_all_results'
-                  )
+define_input(definition = checkboxInput('multi_window_is_active', 'Active', value=FALSE))
 
-# # selectInput('electrode', 'Electrode', choices = '', multiple = F),
-# textInput('electrode_text', 'Electrodes', value = "", placeholder = '1-5,8,11-20'),
-#
-# selectInput('combine_method', 'Electrode Transforms',
-#             choices = c('none', 'z-score', 'max-scale', '0-1 scale', 'rank'), multiple = F, selected = 'none'),
-#
+manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'analysis_window', 'single_analysis_window',
+                  'post_hoc_plot_xlim', 'post_hoc_plot_ylim', 'multi_window_is_active', 'model_dependent', 'model_fixed_effects', 'model_random_effects', 'model_splinetime',
+                  'model_formula', 'model_embedsubject', 'run_analysis','download_all_results')
+
 input_layout = list(
-    '[#cccccc]Data Import' = list(
-        # c('participants'),
-        # c('analysis_name_ui')
-        # 'source_files', 'csv_file', 'load_csvs'
+    'Data Import' = list(
         'analysis_data'
     ),
-    'Choose Conditions' = list(
+    'Build Condition Groups' = list(
       'cond_group',
       'cond_group_ui'
       ),
     'Single time window analysis' = list(
-      'analysis_window'
+      'analysis_window',
+      'single_analysis_window'
     ),
     '[-]Multiple time window analysis' = list(
-      'repeated_measures_note', 
+      'multi_window_is_active', 
       'multi_window_analysis'
     ),
-    # 'Filter Data' = list(
-    #   'var_sel'
-    # ),
-    # 'Feature Selection' = list(
-    #     c('omnibus_f', 'fcutoff')
-    # ),
     'Build Model' = list(
         c('model_dependent'),
-        # c('model_fixed_effects', 'model_random_effects'),
-        # 'model_embedsubject',
-        # 'model_splinetime',
+        c('model_fixed_effects'),
+        c('model_random_effects'),
         'model_formula',
         'run_analysis',
         'download_all_results'
+    ),
+    '[-]Configure group plots' = list(
+      'omnibus_plots_color_palette',
+      'omnibus_plots_legend_location'
+    ),
+    '[-]Plot post-hoc variables' = list(
+      'hide_everything_but_post_hoc_plot',
+      'post_hoc_plot_xvar',
+      'post_hoc_plot_xvar_custom',
+      'post_hoc_plot_yvar',
+      'post_hoc_plot_yvar_custom',
+      'post_hoc_plot_zvar',
+      'post_hoc_plot_zvar_custom'
+      ),
+    '[-]Configure post-hoc plot' = list(
+      c('post_hoc_plot_xlim', 'post_hoc_plot_ylim', 'post_hoc_plot_width_hint', 'post_hoc_plot_column_count'),
+      'post_hoc_plot_highlight_subject',
+      'post_hoc_plot_highlight_subject_color_palette',
+      c('post_hoc_plot_vertical_reference_line', 'post_hoc_plot_horizontal_reference_line',
+        'post_hoc_plot_vertical_reference_line_custom', 'post_hoc_plot_horizontal_reference_line_custom'),
+      c('post_hoc_plot_regression_line', 'post_hoc_plot_equality_line'),
+        'post_hoc_plot_show_stats', 'post_hoc_plot_legend_location'
     )
 )
 
@@ -283,8 +290,26 @@ define_output(
 
 define_output(
   definition = customizedUI('mass_univariate_results', style='min-height:500px'),
-  title = ' ',
+  title = 'Univariate stat output (select rows to graph)',
   width = 12, order=5
+)
+
+define_output(
+  definition = plotOutput('electrode_inspector_time_series', height='500px'),
+  title = 'Subset time series',
+  width = 8, order=6
+)
+
+define_output(
+  definition = plotOutput('electrode_inspector_barplot', height='500px'),
+  title = 'Subset barplot',
+  width = 4, order=7
+)
+
+define_output(
+  definition = plotOutput('post_hoc_plot', height='500px'),
+  title = 'Compare post-hoc variables',
+  width = 12, order=8
 )
 
 define_output_3d_viewer(
@@ -296,14 +321,18 @@ define_output_3d_viewer(
 
 # 'Multiple Comparisons' = c('multiple_comparisons'),
 
-output_layout = list(
-  'Model Results' = list(
-    'Results across electrodes' = c('power_over_time', 'windowed_activity', 'lme_out'),
-    'Results by electrode' = c('lme_3dviewer', 'mass_univariate_results')#,
-    # 'Data description' = c('src_data_snapshot')
-  )
-  # 'Multiple Output' = 'src_data_snapshot'
-)
+
+# this is for the multiple-tabbed layout
+# output_layout = list(
+#   'Model Results' = list(
+#     'Results across electrodes' = c('power_over_time', 'windowed_activity', 'lme_out'),
+#     'Results by electrode' = c('lme_3dviewer', 'mass_univariate_results',
+#                                'electrode_inspector_time_series',
+#                                'electrode_inspector_barplot')#,
+#     # 'Data description' = c('src_data_snapshot')
+#   )
+#   # 'Multiple Output' = 'src_data_snapshot'
+# )
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 

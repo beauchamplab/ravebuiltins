@@ -10,8 +10,9 @@ over_time_plot <- function(results, ...) {
     set_palette_helper(results)
     
     time_series_plot(plot_data = results$get_value('over_time_data'),
-                     xrange = results$get_value('plot_time_range'),
-                     PANEL.FIRST = time_series_decorator(results = results))
+                     plot_time_range = results$get_value('plot_time_range'),
+                     PANEL.FIRST = time_series_decorator(plot_options=results$get_value('plot_options'))
+    )
 }
 
 draw_cut_point <- function(cut=NULL) {
@@ -124,7 +125,6 @@ across_electrode_statistics_plot_helper <- function(results,
         cut_val %<>% TRANSFORM
     }
     
-    
     # if there is a cutpoint, we should force it to be shown on the plot
     # by building it into our ylim calculation
     
@@ -164,7 +164,6 @@ across_electrode_statistics_plot_helper <- function(results,
 
 # several functions will need to use this
 determine_passing_electrodes <- function(results, ...) {
-    
     ### we need to update this to select the appropriate value!
     # res <- results$get_value('omnibus_results')
     res <- get_active_result(results)
@@ -288,10 +287,12 @@ windowed_comparison_plot <- function(results, ...){
     
     set_palette_helper(results)
     
+    po = results$get_value('plot_options')
+    
     trial_scatter_plot(
         group_data = results$get_value('scatter_bar_data'),
         show_outliers = results$get_value('show_outliers_on_plots'),
-        PANEL.LAST = trial_scatter_plot_decortator(results=results)
+        PANEL.LAST = trial_scatter_plot_decortator(plot_title_options = po$plot_title_options)
     )
 }
 
@@ -321,8 +322,8 @@ heat_map_plot <- function(results, ...){
                         log_scale = results$get_value('log_scale'),
                         max_zlim = results$get_value('max_zlim', 0),
                         percentile_range=results$get_value('percentile_range'),
-                        xrange = results$get_value('plot_time_range'),
-                        PANEL.LAST = spectrogram_heatmap_decorator(results=results),
+                        plot_time_range = results$get_value('plot_time_range'),
+                        PANEL.LAST = spectrogram_heatmap_decorator(plot_options = results$get_value('plot_options')),
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator,0)
     )
 }
@@ -340,16 +341,49 @@ by_electrode_heat_map_plot <- function(results, ...) {
     draw_many_heat_maps(by_electrode_heat_map_data,
                         percentile_range=results$get_value('percentile_range'),
                         max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
-                        xrange = results$get_value('plot_time_range'),
-                        PANEL.LAST=by_electrode_heat_map_decorator(results=results),
+                        plot_time_range = results$get_value('plot_time_range'),
+                        PANEL.LAST=by_electrode_heat_map_decorator(plot_options = results$get_value('plot_options')),
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator, 0)
                         )
 }
 
+
+
+# this is separated out as other plots may need to do this
+remove_outliers_from_by_trial_data <- function(bthmd) {
+    for(ii in seq_along(bthmd)) {
+        .clean <- bthmd[[ii]]$is_clean
+        if(sum(.clean) == 0) {
+            bthmd[[ii]]$has_trials <- FALSE
+            dipsaus::cat2('All trials flagged as outliers...', level='WARNING')
+        } else if(all(.clean)){
+            # do nothing
+        } else {
+            # subsetting the data drops the attributes, so temp storage until we re-assign
+            xlab = attr(bthmd[[ii]]$data, 'xlab')
+            ylab = attr(bthmd[[ii]]$data, 'ylab')
+            
+            # note that $data is perhaps the transpose of what you expect, that's because the image() function requires
+            # the transpose of what you might expect to plot what you might expect
+            bthmd[[ii]]$data <- bthmd[[ii]]$data[,.clean]
+            
+            attr(bthmd[[ii]]$data, 'xlab') = xlab
+            attr(bthmd[[ii]]$data, 'ylab') = ylab
+            
+            # update all the meta data
+            bthmd[[ii]]$Trial_num <- bthmd[[ii]]$Trial_num[.clean]
+            bthmd[[ii]]$trials <- bthmd[[ii]]$trials[.clean]
+            bthmd[[ii]]$range <- .fast_range(c(bthmd[[ii]]$data))
+            bthmd[[ii]]$y <- seq_along(bthmd[[ii]]$Trial_num)
+        }
+    }
+    return(bthmd)
+}
+
+
 # the only difference between this plot and the time x freq heat_map_plot
 # is the data and the decoration. Use the core heatmap function
 # to enforce consistent look/feel
-# expects by_trial_heat_map_data to exist
 by_trial_heat_map_plot <- function(results) {
     rave_context()
     has_data <- results$get_value('has_data', FALSE)
@@ -360,7 +394,7 @@ by_trial_heat_map_plot <- function(results) {
     by_trial_heat_map_data <- results$get_value('by_trial_heat_map_data')
     
     #base decorator
-    decorator <- by_trial_heat_map_decorator(results=results)
+    decorator <- by_trial_heat_map_decorator(plot_options = results$get_value('plot_options'))
     
     # if the user wants the data to be sorted by trial type (rather than trial number) then we
     # need to sort the data
@@ -384,45 +418,21 @@ by_trial_heat_map_plot <- function(results) {
         decorator %<>% add_decorator(heatmap_outlier_highlighter_decorator)
     } else {
         # print('not showing outliers, removing them, start with: ' %&% nrow(by_trial_heat_map_data[[1]]$data))
-        ##FIXME Is this an ok place to do this?
-        for(ii in seq_along(by_trial_heat_map_data)) {
-            .clean <- by_trial_heat_map_data[[ii]]$is_clean
-            if(sum(.clean) == 0) {
-                by_trial_heat_map_data[[ii]]$has_trials <- FALSE
-                print('no trials')
-            } else if(all(.clean)){
-                # do nothign
-            } else {
-                
-                xlab = attr(by_trial_heat_map_data[[ii]]$data, 'xlab')
-                ylab = attr(by_trial_heat_map_data[[ii]]$data, 'ylab')
-
-                # note that $data is perhaps the transpose of what you expect, that's because the image() function requires
-                # the transpose of what you might expect to plot what you might expect
-                # subsetting the data drops the attributes
-                by_trial_heat_map_data[[ii]]$data <- by_trial_heat_map_data[[ii]]$data[,.clean]
-                attr(by_trial_heat_map_data[[ii]]$data, 'xlab') = xlab
-                attr(by_trial_heat_map_data[[ii]]$data, 'ylab') = ylab
-
-                by_trial_heat_map_data[[ii]]$Trial_num <- by_trial_heat_map_data[[ii]]$Trial_num[.clean]
-                by_trial_heat_map_data[[ii]]$trials <- by_trial_heat_map_data[[ii]]$trials[.clean]
-                by_trial_heat_map_data[[ii]]$range <- .fast_range(c(by_trial_heat_map_data[[ii]]$data))
-                by_trial_heat_map_data[[ii]]$y <- seq_along(by_trial_heat_map_data[[ii]]$Trial_num)
-            }
-        }
+        by_trial_heat_map_data %<>% remove_outliers_from_by_trial_data
     }
     
     # the y variable is changing each time,
     # so we provide a function that will be used to calculate the
     # y variable on a per map basis
     need_wide = ('Condition' == sort_trials_by_type)
+    
     draw_many_heat_maps(by_trial_heat_map_data,
                         max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
                         percentile_range=results$get_value('percentile_range'),
                         wide = need_wide,
                         PANEL.LAST=decorator,
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator,0),
-                        xrange = results$get_value('plot_time_range'),
+                        plot_time_range = results$get_value('plot_time_range'),
                         # we always want the x axis, but we only want the y axis if we are NOT sorting by type
                         axes=c(TRUE, !need_wide))
 }

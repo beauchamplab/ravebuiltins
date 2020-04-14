@@ -151,3 +151,29 @@ htmltable_coefmat <- function(
   
   re
 }
+
+htmltable_mat <- function(mat, ...) {
+  re = list()
+  tags = shiny::tags
+  
+  re$table = tags$div(
+    class = 'table-responsive',
+    tags$table(
+      class = 'table table-striped table-sm',
+      tags$thead(
+        tags$tr(
+          lapply(colnames(mat), tags$th)
+        )
+      ),
+      tags$tbody(
+        
+        apply(mat, 1, function(m) {
+          tags$tr(
+            lapply(m, tags$td)
+          )
+        })
+      )
+    )
+  )
+  return(re)
+}

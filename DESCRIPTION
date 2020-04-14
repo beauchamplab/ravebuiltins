@@ -8,7 +8,7 @@ Description: This package provides builtin modules for `RAVE`. It aims at analyz
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.0.2
+RoxygenNote: 7.1.0
 Authors@R: c(
     person(given = "Zhengjia", family = "Wang", role = c("cre", "aut"), email = "zhengjia.wang@rice.edu"),
     person(given = "John", family = "Magnotti", role = "aut", email = "magnotti@bcm.edu")

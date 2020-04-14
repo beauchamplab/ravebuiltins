@@ -14,14 +14,14 @@
 #' @param PANEL.LAST a function that is called after the rendering of each heat map. It is not called after the rendering of the color bar. 
 #' @param PANEL.COLOR_BAR a function to adjust colorbar width
 #' @param axes vector of logicals, whether to draw axis
-#' @param xrange x range, similar to \code{xlim}
+#' @param plot_time_range x range, similar to \code{xlim}
 #' @description Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar.
 #' By default it is setup for time/freq, but by swapping labels and decorators you can do anything.
 #' @seealso layout_heat_maps
 #' @seealso draw_img
 draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_scale=FALSE,
                                 show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
-                                PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), xrange=NULL, ...) {
+                                PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), plot_time_range=NULL, ...) {
     rave_context()
     
     k <- sum(hmaps %>% get_list_elements('has_trials'))
@@ -70,15 +70,16 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
     }
     
     lapply(hmaps, function(map){
+        # map = hmaps[[1]]
         # rave_context()
         if(map$has_trials){
             # check the plottable range, to make sure we're only plotting what the user has requested
-            xrange %?<-% range(map$x)
+            plot_time_range %?<-% range(map$x)
 
-            if (! all(map$x %within% xrange) ) {
+            if (! all(map$x %within% plot_time_range) ) {
                 # print('fixing x range')
                 .attr = attributes(map$data)
-                ind <- map$x %within% xrange
+                ind <- map$x %within% plot_time_range
                 map$x <- map$x[ind]
                 
                 ## This is dropping attributes :(
@@ -173,17 +174,17 @@ build_group_contrast_labels <- function(group_names) {
 
 
 # show power over time with MSE by condition
-time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, xrange=NULL) {
+time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_time_range=NULL) {
     
     # check the plottable range, to make sure we're only plotting what the user has requested
-    xrange %?<-% get_data_range(plot_data, 'x')
+    plot_time_range %?<-% get_data_range(plot_data, 'x')
     
     for(ii in seq_along(plot_data)) {
-        if (! all(plot_data[[ii]]$x %within% xrange) ) {
+        if (! all(plot_data[[ii]]$x %within% plot_time_range) ) {
             
             attrs = attributes(plot_data[[ii]]$data)
             
-            ind <- plot_data[[ii]]$x %within% xrange
+            ind <- plot_data[[ii]]$x %within% plot_time_range
             plot_data[[ii]]$x <- plot_data[[ii]]$x[ind]
             plot_data[[ii]]$data <- plot_data[[ii]]$data[ind,,drop=FALSE]
             
@@ -196,10 +197,10 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, xrang
         }
     }
     
-    xlim <- pretty(xrange)#get_list_elements(plot_data, 'x') %>% unlist)
+    xlim <- pretty(plot_time_range)#get_list_elements(plot_data, 'x') %>% unlist)
     ylim <- pretty(get_data_range(plot_data) %>% unlist, min.n=2, n=4)
     
-    plot_clean(xlim, ylim)
+    rutabaga::plot_clean(xlim, ylim)
     
     if(isTRUE(is.function(PANEL.FIRST))) PANEL.FIRST(plot_data)
     
@@ -268,7 +269,7 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
     .fg <- par('fg'=axis_col, 'col.lab' = axis_col, col.axis=axis_col)
     x <- rave_barplot(mses[1,],
                       ylim=.fast_range(yax) %>% stretch(.01), col=bar.cols, border=bar.borders,
-                      names.arg=bp_names[ind], axes=F, ...)
+                      names.arg=bp_names[ind], axes=FALSE, ...)
     par('fg'=.fg)
     
     axis_label_decorator(group_data, label_alignment=FALSE)
@@ -353,9 +354,10 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
     invisible(group_data)
 }
 
-trial_scatter_plot_decortator <- function(plot_data, results, ...) {
+trial_scatter_plot_decortator <- function(plot_data, plot_title_options, ...) {
     tspd <- function(plot_data, ...) {
-        title_decorator(plot_data, results=results, allow_cond = FALSE, allow_sample_size = FALSE)
+        title_decorator(plot_data, plot_title_options=plot_title_options,
+                        allow_cond = FALSE, allow_sample_size = FALSE)
     }
     
     if(missing(plot_data)) {
@@ -377,14 +379,16 @@ draw.box <- function(x0,y0,x1,y1, ...) {
 
 # the Xmap and Ymap here are functions that allow for transformation of the plot_data $x and $y into
 # the coordinate system of the plot
-spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=force, btype='line', atype='box', 
+spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Ymap=force, btype='line', atype='box', 
                                           title_options=list(allow_freq=FALSE), ...) {
     
     shd <- function(plot_data, Xmap=Xmap, Ymap=Ymap) {
-        title_options$plot_data = plot_data
-        title_options$results=results
+        .args = list('plot_data' = plot_data, 'plot_title_options' = plot_options$plot_title_options)
         
-        do.call(title_decorator, args=title_options)
+        if(length(title_options) > 0) {
+            .args[names(title_options)] = title_options
+        }
+        do.call(title_decorator, args=.args)
         
         axis_label_decorator(plot_data, Xmap = Xmap, Ymap = Ymap)
         
@@ -426,11 +430,11 @@ spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=f
         )
 
         lapply(names(windows), function(nm) {
-            if(paste(nm, 'Window') %in% results$get_value('PLOT_TITLE') & windows[[nm]]$type != 'n') {
+            if(paste(nm, 'Window') %in% plot_options$plot_title_options & windows[[nm]]$type != 'n') {
                 with(windows[[nm]],
                      window_decorator(
                          window=window, type=type,
-                         text=ifelse(results$get_value('draw_decorator_labels'), nm, ''),
+                         text=ifelse(plot_options$draw_decorator_labels, nm, ''),
                          label_placement_offset = ifelse(all('label' == c(btype,atype), nm == 'Analysis'), 0.8, 0.9)
                      )
                 )
@@ -451,14 +455,16 @@ spectrogram_heatmap_decorator <- function(plot_data, results, Xmap=force, Ymap=f
 }
 
 # here we just call the spectrogram decorator with some special setup options
-by_trial_heat_map_decorator <- function(plot_data=NULL, results, Xmap=force, Ymap=force, ...) {
+by_trial_heat_map_decorator <- function(plot_data=NULL, plot_options, Xmap=force, Ymap=force, ...) {
     args <- list(
-        results=results, Xmap=Xmap, Ymap=Ymap, atype='line', btype='line',
+        plot_options=plot_options, Xmap=Xmap, Ymap=Ymap, atype='line', btype='line',
         title_options = list(allow_sample_size=FALSE),
         ...
     )
     
-    if(results$get_value('sort_trials_by_type') %in% results$get_value('epoch_event_types')[-1]) {
+    
+    # this is not great to be hard-coding Trial Number and Condition here...
+    if(!(plot_options$sort_trials_by_type %in% c('Trial Number', 'Condition'))) {
         args$atype = 'n'
     }
     
@@ -471,9 +477,9 @@ by_trial_heat_map_decorator <- function(plot_data=NULL, results, Xmap=force, Yma
 }
 
 
-by_electrode_heat_map_decorator <- function(plot_data=NULL, results, Xmap=force, Ymap=force, ...) {
+by_electrode_heat_map_decorator <- function(plot_data=NULL, plot_options, Xmap=force, Ymap=force, ...) {
     args <- list(
-        results=results, Xmap=Xmap, Ymap=Ymap, atype='line', btype='line',
+        plot_options=plot_options, Xmap=Xmap, Ymap=Ymap, atype='line', btype='line',
         title_options = list(allow_enum=FALSE),
         ...
     )
@@ -873,10 +879,11 @@ axis_label_decorator <- function(plot_data, col, Xmap=force, Ymap=force, label_a
         pd <- pd[[ii]]
     } 
     
-    if(!is.null(pd$trial_alignment) && label_alignment) {
-        rave_axis(1, at=Xmap(0), labels = pd$trial_alignment, mgpx=c(1,label_alignment.line,1), lwd=0, tcl=0, ...)
-    }
-    
+    # if(!is.null(pd$trial_alignment) && label_alignment) {
+    #     rave_axis(1, at=Xmap(0), labels = pd$trial_alignment,
+    #               mgpx=c(1,label_alignment.line,1), lwd=0, tcl=0, ...)
+    # }
+    # 
     rave_axis_labels(xlab=attr(pd$data, 'xlab'), ylab=attr(pd$data, 'ylab'), ...)
 }
 
@@ -906,14 +913,29 @@ invert_palette <- function(pal) {
     rgb(t(inv), alpha=255, maxColorValue = 255)    
 }
 
+# build a results-object like list
+build_results_object <- function(l) {
+    list(
+        get_value = function(nm, ifNotFound=NULL) {
+            if(nm %in% names(l)) {
+                return (l[[nm]])
+            }
+            
+            ifNotFound
+        }
+    )
+}
+
 #works by side effect to change the palette used by the current graphics device
 # and set the RAVE theme to light or dark
-set_palette_helper <- function(results, ...) {
+set_palette_helper <- function(results, plot_options, ...) {
     rave_context()
     
-    .bg <- results$get_value('background_plot_color_hint', 'White')
+    results %?<-% build_results_object(plot_options)
+    
+    .bg <- results$get_value('background_plot_color_hint', 'white')
     # session = shiny::getDefaultReactiveDomain()
-    if(.bg %in%  c('white', 'White')) {
+    if(tolower(.bg) %in%  c('white')) {
         theme = set_rave_theme('light')
     }else{
         theme = set_rave_theme('dark')
@@ -952,20 +974,30 @@ shiny_is_running <- function() {
 }
 
 
-# by default we use PLOT_TITLE variable in results to see what to put in the title string
+# by default we use plot_title_options variable in results to see what to put in the title string
 # callers can override this behavior by specifically dis-allowing certain options
 # currently you can't force something to be TRUE if a user doesn't allow it, but we can think about 
 # this. If that's the case, all the allow_* would be NULL by default, and setting them to TRUE would override 
 # user preference. This seems rude at best, but for certain plots maybe they really require something to 
 # be put in the title?
-title_decorator <- function(plot_data, results,
-                            allow_sid=TRUE, allow_enum=TRUE, allow_freq=TRUE, allow_cond=TRUE, allow_sample_size=TRUE, ...) {
+title_decorator <- function(plot_data, plot_title_options,
+                            allow_sid=TRUE, allow_enum=TRUE, allow_freq=TRUE,
+                            allow_cond=TRUE, allow_sample_size=TRUE, ...) {
     title_string = ''
-    .plot_options <- results$get_value('PLOT_TITLE')
+    
+    # if(missing(plot_title_options)) {
+    #     plot_title_options = build_plot_options()$plot_title_options
+    # }
+    
+    # if we have multiple data, just take the first
+    # the way to guess this is to check for the existence of a variable that we should have...
+    if(is.null(plot_data[['name']])) {
+        plot_data = plot_data[[1]]
+    }
     
         # wraps do_on_inclusion to make ths following lines easier to understand
     add_if_selected <- function(id, expr) {
-        do_on_inclusion(id, expr, .plot_options)
+        do_on_inclusion(id, expr, plot_title_options)
     }
     
     if(allow_cond)
@@ -980,28 +1012,24 @@ title_decorator <- function(plot_data, results,
     # we could write this as a simple m/sapply if the variable names had a clear relationship to one another
     if(allow_sid)
         add_if_selected('Subject ID', {
-            conditional_sep(title_string) = results$get_value('subject_code')
+            conditional_sep(title_string) = plot_data$subject_code
         })
     
     if(allow_enum)
         add_if_selected('Electrode #', {
-            el <- results$get_value('ELECTRODE', ifNotFound = NULL)
-            if(is.null(el)) {
-                # using requested_electrodes here rather than ELECTRODE_TEXT because of parsing issues in ELECTRODE_TEXT
-                el <- dipsaus::deparse_svec(results$get_value('requested_electrodes', ifNotFound = '?'), max_lag=1)
-            } 
+                el <- dipsaus::deparse_svec(plot_data$electrodes, max_lag=1)
             # print('EL: ' %&% el)
             conditional_sep(title_string) = 'E' %&% el
         })
     
     if(allow_freq)
         add_if_selected('Frequency Range', {
-            conditional_sep(title_string) = 'Freq ' %&% paste0(results$get_value('FREQUENCY'), collapse=':')
+            conditional_sep(title_string) = 'Freq ' %&% paste0(plot_data$frequency_window, collapse=':')
         })
     
     if(allow_sample_size) 
         add_if_selected('Sample Size', {
-            if(!is.null(plot_data[['N']])) 
+            if(!is.null(plot_data$N))
                 conditional_sep(title_string) = 'N=' %&% plot_data$N
         })
     
@@ -1014,6 +1042,41 @@ title_decorator <- function(plot_data, results,
     invisible()
 }
 
+
+build_plot_options <- function(...) {
+    options <- list(
+        plot_time_range = c(-Inf,Inf),
+        draw_decorator_labels = FALSE,
+        plot_title_options = c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range', 
+                               'Sample Size', 'Baseline Window', 'Analysis Window'),
+        
+        background_plot_color_hint = 'white',
+        
+        color_palette = 'Beautiful Field',
+        invert_colors_in_palette = FALSE,
+        reverse_colors_in_palette = FALSE,
+        
+        heatmap_color_palette = get_heatmap_palette(get_palette_names = TRUE)[1],
+        heatmap_number_color_values = 101,
+        invert_colors_in_heatmap_palette = FALSE,
+        reverse_colors_in_heatmap_palette = FALSE,
+        
+        show_outliers_on_plots = TRUE,
+        
+        log_scale = FALSE,
+        max_zlim = 0,
+        percentile_range = TRUE,
+        
+        sort_trials_by_type = 'Trial Number'
+    )
+    
+    v = list(...)
+    options[names(v)] = v
+
+    return(options)
+}
+
+
 # helper to reduce redundancies in searching then evaluating
 do_on_inclusion <- function(needle, expr, haystack) {
     if(needle %in% haystack) {
@@ -1025,30 +1088,30 @@ do_on_inclusion <- function(needle, expr, haystack) {
 #
 # helper that calls out to sub-decorators based on user-selected options
 #
-time_series_decorator <- function(plot_data, results, ...) {
-    .plot_options <- results$get_value('PLOT_TITLE')
+time_series_decorator <- function(plot_data, plot_options, ...) {
+    .plot_options <- plot_options$plot_title_options 
+    ddl = plot_options$draw_decorator_labels
     
     do_tsd <- function(plot_data, label_hint=label_hint) {
         # plot title
-        title_decorator(plot_data, results, allow_sample_size=FALSE, allow_cond = FALSE)
+        title_decorator(plot_data, plot_title_options = .plot_options,
+                        allow_sample_size=FALSE, allow_cond = FALSE)
         
         # axis labels
         axis_label_decorator(plot_data)
         
         windows = c('Analysis')
-        
         if(plot_data[[1]]$trial_alignment == 'Trial Onset') {
             windows %<>% c("Baseline")
         }
         
         sapply(windows, function(nm) {
             if(paste(nm, 'Window') %in% .plot_options ) {
-                full_name <- toupper(nm) %&% '_WINDOW'
-                if(!results$get_value('draw_decorator_labels')) {
+                full_name <- tolower(nm) %&% '_window'
+                if(!ddl) {
                     nm <- FALSE
                 }
-                
-                window_decorator(results$get_value(full_name),
+                window_decorator(plot_data[[1]][[full_name]],
                                  type='shaded', shade.col = rave_colors[[full_name]], text = nm,
                                  label_placement_offset = ifelse(
                                      nm == 'Baseline', 0.9, 0.8)
@@ -1096,8 +1159,9 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
     legend(location, legend=legend_text, ncol=ceiling(length(ii)/3),
            inset=c(.025,.075), bty='n',
            text.col=ii, cex=rave_cex.lab*get_cex_for_multifigure())
-
-    invisible(plot_data)
+    
+    
+    invisible()
 }
 
 
@@ -1127,7 +1191,7 @@ format_unit_of_analysis_name <- function(unit_of_analysis) {
 # the color_variable will be recycled to length of strings to provide a (possibly the same) color for each string
 add_strings_to_plot_title <- function(strings, color_variable, width_factor=1.5, ...) {
     if(!("character" %in% class(strings))) {
-        warn('Casting strings to character to get character count')
+        # warn('Casting strings to character to get character count')
         strings %<>% as.character
     }
     
@@ -1138,7 +1202,8 @@ add_strings_to_plot_title <- function(strings, color_variable, width_factor=1.5,
     
     mapply(function(nm, spacer, col, tots = max(nchars)) {
         .main = paste0(rep(' ', spacer), collapse='') %&% nm %&% paste0(rep(" ", tots-spacer), collapse='')
-        title(main = .main, font=3, family='mono', col.main = col, ...)
+        title(main = .main, font=3, family='mono',
+              col.main = col, cex.main = get_cex_for_multifigure()*rave_cex.main, ...)
         
     }, strings, nchars, color_variable)
 }
@@ -1179,7 +1244,7 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
     
     line.col %?<-% get_foreground_color()
     
-    switch(type, 
+    switch(type,
            line = {
                lwd %?<-% 1
                lty %?<-% 2
@@ -1190,17 +1255,17 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
                lwd %?<-% 2
                lty %?<-% 2
                text.col %?<-% line.col
-               
+
                if(any(is.null(window$x), is.null(window$y)) ) {
                    warning("window must be a list with x and y components to draw a box")
                    text=FALSE
                } else {
                    with(window, rect(x[1], y[1], x[2], y[2], lwd=lwd, lty=lty, border=line.col, col=NA))
-                   
+
                    text.x <- window$x[1]
-                   
+
                    # the multipler on the box here needs to be based on the size of the plot to reduce
-                   # the likelihood of over-printing. Basically we plot just above the analysis window (2.5% of the plottting range), or else 
+                   # the likelihood of over-printing. Basically we plot just above the analysis window (2.5% of the plottting range), or else
                    # at 90% of the figure region, whichever is lower
                    yfac <- diff(par('usr')[4] * c(.975,1))
                    text.y <- min(par('usr')[4]*.9, window$y[2] + yfac)
@@ -1220,10 +1285,10 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
                text.x = window[[1]]
                x = window
                y = par('usr')[3:4]
-               
+
                amt = diff(par('usr')[3:4])*.10
                text.y = par('usr')[4] - amt
-               
+
                if(is.list(window)) {
                    x = window$x
                    y = window$y
@@ -1233,7 +1298,7 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
                }
                do_poly(x, y, col=shade.col)
            })
-    
+
     if(!isFALSE(text)) {
         text(text.x, text.y, labels = text, pos=4, col=text.col, cex=rave_cex.lab*get_cex_for_multifigure())
     }
@@ -1531,8 +1596,10 @@ expand_heatmap <- function(pal, results, ncolors, ...) {
 # Dark mode does an inside out by default ?
 # please call set_palette_helper BEFORE calling this function so that we don't have to worry about setting
 # the background plot color again
-set_heatmap_palette_helper <- function(results) {
+set_heatmap_palette_helper <- function(results, plot_options, ...) {
     rave_context()
+    
+    results %?<-% build_results_object(plot_options)
     
     requested_palette_name = paste(results$get_value('heatmap_color_palette'),
                                    par('bg'),
@@ -1560,12 +1627,13 @@ set_heatmap_palette_helper <- function(results) {
             pal %<>% rev
         }
         
-        cache_heatmap_palette(requested_palette_name, expand_heatmap(pal, results = results))
+        invisible(cache_heatmap_palette(requested_palette_name, expand_heatmap(pal, results = results)))
         
         # cache(key=requested_palette_name,
         #       val=expand_heatmap(pal, results = results),
         #       name='current_rave_heatmap_palette')
     }
+    
 }
 
 get_currently_active_heatmap <- function() {
@@ -1583,7 +1651,10 @@ get_dark_mode_heatmap_palette <- function(pal, mid_color = par('bg')) {
         pal %<>% get_heatmap_palette
     }
     
-    c(pal[5:1], mid_color, pal[11:7])
+    # these palettes should all have an odd number of colors...
+    m = floor(median(seq_len(length(pal))))
+    
+    c(pal[(m-1):1], mid_color, pal[length(pal):(m+1)])
 }
 
 

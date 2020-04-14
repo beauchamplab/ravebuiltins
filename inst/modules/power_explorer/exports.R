@@ -1,7 +1,6 @@
 input <- getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 
-
 fix_name_for_js <- function(nm) {
   str_replace_all(nm, c(
     '\\(' = '.',
@@ -31,7 +30,7 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   
   if(isolate(input$synch_3d_viewer_bg)) {
     bgcolor = isolate(input$background_plot_color_hint)
-    if(bgcolor == 'Gray') {
+    if(bgcolor == 'gray') {
       bgcolor = '#1E1E1E'
     } else {
       bgcolor %<>% col2hex
@@ -123,14 +122,16 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
 
 ## modified from downloadButton
 fix_font_color_button <- function (outputId, label = "Download", class = NULL, ...)  {
-  aTag <- tags$a(id = outputId, class = paste("btn shiny-download-link", 
+  aTag <- tags$a(id = outputId,
+                 class = paste("btn shiny-download-link", 
                                               class), href = "", target = "_blank", download = NA, 
                  icon("download"), label, ...)
 }
 
-graph_export = function(){
+download_all_graphs = function(){
   tagList(
-    fix_font_color_button(ns('btn_graph_download'), 'Download graphs and their data', icon=shiny::icon('download'),
+    fix_font_color_button(ns('btn_graph_download'),
+                          'Download graphs and their data', icon=shiny::icon('download'),
                           class = 'btn-primary text-white')
   )
 }
@@ -144,11 +145,6 @@ customDownloadButton <- function(outputId, label='Download', class=NULL, icon_lb
 }
 
 sheth_special <- function() {
-  # if(is.null(local_data$omnibus_results)) {
-  #   return(
-  #     tags$p('No data are available for export. Press calculate button.')
-  #   )
-  # }
   tagList(div(class='rave-grid-inputs',
               div(style='flex-basis: 100%', customDownloadButton(ns('btn_sheth_special'),
                                label = "Sheth's special stat heatmap", icon_lbl = 'user-md')),
@@ -158,6 +154,160 @@ sheth_special <- function() {
           # ,checkboxInput(ns('highlight_significant_results'), 'Highlight significant results in output', value=TRUE)
   )
 }
+
+custom_plot_download <- function() {
+  tagList(div(class='rave-grid-inputs',
+              div(style='flex-basis: 100%', selectInput(ns('custom_plot_select'), label = "Choose Graph",
+                                                        choices = c('Per electrode statistical tests', 'Activity over time by electrode', 'Activity over time by frequency',
+                                                                    'Activity over time by trial', 'Activty over time by condition', 'Per trial, averaged across electrodes'),
+                                                        selected ='Activity over time by frequency')),
+              div(style='flex-basis: 25%', numericInput(ns('custom_plot_width'), label='width (inches)', value=15, min=5, step = 1)),
+              div(style='flex-basis: 25%', numericInput(ns('custom_plot_height'), label='height (inches)', value=10, min=3, step = 1)),
+              div(style='flex-basis: 25%', selectInput(ns('custom_plot_file_type'), label='File Type', choices=c('pdf', 'jpeg', 'png', 'tiff', 'svg'), selected='pdf')),
+              
+              div(style='flex-basis: 100%', customDownloadButton(ns('btn_custom_plot_download'),
+                                                                 label = "Download Graph", icon_lbl = 'file-image'))
+  ))
+}
+
+
+
+custom_plot_download_renderers <- function(nm) {
+  plot_options = local_data$plot_options
+  
+  pest  = function() {
+    rutabaga::plot_msg('Per electrode plot exported not implemented')
+  }
+  aotbe = function() {
+    set_heatmap_palette_helper(plot_options=plot_options)
+    draw_many_heat_maps(local_data$by_electrode_heat_map_data,
+                        log_scale = plot_options$log_scale,
+                        max_zlim = plot_options$max_zlim,
+                        percentile_range=plot_options$percentile_range,
+                        plot_time_range = plot_options$plot_time_range,
+                        PANEL.LAST = by_electrode_heat_map_decorator(plot_options=plot_options),
+                        PANEL.COLOR_BAR = ifelse(plot_options$show_heatmap_range, color_bar_title_decorator, 0)
+    )
+  }
+  aotbf = function() {
+    set_heatmap_palette_helper(plot_options=plot_options)
+    draw_many_heat_maps(hmaps = local_data$heat_map_data,
+                        log_scale = plot_options$log_scale,
+                        max_zlim = plot_options$max_zlim,
+                        percentile_range=plot_options$percentile_range,
+                        plot_time_range = plot_options$plot_time_range,
+                        PANEL.LAST = spectrogram_heatmap_decorator(plot_options=plot_options),
+                        PANEL.COLOR_BAR = ifelse(plot_options$show_heatmap_range, color_bar_title_decorator, 0)
+    )
+  }
+  aotbt = function() {
+    set_heatmap_palette_helper(plot_options=plot_options)
+    by_trial_heat_map_data = local_data$by_trial_heat_map_data
+    
+    decorator <- by_trial_heat_map_decorator(plot_options = plot_options)
+    
+    # if the user wants the data to be sorted by trial type (rather than trial number) then we
+    # need to sort the data
+    sort_trials_by_type <- plot_options$sort_trials_by_type
+    if(sort_trials_by_type != 'Trial Number') {
+      for(ii in which(sapply(by_trial_heat_map_data, '[[', 'has_trials'))) {
+        by_trial_heat_map_data[[ii]] %<>% reorder_trials_by_event(event_name = sort_trials_by_type)
+      }
+      
+      # add a decorator that can draw the trial labels
+      if(sort_trials_by_type == 'Condition') {
+        decorator %<>% add_decorator(trial_type_boundaries_hm_decorator)
+      } else  {
+        decorator %<>% add_decorator(by_trial_analysis_window_decorator(event_name= sort_trials_by_type,
+                                                                        show_label = plot_options$draw_decorator_labels))
+      }
+    }
+    
+    if(plot_options$show_outliers_on_plots) {
+      # print('showing outliers')
+      decorator %<>% add_decorator(heatmap_outlier_highlighter_decorator)
+    } else {
+      # print('not showing outliers, removing them, start with: ' %&% nrow(by_trial_heat_map_data[[1]]$data))
+      by_trial_heat_map_data %<>% remove_outliers_from_by_trial_data
+    }
+    
+    # the y variable is changing each time,
+    # so we provide a function that will be used to calculate the
+    # y variable on a per map basis
+    need_wide = ('Condition' == sort_trials_by_type)
+    
+    draw_many_heat_maps(hmaps = by_trial_heat_map_data,
+                        log_scale = plot_options$log_scale,
+                        max_zlim = plot_options$max_zlim,
+                        percentile_range=plot_options$percentile_range,
+                        plot_time_range = plot_options$plot_time_range,
+                        PANEL.LAST=decorator,
+                        PANEL.COLOR_BAR = ifelse(plot_options$show_heatmap_range, color_bar_title_decorator,0),
+                        wide = need_wide,
+                        # we always want the x axis, but we only want the y axis if we are NOT sorting by type
+                        axes=c(TRUE, !need_wide))
+  }
+  aotbc = function() {
+    assign('ld', local_data, envir = globalenv())
+    time_series_plot(plot_data = local_data$over_time_data,
+                     plot_time_range = plot_options$plot_time_range,
+                     PANEL.FIRST = time_series_decorator(plot_options=local_data$plot_options)
+    )
+    
+  }
+  ptaac = function() {
+    trial_scatter_plot(
+      group_data = local_data$scatter_bar_data,
+      show_outliers = plot_options$show_outliers_on_plots,
+      PANEL.LAST = trial_scatter_plot_decortator(plot_title_options = plot_options$plot_title_options)
+    )
+    
+  }
+  
+  FUNS = list(
+    'Per electrode statistical tests' = pest,
+    'Activity over time by electrode' = aotbe,
+    'Activity over time by frequency' = aotbf,
+    'Activity over time by trial' = aotbt,
+    'Activty over time by condition' = aotbc,
+    'Per trial, averaged across electrodes' = ptaac
+  )
+  nm = match.arg(nm, names(FUNS))
+  set_palette_helper(plot_options=local_data$plot_options)
+  FUNS[[nm]]()
+}
+
+
+output$btn_custom_plot_download <- downloadHandler(
+  filename=function(...){
+    paste0(stringr::str_replace_all(input$custom_plot_select,' ', '_'),
+           format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.', input$custom_plot_file_type)
+  },
+  content = function(conn) {
+    pt = input$custom_plot_file_type
+    on.exit(dev.off())
+    
+    args = list(width=input$custom_plot_width, height=input$custom_plot_height, filename=conn)
+    if(pt == 'jpeg') {
+      args$units = 'in'
+      args$quality=90
+      args$res = 72
+    } else if(pt == 'pdf') {
+      args$useDingbats = FALSE
+      args$file = conn
+      args$filename = NULL
+    } else if (pt == 'tiff') {
+      args$units = 'in'
+      args$compression = 'lzw'
+      args$res = 72
+    }
+    DEV = match.fun(pt)
+    
+    do.call(DEV, args = args)
+    custom_plot_download_renderers(input$custom_plot_select)
+  }
+)
+
 
 observeEvent(input$sheth_special_height, {
   local_data$sheth_special_height = input$sheth_special_height
@@ -169,7 +319,6 @@ observeEvent(input$sheth_special_height, {
   }
   
 })
-
 observeEvent(input$sheth_special_width, {
   local_data$sheth_special_width = input$sheth_special_width
   

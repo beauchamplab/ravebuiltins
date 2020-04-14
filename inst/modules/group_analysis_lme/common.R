@@ -1,4 +1,4 @@
-
+ 
 matrix_to_table <- function(mat, row_label=' ') {
     cnms <- colnames(mat)
     rnms <- rownames(mat)
@@ -24,6 +24,51 @@ matrix_to_table <- function(mat, row_label=' ') {
     return(str)
 }
 
+text_to_range = function(str) {
+    r = suppressWarnings({
+        range(as.numeric(unlist(stringr::str_split(str, ',| |:'))), na.rm=TRUE)
+    })
+    
+    if(any(is.na(r), r %in% c(-Inf, Inf))) {
+        r = NULL
+    } else if(diff(r) == 0) {
+        r = c(-1, 1) * max(abs(r))
+    }
+    
+    
+    return (r)
+}
+
+
+
+# concatenate ["+" s2] onto s1, only if s2 is non blank
+`%?&%` <- function(s1,s2) {
+    if(!isTRUE(nchar(s2)>0)) {
+        return(s1)
+    }
+    return (paste0(s1, '+', s2))
+}
+
+
+pretty_string <- function(s) {
+    stringr::str_replace_all(s,c(
+        'Pct' = '%',
+        '_' = ' '
+    ))
+}
+
+# check if a given needle is in any one of the supplied haystacks
+# returns TRUE/FALSE for each needle if contained in ANY of the hay stacks.
+# alternatively, supply FUN=which to get the index of the haystack
+`%within_any%` <- function(needles, haystacks, FUN=any) {
+    if(!is.list(haystacks)) return (needles %within% haystacks)
+    
+    apply(sapply(haystacks, function(h) {
+        needles %within% h
+    }), 1, FUN)
+}
+
+
 multiple_comparisons <- function() {
     # return()
     # lmer_results = local_data$lmer_results
@@ -31,7 +76,7 @@ multiple_comparisons <- function() {
     # if(is.null(local_data$lmer_results)){
         return(htmltools::div(style='color:#a1a1a1; text-align:center; ', 'No model calculated yet'))
     # }
-    print('in MC')
+    # print('in MC')
     
     test_conditions <- htmltable_coefmat(ls_means(lmer_results))
     compare_conditions <- htmltable_coefmat(ls_means(lmer_results, pairwise = TRUE))
@@ -49,61 +94,104 @@ lme_out <- function() {
         return(htmltools::div(style='color:#a1a1a1; text-align:center; ', 'No model calculated yet'))
     }
     
+    dipsaus::cat2('in lme_out', level='info')
+    if(exists('.__DEBUG__')) {
+        assign('lmer_results', local_data$lmer_results, envir = globalenv())   
+    }
+    
     lmer_results = local_data$lmer_results
     lmer_summary = local_data$lmer_results_summary
+
+    ss_type = 2    
+    if(length(attr(terms(lmer_results), 'term.labels')) <1) {
+        ss_type = 3
+    }
     
-    deviance_summary = car::Anova(lmer_results)
+    dipsaus::cat2('in lme_out:: deviance_summary', level='info')
+    deviance_summary = car::Anova(lmer_results, type=ss_type)
+        
     
-    # clean row names
-    gnames = levels(local_data$collapsed_data$Group)
     fix_rownames <- function(m, regression=FALSE) {
-        .match = paste0("Group", gnames)
-        if(regression) {
-            .replace = c(gnames[1], paste(gnames, 'rel. to', gnames[1]))
-            names(.replace) = c('\\(Intercept\\)', .match)
-        } else {
-            .replace = gnames
-            names(.replace) = .match
+        look_for_vars = attr(terms(lmer_results), 'term.labels')
+        
+        # character vector with find=>replace structure
+        remove_var_name = rep('', length(look_for_vars))
+        names(remove_var_name) = look_for_vars
+        
+        # this is used later, but relies on rownames which are changed here... can we move this around, maybe change rownames after 
+        # this if(regression ...) part?
+        contains_lfv = sapply(rownames(m), function(rn) {
+            any(str_detect(rn, look_for_vars))
+        })
+        
+        if(length(remove_var_name) > 0) {
+            rownames(m) %<>% str_replace_all(remove_var_name)
         }
-        rownames(m) = stringr::str_remove_all(rownames(m), .replace)
-        m
+        
+        if(regression && nrow(m) > 1) {
+            # ..local_data$lmer_results@frame
+            # remove the interaction terms from look_for
+            look_for_vars = look_for_vars[!str_detect(look_for_vars, ':')]
+            
+            bsl = paste0(sapply(lmer_results@frame[look_for_vars], 
+                                function(x) levels(x)[1]), collapse=':')
+            
+            rownames(m) %<>% str_replace_all('\\(Intercept\\)', paste(bsl, '(INT)'))
+            rownames(m)[contains_lfv] = paste(rownames(m)[contains_lfv], 'vs', bsl)
+        }
+
+        return(m)
     }
     
     lmer_summary$coefficients %<>% fix_rownames(regression=TRUE)
     local_data$lmer_summary_coefficients <- lmer_summary$coefficients
     tbl_html = htmltable_coefmat(lmer_summary$coefficients)
     
+    dipsaus::cat2('in lme_out::anova_html', level='info')
     anova_html = htmltable_coefmat(deviance_summary)
     local_data$anova_summary <- deviance_summary
-    lmer_cond <- fix_rownames(ls_means(lmer_results))
-    test_conditions <- htmltable_coefmat(lmer_cond)
+    
+    lmer_cond = data.frame('No main effects are possible' = 0)
+    lmer_compare = data.frame('No comparisons are possible' = 0)
+    
+    dipsaus::cat2('in lme_out::fixing rownames', level='info')
+    if(inherits(lmer_results, "lmerModLmerTest")) {
+        lmer_cond <- fix_rownames(
+            lmerTest::ls_means(lmer_results)
+        )
+        lmer_compare <- fix_rownames(
+            ls_means(lmer_results, pairwise = TRUE)
+        )    
+    } else {
+        
+    }
+    
     local_data$test_conditions = lmer_cond
+    test_conditions <- htmltable_coefmat(lmer_cond)
 
-    lmer_compare <- fix_rownames(ls_means(lmer_results,
-                                       pairwise = TRUE))    
+    local_data$compare_conditions= lmer_compare
     compare_conditions <- htmltable_coefmat(lmer_compare)
     
-    local_data$compare_conditions= lmer_compare
-    
+    dipsaus::cat2('in lme_out::building final output', level='info')
     # put a description row
+    
+    string_formula = as.character(formula(lmer_results))
+    string_formula = paste(string_formula[2], string_formula[1], string_formula[3])
     htmltools::p(
         lmer_summary$methTitle, sprintf(' (%s)', lmer_summary$objClass), br(),
-        'LME call: ', strong(format(formula(lmer_results))), br(),
+        'LME call: ', strong(string_formula), br(),
         'Number of obs: ', strong(lmer_summary$devcomp$dims[["n"]]), 'groups: ', 
         strong(paste(paste(names(lmer_summary$ngrps), lmer_summary$ngrps, sep = ', '), collapse = '; ')), br(),
         
         br(),
         # Convergence criteria
         local({
+            res = NULL
             aictab = lmer_summary$AICtab
-            t.4 <- round(aictab, 1)
-            if (length(aictab) == 1 && names(aictab) == "REML") 
-                res = tagList(paste("REML criterion at convergence:", t.4), br())
-            else {
-                # t.4F <- format(t.4)
-                # t.4F["df.resid"] <- format(t.4["df.resid"])
-                # res = capture.output(print(t.4F, quote = FALSE))
-                res = NULL
+            if(!is.null(aictab)) {
+                t.4 <- round(aictab, 1)
+                if (length(aictab) == 1 && names(aictab) == "REML") 
+                    res = tagList(paste("REML criterion at convergence:", t.4), br())
             }
             res
         }),
@@ -113,7 +201,13 @@ lme_out <- function() {
             list('Scaled residual: %.4g (min), %.4g (25%%), %.4g (median), %.4g (75%%), %.4g (max)'),
             structure(as.list(quantile(lmer_summary$residuals, na.rm = TRUE)), names = NULL)
         )),
-        
+        div(
+            p('LME Message: ', ifelse(is.null(lmer_results@optinfo$conv$lme4$messages), 'No Message', lmer_results@optinfo$conv$lme4$messages))
+        ),
+        hr(),
+        h3('Random Effects Table'),
+        htmltable_mat(lme4::formatVC(lme4::VarCorr(lmer_results))),
+        hr(),
         # coef table
         h3('LME Regression Table'),
         tbl_html$table,
