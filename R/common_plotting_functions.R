@@ -2,6 +2,7 @@
 #' @author John Magnotti
 #' @title Draw several heatmaps in a row and (optionally) a color bar
 #' @param hmaps data to draw heatmaps
+#' @param percentile_range whether to draw in percentile
 #' @param log_scale draw y in log scale?
 #' @param show_color_bar show color legend to the right? Future: Will will check to see if this parameter is a function. If so, we
 #' can call it to allow arbitrary legends in the right-most (half) panel
@@ -168,7 +169,7 @@ build_group_names <- function(groups) {
 }
 
 build_group_contrast_labels <- function(group_names) {
-    apply(combn(length(group_names),2), 2, 
+    apply(utils::combn(length(group_names),2), 2, 
           function(x) paste(group_names[x],collapse='.vs.'))
 }
 
@@ -502,7 +503,7 @@ by_electrode_heat_map_decorator <- function(plot_data=NULL, plot_options, Xmap=f
 #' @param col vector of colors, color palette
 #' @param zlim value to trim zmat
 #' @param log which axis will be in log scale
-#' @param useRaster,... passed to image()
+#' @param useRaster passed to image()
 #' @param clip_to_zlim whether to clip mat
 #' @param add logical, whether to overlay current plot to an existing image
 #' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators.
@@ -527,7 +528,7 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
     
     if(!('matrix' %in% class(mat))) {
         warning('mat is not a matrix... check it out: make_image_mat')
-        assign('make_image_mat', mat, globalenv())
+        # assign('make_image_mat', mat, globalenv())
     }
 
     image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
