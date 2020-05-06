@@ -544,7 +544,7 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
 # k is the number of heatmaps, excluding the color bar
 layout_heat_maps <- function(k, ratio=4) {
     opars <- par(no.readonly = TRUE)
-    layout(matrix(1:(k+1), nrow=1), widths=c(rep(ratio, k), lcm(5)) )
+    layout(matrix(1:(k+1), nrow=1), widths=c(rep(ratio, k), lcm(4.5)) )
     par(mar=c(5.1, 4.5, 2, 2))
     invisible(opars)
 }
@@ -891,13 +891,6 @@ round_to_nearest <- function(x, val=10) {
     val*round(x/val)
 }
 
-rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.lab, ...) {
-    # print(paste("RAL", xlab, ylab))
-    
-    col %?<-% get_foreground_color()
-    title(xlab=xlab, ylab=ylab, cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, ...)
-}
-
 get_foreground_color <- function() {
     switch(par('bg'),
            'white' = 'black',
@@ -1042,8 +1035,39 @@ title_decorator <- function(plot_data, plot_title_options,
     invisible()
 }
 
+set_font_scaling <- function(plot_options, FONT_SCALING = c('shiny', 'Rutabaga', 'R')) {
+    FONT_SCALING = match.arg(FONT_SCALING)
+    
+    font_opts = switch(FONT_SCALING,
+        # here mostly making things bigger
+        'shiny' = list(
+            cex.main = 1.5,
+            cex.axis = 1.3,
+            # putting this to 1.4 because 1.5 causes some clipping of the axis(2) label,
+            # we could also try to increase the left margin to compensate
+            cex.lab = 1.4,
+            # ticks are still outward, but shorter than normal
+            tcl = -0.3
+        ),    
+        list(
+            cex.main = 1.2,
+            cex.axis = 1,
+            cex.lab = 1,
+            tcl = -0.5
+        )
+    )
+    
+    if (FONT_SCALING == 'Rutabaga') {
+        # same as R, but shorter ticks are a must!
+        font_opts$tcl = -0.3
+    }
+    
+    plot_options[names(font_opts)] = font_opts
+ 
+    return(plot_options)
+}
 
-build_plot_options <- function(...) {
+build_plot_options <- function(..., FONT_SCALING=c('shiny', 'Rutabaga', 'R')) {
     options <- list(
         plot_time_range = c(-Inf,Inf),
         draw_decorator_labels = FALSE,
@@ -1070,12 +1094,15 @@ build_plot_options <- function(...) {
         sort_trials_by_type = 'Trial Number'
     )
     
+    options %<>% set_font_scaling(FONT_SCALING)
+    
+    
+    # any named arguments will override the defaults
     v = list(...)
     options[names(v)] = v
 
     return(options)
 }
-
 
 # helper to reduce redundancies in searching then evaluating
 do_on_inclusion <- function(needle, expr, haystack) {

@@ -484,8 +484,6 @@ eval_in_dataframe <- function(df, var_string) {
 post_hoc_plot <- function() {
   shiny::validate(shiny::need(!is.null(local_data$by_electrode_results), message = 'No results available'))
   
-  dipsaus::cat2('php::start', level='INFO')
-  
   ber = local_data$by_electrode_results
   
   # for printing the tables, p-values are converted to string representations, so convert them 

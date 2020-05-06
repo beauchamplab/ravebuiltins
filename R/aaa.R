@@ -130,7 +130,7 @@ get_cex_for_multifigure <- function() {
 
 
 # Internal use, not exported
-rave_axis <- function(side, at, tcl=rave_axis_tcl, labels=at, las=1, cex.axis=rave_cex.axis,
+.rave_axis <- function(side, at, tcl=rave_axis_tcl, labels=at, las=1, cex.axis=rave_cex.axis,
                       cex.lab=rave_cex.lab, mgpy=c(3, .6, 0), mgpx=c(3, .75, 0), col, col.axis, ...) {
   
   # if the color isn't specified, then we are free to set the color to what we want.
@@ -153,11 +153,49 @@ rave_axis <- function(side, at, tcl=rave_axis_tcl, labels=at, las=1, cex.axis=ra
   )
 }
 
-default_plot <- function() {
-  plot_clean(1, 1, type='n', main='No Conditions Specified')
+rave_axis.default = .rave_axis
+rave_axis <- rave::rave_context_generics('rave_axis', .rave_axis)
+
+rave_axis.rave_running_local = function(side, at, ..., cex.axis=1, cex.lab=1) {
+  rave_axis.default(side=side, at=at,
+                    cex.axis=cex.axis, cex.lab=cex.lab, ...)
+}
+
+.rave_title <- function(main, cex=rave_cex.main, col, font=1) {
+  if(missing(col)) {
+    col = if(par('bg') == 'black') {
+      'white'
+    } else if (par('bg') == '#1E1E1E'){
+      'gray70'
+    } else {
+      'black'
+    }
+  }
+  
+  title(main=list(main, cex=cex*get_cex_for_multifigure(), col=col, font=font))
+}
+rave_title.default = .rave_title
+rave_title <- rave::rave_context_generics('rave_title', .rave_title)
+
+rave_title.rave_running_local <- function(main, ..., cex=1.2) {
+  rave_title.default(main=main, cex=cex)
+}
+
+.rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.lab, ...) {
+  col %?<-% get_foreground_color()
+  title(xlab=xlab, ylab=ylab, cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, ...)
+}
+rave_axis_labels.default= .rave_axis_labels
+rave_axis_labels <- rave::rave_context_generics('rave_axis_labels', .rave_axis_labels)
+rave_axis_labels.rave_running_local <- function(..., cex.lab=1) {
+  rave_axis_labels.default(...,cex.lab=cex.lab)
 }
 
 
+
+default_plot <- function() {
+  plot_clean(1, 1, type='n', main='No Conditions Specified')
+}
 
 ebars.x = function(x, y, sem, length = 0.05, code = 3, ...) {
   arrows(x - sem, y, x + sem, y, angle = 90, code = code, length = length, ...)
@@ -233,19 +271,6 @@ rave_colors <- list('BASELINE_WINDOW'='gray60', 'ANALYSIS_WINDOW' = 'salmon2', '
                     'TRIAL_TYPE_SEPARATOR'='gray40', 'DARK_GRAY' = '#1E1E1E', 'BAR_PLOT_ALPHA' = 0.7)
 rave_colors[tolower(names(rave_colors))] = rave_colors
 
-rave_title <- function(main, cex=rave_cex.main, col, font=1) {
-  if(missing(col)) {
-    col = if(par('bg') == 'black') {
-      'white'
-    } else if (par('bg') == '#1E1E1E'){
-      'gray70'
-    } else {
-      'black'
-    }
-  }
-  
-  title(main=list(main, cex=cex*get_cex_for_multifigure(), col=col, font=font))
-}
 
 get_shifted_tensor <- function(raw_tensor, shift_amount, new_range, dimnames, varnames, shift_idx=3, shift_by=1, data_env = rave::getDefaultDataRepository()) {
   stopifnot(exists("module_tools", envir = data_env))

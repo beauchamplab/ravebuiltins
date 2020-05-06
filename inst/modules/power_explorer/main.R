@@ -501,6 +501,9 @@ if(any(to_copy)) {
   }
 }
 
+# plot time range isn't being set correctly...
+plot_options$plot_time_range = plot_time_range
+
 
 # load up local data the plot data and the plot options
 local_data$plot_options = plot_options

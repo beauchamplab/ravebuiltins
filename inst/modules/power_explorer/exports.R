@@ -161,19 +161,34 @@ custom_plot_download <- function() {
                                                         choices = c('Per electrode statistical tests', 'Activity over time by electrode', 'Activity over time by frequency',
                                                                     'Activity over time by trial', 'Activty over time by condition', 'Per trial, averaged across electrodes'),
                                                         selected ='Activity over time by frequency')),
-              div(style='flex-basis: 25%', numericInput(ns('custom_plot_width'), label='width (inches)', value=15, min=5, step = 1)),
-              div(style='flex-basis: 25%', numericInput(ns('custom_plot_height'), label='height (inches)', value=10, min=3, step = 1)),
+              div(style='flex-basis: 25%', numericInput(ns('custom_plot_width'), label='width (inches)', value=7, min=5, step = 1)),
+              div(style='flex-basis: 25%', numericInput(ns('custom_plot_height'), label='height (inches)', value=4, min=3, step = 1)),
               div(style='flex-basis: 25%', selectInput(ns('custom_plot_file_type'), label='File Type', choices=c('pdf', 'jpeg', 'png', 'tiff', 'svg'), selected='pdf')),
               
               div(style='flex-basis: 100%', customDownloadButton(ns('btn_custom_plot_download'),
                                                                  label = "Download Graph", icon_lbl = 'file-image'))
   ))
 }
-
+# 
+# 
+# mask_function2 <- function(f, ...){
+#   f_env <- environment(f)
+#   if(!isTRUE(f_env$`@...masked`)){
+#     f_env <- new.env(parent = environment(f))
+#     environment(f) <- f_env
+#     f_env$`@...masked` = TRUE
+#   }
+#   list2env(list(...), envir = f_env)
+#   f
+# }
 
 
 custom_plot_download_renderers <- function(nm) {
   plot_options = local_data$plot_options
+  plot_options %<>% set_font_scaling('Rutabaga')
+  
+  rave_context()
+  .__rave_context__. = 'rave_running_local'
   
   pest  = function() {
     rutabaga::plot_msg('Per electrode plot exported not implemented')
@@ -248,7 +263,8 @@ custom_plot_download_renderers <- function(nm) {
                         axes=c(TRUE, !need_wide))
   }
   aotbc = function() {
-    assign('ld', local_data, envir = globalenv())
+    # assign('ld', local_data, envir = globalenv())
+    # assign('..local_data', value = shiny::isolate(shiny:::reactiveValuesToList(local_data)), envir = globalenv())
     time_series_plot(plot_data = local_data$over_time_data,
                      plot_time_range = plot_options$plot_time_range,
                      PANEL.FIRST = time_series_decorator(plot_options=local_data$plot_options)
