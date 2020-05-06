@@ -108,64 +108,65 @@ output[['elec_loc']] <- threeBrain::renderBrain({
     if(is.null(brain)){
         return()
     }
-    
-    group_info = current_group() 
-    group_info %?<-% list(electrodes = NULL)
-    name = group_info$rg_name
-    ref_tbl = get_ref_table()
-    if(!length(name) || is.blank(name)){ name = 'Current Group' }
-
-    # join electrodes.csv with ref table
-    tbl = merge(ref_tbl, subject$electrodes[,c('Electrode', 'Coord_x','Coord_y','Coord_z', 'Label')], id = 'Electrode', suffixes = c('.x', ''))
-    tbl$Label[is.na(tbl$Label)] = 'No Label'
-
-    electrodes = group_info$electrodes
-    sapply(electrodes, function(e){
-        sel = tbl$Electrode == e
-        Group = tbl$Group[sel]
-        Type = tbl$Type[sel]
-        Reference = tbl$Reference[sel]
-        sprintf('Group - %s (%s)Reference to - %s', Group, Type, Reference)
-    }) ->
-        marker
-
-    lev = factor(c('Current Group', 'Bad Electrode'))
-    values = rep(lev[1], length(electrodes))
-    bad_electrodes = dipsaus:::parse_svec(input[[('ref_bad')]])
-    values[electrodes %in% bad_electrodes] = lev[2]
-
-
-    # brain = rave_brain2(surfaces = 'pial', multiple_subject = F)
-    # brain$load_electrodes(subject)
-    
-    # make a table
-    tbl = data.frame(
-        Electrode = electrodes,
-        Type = values,
-        Note = marker
-    )
-    if(!nrow(tbl)){ return() }
-    brain$set_electrode_values( tbl )
-    bg = ifelse('dark' %in% rave::get_rave_theme()$theme, '#1E1E1E', '#FFFFFF')
-    
-    if( isTRUE(local_data$load_mesh) ){
-        brain$plot(
-            volumes = FALSE, surfaces = TRUE, side_canvas = FALSE, 
-            background = bg,
-            control_panel = FALSE, palettes = list(
-                'Type' = c('red', 'navy')
-            ), side_display = FALSE, control_display = FALSE, cex = 0.5)
-    }else{
-        # Maybe load N27 brain if not exists
-        brain$plot(
-            volumes = FALSE, surfaces = FALSE, side_canvas = FALSE, 
-            background = bg,
-            control_panel = FALSE, palettes = list(
-                'Type' = c('red', 'navy')
-            ), side_display = FALSE, control_display = FALSE, cex = 0.5)
-    }
-    
-    # brain$view(value_range = c(-1,1), control_panel = F)
+    try({
+        group_info = current_group() 
+        group_info %?<-% list(electrodes = NULL)
+        name = group_info$rg_name
+        ref_tbl = get_ref_table()
+        if(!length(name) || is.blank(name)){ name = 'Current Group' }
+        
+        # join electrodes.csv with ref table
+        tbl = merge(ref_tbl, subject$electrodes[,c('Electrode', 'Coord_x','Coord_y','Coord_z', 'Label')], id = 'Electrode', suffixes = c('.x', ''))
+        tbl$Label[is.na(tbl$Label)] = 'No Label'
+        
+        electrodes = group_info$electrodes
+        sapply(electrodes, function(e){
+            sel = tbl$Electrode == e
+            Group = tbl$Group[sel]
+            Type = tbl$Type[sel]
+            Reference = tbl$Reference[sel]
+            sprintf('Group - %s (%s)Reference to - %s', Group, Type, Reference)
+        }) ->
+            marker
+        
+        lev = factor(c('Current Group', 'Bad Electrode'))
+        values = rep(lev[1], length(electrodes))
+        bad_electrodes = dipsaus:::parse_svec(input[[('ref_bad')]])
+        values[electrodes %in% bad_electrodes] = lev[2]
+        
+        
+        # brain = rave_brain2(surfaces = 'pial', multiple_subject = F)
+        # brain$load_electrodes(subject)
+        
+        # make a table
+        tbl = data.frame(
+            Electrode = electrodes,
+            Type = values,
+            Note = marker
+        )
+        if(!nrow(tbl)){ return() }
+        brain$set_electrode_values( tbl )
+        bg = ifelse('dark' %in% rave::get_rave_theme()$theme, '#1E1E1E', '#FFFFFF')
+        
+        if( isTRUE(local_data$load_mesh) ){
+            brain$plot(
+                volumes = FALSE, surfaces = TRUE, side_canvas = FALSE, 
+                background = bg,
+                control_panel = FALSE, palettes = list(
+                    'Type' = c('red', 'navy')
+                ), side_display = FALSE, control_display = FALSE, cex = 0.5)
+        }else{
+            # Maybe load N27 brain if not exists
+            brain$plot(
+                volumes = FALSE, surfaces = FALSE, side_canvas = FALSE, 
+                background = bg,
+                control_panel = FALSE, palettes = list(
+                    'Type' = c('red', 'navy')
+                ), side_display = FALSE, control_display = FALSE, cex = 0.5)
+        }
+        
+        # brain$view(value_range = c(-1,1), control_panel = F)
+    })
     
 })
 
@@ -215,13 +216,22 @@ observeEvent(input[[('cur_save')]], {
     }
 }, priority = -1L)
 
+
+observeEvent(input$ref_group, {
+    n_groups <- max(length(input$ref_group), 1)
+    
+    shiny::updateSelectInput(session, 'cur_group', choices = as.character(seq_len(n_groups)), 
+                             selected = min(shiny::isolate(input$cur_group), n_groups))
+})
+
 # Customized UI
 cur_group_ui = function(){
     refresh = local_data$refresh
     # dipsaus::cat2('cur_group_ui')
     new_ref = local_data$has_new_ref
+    cur_group <- as.integer(cur_group)
 
-    if(length(cur_group) && cur_group <= length(ref_group)){
+    if(isTRUE(cur_group <= length(ref_group))){
         group_number = as.integer(cur_group)
         group_info = ref_group[[group_number]]
         group_type = group_info$rg_type

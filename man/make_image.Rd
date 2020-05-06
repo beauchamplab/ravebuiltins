@@ -27,7 +27,7 @@ make_image(
 
 \item{log}{which axis will be in log scale}
 
-\item{useRaster, ...}{passed to image()}
+\item{useRaster}{passed to image()}
 
 \item{clip_to_zlim}{whether to clip mat}
 

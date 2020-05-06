@@ -69,14 +69,16 @@ define_input(
 
 define_input(
     definition = dipsaus::compoundInput2(
-        'ref_group', label = 'Reference Group', max_ncomp = 20, min_ncomp = 1, 
+        'ref_group', label = 'Reference Group', max_ncomp = 100, min_ncomp = 1, 
         components = tagList(
             textInput('rg_name', 'Name', value = ''),
             selectInput('rg_type', 'Type', choices = c(
                 'Common Average Reference', 'Bipolar Reference',
                 'White Matter Reference', 'No Reference'), selected = 'No Reference'),
             textInput('rg_electrodes', 'Electrodes', value = '', placeholder = 'e.g. 1-12,14')
-        ), label_color = 'black'
+        ), 
+        label_color = 'black',
+        max_height = '70vh'
     )
 )
 

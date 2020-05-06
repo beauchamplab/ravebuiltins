@@ -25,6 +25,8 @@ draw_many_heat_maps(
 
 \item{max_zlim}{zlim that trims z value}
 
+\item{percentile_range}{whether to draw in percentile}
+
 \item{log_scale}{draw y in log scale?}
 
 \item{show_color_bar}{show color legend to the right? Future: Will will check to see if this parameter is a function. If so, we
