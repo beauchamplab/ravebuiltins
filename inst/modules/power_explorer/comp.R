@@ -468,7 +468,7 @@ render_inputs <- c(
   'which_result_to_show_on_electrodes', 'synch_to_3dviewer',
   'sort_trials_by_type', 'draw_decorator_labels', 'plot_title_options', 'show_outliers_on_plots', 'background_plot_color_hint',
   'invert_colors_in_palette', 'reverse_colors_in_palette', 'color_palette', 'heatmap_color_palette', 'heatmap_number_color_values',
-  'max_zlim','plot_time_range', 'invert_colors_in_heatmap_palette', 'reverse_colors_in_heatmap_palette', 'percentile_range',
+  'max_zlim', 'invert_colors_in_heatmap_palette', 'reverse_colors_in_heatmap_palette', 'percentile_range',
   # 'heatmap_truncate_less_than',
   't_filter', 'p_filter', 'mean_filter', 'show_result_densities',
   't_operator', 'p_operator', 'mean_operator', 

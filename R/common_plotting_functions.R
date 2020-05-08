@@ -36,7 +36,6 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
         max_zlim = 0
     }
     
-
     # this is to add some extra spacing on the LEFT margin to allow, e.g., longer axis titles
     # we could also set this adaptively based on the max(nchar(...)) for the appropriate labels from hmap[[ii]] condition names
     if(wide) {
@@ -72,7 +71,6 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
     
     lapply(hmaps, function(map){
         # map = hmaps[[1]]
-        # rave_context()
         if(map$has_trials){
             # check the plottable range, to make sure we're only plotting what the user has requested
             plot_time_range %?<-% range(map$x)
@@ -135,11 +133,10 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
     })
     
     if(show_color_bar){
-        .mar <- c(5.1, 4.5, 2, 2)
+        .mar <- c(5.1, 3.5, 2, 1)
         if(is.function(PANEL.COLOR_BAR)) {
             .mar[3] = 4
         }
-        
         
         # par(mar=c(5.1, 4.5, 4, 2),
         #     mai = c(0.6732, 0.5412, 1, 0.2772))
@@ -153,7 +150,9 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             }
             ii = ii + 1
         }
+        
         rave_color_bar(max_zlim, actual_lim, ylab=.ylab, mar=.mar)
+        
         if(is.function(PANEL.COLOR_BAR)) {
             PANEL.COLOR_BAR(hmaps)
         }
@@ -545,7 +544,14 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
 # k is the number of heatmaps, excluding the color bar
 layout_heat_maps <- function(k, ratio=4) {
     opars <- par(no.readonly = TRUE)
-    layout(matrix(1:(k+1), nrow=1), widths=c(rep(ratio, k), lcm(4.5)) )
+    
+    cbar_wid = 3.5
+    if('pdf' %in% names(dev.cur())) {
+        cbar_wid = 3
+        # cat2t('setting skinny cbar')
+    }
+    
+    layout(matrix(1:(k+1), nrow=1), widths=c(rep(ratio, k), lcm(cbar_wid)) )
     par(mar=c(5.1, 4.5, 2, 2))
     invisible(opars)
 }
@@ -591,23 +597,35 @@ str_rng <- function(rng) {
 
 
 rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change', ylab.line=1.5,
-                           mar=c(5.1, 5.1, 2, 2), cex.lab = rave_cex.lab, cex.axis=rave_cex.axis) {
+                           mar=c(5.1, 5.1, 2, 2), ...) {
     rave_context()
 
     clrs %?<-% get_currently_active_heatmap()
     cbar <- matrix(seq(-zlim, zlim, length=length(clrs))) %>% t
     par(mar=mar)
     image(cbar,
-          col=clrs, axes=F, ylab='', main='', col.lab = get_foreground_color())
+          col=clrs, axes=F, ylab='', main='',
+          col.lab = get_foreground_color())
 
-    rave_axis_labels(ylab=ylab, line=ylab.line, cex.lab = cex.lab)
-    rave_axis(2, at=0:1, labels = c(-zlim, zlim) %>% pretty_round, tcl=0,
-              cex.axis=cex.axis)
-    rave_axis(2, at=0.5, labels = 0, tcl=0.3,
-              cex.axis=cex.axis)
+    
+    # check if any other graphics params were requested, direct them to the proper function
+    more = list(...)
+    
+    ral.args = list(ylab=ylab, line=ylab.line)
+    if('cex.lab' %in% more) ral.args$cex.lab = more$cex.lab
+    
+    do.call(rave_axis_labels, ral.args)
+    
+    ra.args = list(side=2, at=0:1, labels=pretty_round(c(-zlim,zlim)), tcl=0)
+    if('cex.axis' %in% more) ra.args$cex.axis = more$cex.axis
+    
+    do.call(rave_axis, ra.args)
+
+    ra.args[c('at', 'labels', 'tcl')] = list(0.5, 0, 0.3)
+    do.call(rave_axis, ra.args)
+    
     box()
 
-    # par(mar=orig.mar)
     invisible(zlim)
 }
 
