@@ -439,11 +439,11 @@ define_input_analysis_data_csv <- function(
           class = 'rave-grid-inputs',
           htmltools::div(
             style = 'flex-basis: 100%; min-height: 80px;',
-            selectInput(inputId = ns(!!input_selector), label = !!label, choices = choices, selected = character(0), multiple = !!multiple)
+            selectInput(inputId = ns(!!input_selector), label = !!label, choices = choices, selected = choices[1], multiple = !!multiple)
           ),
           htmltools::div(
             style = 'flex-basis: 100%',
-            actionButtonStyled(inputId = ns(!!input_btn), label = 'Load analysis data', width = '100%', type = 'primary')
+            actionButtonStyled(inputId = ns(!!input_btn), label = 'Load selected data', width = '100%', type = 'primary')
           ),
           uploader_tag
         )
@@ -552,7 +552,7 @@ define_input_analysis_data_csv <- function(
             
             print('trying to load ' %&% x$fpath)
             
-            progress$inc('Loading...')
+            progress$inc('Loading...' %&% x$fpath)
             tbl = data.table::fread(file = x$fpath, stringsAsFactors = FALSE, header = TRUE)
             tbl = tbl[tbl$Project %in% project_name, ]
             if(!nrow(tbl)){

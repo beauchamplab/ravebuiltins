@@ -1,15 +1,6 @@
 input <- getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 
-fix_name_for_js <- function(nm) {
-  str_replace_all(nm, c(
-    '\\(' = '.',
-    '\\)' = '.',
-    '\\ ' = '.',
-    '-' = '.'
-  ))
-}
-
 power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   
   showNotification(p('Generating 3d viewer...'))
@@ -100,6 +91,8 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
     pals[str_detect(names(pals), 'p\\.')] = list(pval_pal)
     pals[names(pals) %in% c('p')] = list(pval_pal)
     
+    pals[['[Subject]']] = expand_heatmap(c("Black", "Black"), ncolors=128)
+    
     re = brain$plot(symmetric = 0, palettes = pals,
                     side_width = side_width / 2, side_canvas = TRUE, 
                     side_display = display_side, start_zoom = zoom_level, controllers = controllers,
@@ -136,52 +129,30 @@ download_all_graphs = function(){
   )
 }
 
+### hi-res plot download
+custom_plot_download <- custom_plot_download_impl(module_id = 'power_explorer',
+  c('Per electrode statistical tests', 'Activity over time by electrode', 'Activity over time by frequency',
+    'Activity over time by trial', 'Activty over time by condition', 'Per trial, averaged across electrodes')
+)
 
-customDownloadButton <- function(outputId, label='Download', class=NULL, icon_lbl="download", ...) {
-  tags$a(id = outputId,
-         class = paste("btn btn-default shiny-download-link", class),
-         href = "", target = "_blank", download = NA, 
-         icon(icon_lbl), label, ...)
-}
-
-sheth_special <- function() {
-  tagList(div(class='rave-grid-inputs',
-              div(style='flex-basis: 100%', customDownloadButton(ns('btn_sheth_special'),
-                               label = "Sheth's special stat heatmap", icon_lbl = 'user-md')),
-              div(style='flex-basis: 25%', numericInput(ns('sheth_special_width'), label='width (inches)', value=15, min=5, step = 1)),
-              div(style='flex-basis: 25%', numericInput(ns('sheth_special_height'), label='height (inches)', value=10, min=3, step = 1))
-          )
-          # ,checkboxInput(ns('highlight_significant_results'), 'Highlight significant results in output', value=TRUE)
-  )
-}
-
-custom_plot_download <- function() {
-  tagList(div(class='rave-grid-inputs',
-              div(style='flex-basis: 100%', selectInput(ns('custom_plot_select'), label = "Choose Graph",
-                                                        choices = c('Per electrode statistical tests', 'Activity over time by electrode', 'Activity over time by frequency',
-                                                                    'Activity over time by trial', 'Activty over time by condition', 'Per trial, averaged across electrodes'),
-                                                        selected ='Activity over time by frequency')),
-              div(style='flex-basis: 25%', numericInput(ns('custom_plot_width'), label='width (inches)', value=7, min=5, step = 1)),
-              div(style='flex-basis: 25%', numericInput(ns('custom_plot_height'), label='height (inches)', value=4, min=3, step = 1)),
-              div(style='flex-basis: 25%', selectInput(ns('custom_plot_file_type'), label='File Type', choices=c('pdf', 'jpeg', 'png', 'tiff', 'svg'), selected='pdf')),
-              
-              div(style='flex-basis: 100%', customDownloadButton(ns('btn_custom_plot_download'),
-                                                                 label = "Download Graph", icon_lbl = 'file-image'))
-  ))
-}
-# 
-# 
-# mask_function2 <- function(f, ...){
-#   f_env <- environment(f)
-#   if(!isTRUE(f_env$`@...masked`)){
-#     f_env <- new.env(parent = environment(f))
-#     environment(f) <- f_env
-#     f_env$`@...masked` = TRUE
-#   }
-#   list2env(list(...), envir = f_env)
-#   f
-# }
-
+output$btn_custom_plot_download <- downloadHandler(
+  filename=function(...){
+    paste0(stringr::str_replace_all(input$custom_plot_select,' ', '_'),
+           format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.', input$custom_plot_file_type)
+  },
+  content = function(conn) {
+    pt = input$custom_plot_file_type
+    DEV = match.fun(pt)
+    args = build_file_output_args(pt, input$custom_plot_width, input$custom_plot_height, conn)
+    
+    on.exit(dev.off(), add = TRUE)
+    do.call(DEV, args = args)
+    
+    #### set the margins of the plot
+    par(mar = c(2.75, 3.5, 2, 1))
+    
+    custom_plot_download_renderers(input$custom_plot_select)
+  })
 
 custom_plot_download_renderers <- function(nm) {
   plot_options = local_data$plot_options
@@ -190,8 +161,21 @@ custom_plot_download_renderers <- function(nm) {
   rave_context()
   .__rave_context__. = 'rave_running_local'
   
+  dipsaus::cat2('setting rave context')
+  
   pest  = function() {
-    rutabaga::plot_msg('Per electrode plot exported not implemented')
+    vars = c("has_data","which_result_to_show_on_electrodes","unit_of_analysis","omnibus_results","mean_filter",
+              "mean_operator","mean_operand","p_filter","p_operator","p_operand","t_filter","t_operator","t_operand",
+              "electrodes_csv","analysis_filter_variable","analysis_filter_variable_2", "analysis_filter_elec","analysis_filter_elec_2",
+              "electrodes","show_result_densities","background_plot_color_hint","color_palette")
+    
+    ll = list()
+    in_local_data = vars %in% names(local_data)
+    ll[vars[in_local_data]] = lapply(vars[in_local_data], function(v) local_data[[v]])
+    for(v in vars[!in_local_data]) {
+        ll[[v]] = input[[v]]
+    }
+    across_electrode_statistics_plot(build_results_object(ll))
   }
   aotbe = function() {
     set_heatmap_palette_helper(plot_options=plot_options)
@@ -263,6 +247,9 @@ custom_plot_download_renderers <- function(nm) {
                         axes=c(TRUE, !need_wide))
   }
   aotbc = function() {
+    .__rave_context__. = 'rave_running_local'
+    rave_context()
+    
     # assign('ld', local_data, envir = globalenv())
     # assign('..local_data', value = shiny::isolate(shiny:::reactiveValuesToList(local_data)), envir = globalenv())
     time_series_plot(plot_data = local_data$over_time_data,
@@ -277,7 +264,6 @@ custom_plot_download_renderers <- function(nm) {
       show_outliers = plot_options$show_outliers_on_plots,
       PANEL.LAST = trial_scatter_plot_decortator(plot_title_options = plot_options$plot_title_options)
     )
-    
   }
   
   FUNS = list(
@@ -294,36 +280,15 @@ custom_plot_download_renderers <- function(nm) {
 }
 
 
-output$btn_custom_plot_download <- downloadHandler(
-  filename=function(...){
-    paste0(stringr::str_replace_all(input$custom_plot_select,' ', '_'),
-           format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.', input$custom_plot_file_type)
-  },
-  content = function(conn) {
-    pt = input$custom_plot_file_type
-    on.exit(dev.off())
-    
-    args = list(width=input$custom_plot_width, height=input$custom_plot_height, filename=conn)
-    if(pt == 'jpeg') {
-      args$units = 'in'
-      args$quality=90
-      args$res = 72
-    } else if(pt == 'pdf') {
-      args$useDingbats = FALSE
-      args$file = conn
-      args$filename = NULL
-    } else if (pt == 'tiff') {
-      args$units = 'in'
-      args$compression = 'lzw'
-      args$res = 72
-    }
-    DEV = match.fun(pt)
-    
-    do.call(DEV, args = args)
-    custom_plot_download_renderers(input$custom_plot_select)
-  }
-)
-
+#### Sheth special
+sheth_special <- function() {
+  tagList(div(class='rave-grid-inputs',
+              div(style='flex-basis: 100%', customDownloadButton(ns('btn_sheth_special'),
+                                                                 label = "Sheth's special stat heatmap", icon_lbl = 'user-md')),
+              div(style='flex-basis: 25%', numericInput(ns('sheth_special_width'), label='width (inches)', value=15, min=5, step = 1)),
+              div(style='flex-basis: 25%', numericInput(ns('sheth_special_height'), label='height (inches)', value=10, min=3, step = 1))
+  ))
+}
 
 observeEvent(input$sheth_special_height, {
   local_data$sheth_special_height = input$sheth_special_height
@@ -800,13 +765,6 @@ observeEvent(input$export_data_only, {
 })
 
 
-# observeEvent(input$GROUPS, {
-
-# print('groups changed')
-
-# })
-
-
 save_inputs <- function(yaml_path, variables_to_export){
   if( !shiny_is_running() || !exists('getDefaultReactiveInput') ){ return(FALSE) }
   
@@ -826,11 +784,10 @@ save_inputs <- function(yaml_path, variables_to_export){
 
 # export data for group analysis
 write_out_data_function <- function(){
-  
   project_name = subject$project_name
   subject_code = subject$subject_code
   
-  # et electrodes to be exported
+  # get electrodes to be exported
   electrodes = parse_svec(current_active_set)
   electrodes = electrodes[electrodes %in% preload_info$electrodes]
   
@@ -875,6 +832,7 @@ write_out_data_function <- function(){
     ))), type = 'error', id = ns('export_csv'))
     return()
   }
+  
   # Baseline
   progress$inc('Generating results... (might take a while)')
   
@@ -888,8 +846,8 @@ write_out_data_function <- function(){
   if(isTRUE(input$global_baseline)) {
     unit_dims = c(2,4)
   }
-  baseline_method = get_unit_of_analysis(input$unit_of_analysis)
   unit_of_analysis <- input$unit_of_analysis
+  baseline_method = get_unit_of_analysis(unit_of_analysis)
   unit_name = format_unit_of_analysis_name(unit_of_analysis)
   
   # here we want to take into the event of interest as well I think we just shift the entire data set here. we can
@@ -959,7 +917,8 @@ write_out_data_function <- function(){
       full_matrix[bet$uuid, column_index] = bet[[val]]
     }
     full_matrix
-  }, .globals = c('unit_name', 'unit_dims', 'baseline_method', 'power', 'event_of_interest',
+  }, 
+  .globals = c('unit_name', 'unit_dims', 'baseline_method', 'power', 'event_of_interest',
                   'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list'),
   .gc = FALSE)
   
@@ -988,7 +947,7 @@ write_out_data_function <- function(){
   save_inputs(file.path(dirname, paste0(fname, '.yaml')))
   
   # Collapse Trial and save to 3D viewer
-  # res$Pct_Change_Power_Trial_Onset
+  # res$  Pct_Change_Power_Trial_Onset
   
   collapsed_trial = reshape2::dcast(res, Project+Subject+Electrode+Time~Condition, mean, value.var = paste0(unit_name, '_', 'Trial_Onset'))
   dirname_viewer = file.path(subject$dirs$subject_dir, '..', '_project_data', '3dviewer')

@@ -66,6 +66,7 @@ observeEvent(input$link_clear_show_by_electrode_results, {
 
 
 power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analysis_window, ylab) {
+  # group_analysis_cat2t('IN POT')
   set_palette(local_data$omnibus_plots_color_palette)
   
   # local_data = ..local_data
@@ -138,7 +139,7 @@ power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analys
     res
   }, by_group, sample_sizes, names, SIMPLIFY = FALSE)
   
-  time_series_plot(plot_data = lpd)
+  time_series_plot(plot_data = lpd, plot_time_range=local_data$omnibus_plots_time_range)
   axis_label_decorator(lpd)
   
   if('TimeWindow' %in% vars) {
@@ -151,6 +152,7 @@ power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analys
   
   # we can't get the sample size right :(
   legend_decorator(lpd, include = c('name'))#, 'N'))
+  # group_analysis_cat2t('OUT POT')
 }
 
 electrode_inspector_time_series <- function() {
@@ -159,21 +161,30 @@ electrode_inspector_time_series <- function() {
   
   selected = get_selected_subjel()
   otd = local_data$over_time_data
-  otd$sbjel = paste(otd$Subject, otd$Electrode, sep='_')
-  otd %<>% subset((.)$sbjel %in% selected$sbjel_id)
+  class(otd) = 'data.frame'
+  
+  cnames = unique(c('y', 'Time', 'Subject', 'Electrode', local_data$var_fixed_effects))
+
+  # fastest way to get matched rows    
+  ind = otd$Subject %in% attr(factor(selected$Subject), 'levels') & otd$Electrode %in% attr(factor(selected$Electrode), 'levels')
+  #ind = otd$Subject %in% unique(selected$Subject) & otd$Electrode %in% unique(selected$Electrode)
+  
+  otd = otd[ind,cnames]
   
   fe = paste(local_data$var_fixed_effects, collapse=' * ')
-  aot = otd %>% do_aggregate(as.formula('y ~ Time + Subject + Electrode' %?&% fe), FUN=mean) %>%
-    do_aggregate(as.formula('y ~ Time' %?&% fe), .fast_mse)
+  group_analysis_cat2t('Got fixed effect')
+  aot = otd %>% do_aggregate(as.formula('y ~ Time + Subject + Electrode' %?&% fe),
+                             FUN=mean) %>% do_aggregate(as.formula('y ~ Time' %?&% fe), .fast_mse)
+  group_analysis_cat2t('Agg OTD')
   
   cd = local_data$collapsed_data
-  cd$sbjel = paste(cd$Subject, cd$Electrode, sep='_')
-  cd %<>% subset((.)$sbjel %in% selected$sbjel_id)
+  ind = cd$Subject %in% attr(factor(selected$Subject), 'levels') & cd$Electrode %in% attr(factor(selected$Electrode), 'levels')
+  cd = cd[ind,]
   
   # power over time will get the rest of its parameters from local_data        
   power_over_time(collapsed_data = cd, agg_over_trial = aot)
   
-  rave_title(selected$lbl)
+  rave_title(attr(selected, 'label'))
 }
 
 get_selected_subjel <- function() {
@@ -184,17 +195,17 @@ get_selected_subjel <- function() {
     }
     rows = local_data$show_by_electrode_results_rows_selected
     to_keep = local_data$by_electrode_results[rows,c('Subject', 'Electrode')]
+    to_keep$Subject %<>% as.character
     
-    res$lbl = aggregate(Electrode ~ Subject, dipsaus::deparse_svec, data=to_keep) %>%
-        apply(1, paste0, collapse=':') %>% paste0(collapse=', ')
+    attr(to_keep, 'label') = aggregate(Electrode ~ Subject, dipsaus::deparse_svec, data=to_keep) %>%
+      apply(1, paste0, collapse=':') %>% paste0(collapse=', ')
+    # res$sbjel_id = paste(to_keep$Subject, to_keep$Electrode, sep='_')
     
-    res$sbjel_id = paste(to_keep$Subject, to_keep$Electrode, sep='_')
-    
-    return (res)
-    
+    return (to_keep)
 }
 
 windowed_activity <- function(lmer_results, collapsed_data) {
+  # group_analysis_cat2t('IN WA')
     set_palette(local_data$omnibus_plots_color_palette)
     
     # print(grDevices::palette())
@@ -209,6 +220,8 @@ windowed_activity <- function(lmer_results, collapsed_data) {
     .y <- collapsed_data %>% do_aggregate(terms(lmer_results), m_se)
     # .y <- collapsed_data %>% do_aggregate(y ~ TimeWindow*ConditionGroup, m_se)
     
+    # plot options
+    po = local_data$omnibus_plots_plot_aesthetics
     if(ncol(.y) > 2) {
         # .y <- collapsed_data %>% do_aggregate(y ~ Subject + TimeWindow, m_se)
         yy = matrix(.y$y[,1], ncol = nlevels(.y[,2]), byrow=F)
@@ -227,44 +240,142 @@ windowed_activity <- function(lmer_results, collapsed_data) {
     } else {
         nms = .y[,1]
         if(ncol(.y) == 1) nms = 'Overall'
+        
+        .border <- .col <- NA
+        
+        if('border' %in% po) .border = 1:nrow(.y)
+        if('filled' %in% po) .col = adjustcolor(1:nrow(.y), 0.7)
+        
+        .ylim = range(pretty(c(0, plus_minus(.y$y[,1], .y$y[,2]))))
+        if(any('points' %in% po, 'jittered points' %in% po, 'connect points' %in% po)) {
+          .ylim = range(pretty(c(0, collapsed_data$y)))
+        }
+        
         xp <- rutabaga::rave_barplot(.y$y[,1],
                                      names.arg=nms,
-                                     axes=F, col = adjustcolor(1:nrow(.y), 0.7),
-                                     border=NA,
-                                     ylim = range(pretty(c(0, plus_minus(.y$y[,1], .y$y[,2])))),
+                                     axes=F, col = .col,
+                                     border=.border,
+                                     ylim = .ylim,
                                      xlab=attr(terms(lmer_results), 'term.labels'))
+        
+        jit_len = mean(diff(xp))*.33
+        if(is.nan((jit_len))) jit_len = .33
+        
+        pts = collapsed_data %>% do_aggregate(terms(lmer_results), list)
+        set.seed(local_data$jitter_seed)
+        
+        if(!('jittered points' %in% po)) jit_len = 0
+        
+        xlocs = lapply(seq_along(pts$y), function(ii) runif(length(pts$y[[ii]]), xp[ii,] - jit_len, xp[ii,] + jit_len))
+        
+        if(any('points' %in% po, 'jittered points' %in% po)) {
+          for(ii in 1:nrow(xp)) {
+            points(x=xlocs[[ii]],
+                   y=pts$y[[ii]], col=adjustcolor(ii,175/255), pch=16)
+          }
+        }
+        
+        if('connect points' %in% po) {
+          
+          np = length(pts$y[[1]])
+          
+          for(ni in seq_len(np)) {
+            ..x = sapply(xlocs, `[`, ni)
+            ..y = sapply(pts$y, `[`, ni)
+            lines(..x, ..y, lwd=.5)
+          }
+        }
+        
         # no legend needed
         ebars(xp, .y$y, col=1:nrow(.y), code=0, lwd=2, lend=0)
+        
+        if('show means' %in% po) {
+            segments(xp[,1] - jit_len*.75, x1 = xp[,1] + jit_len*.75, y0=.y$y[,1], col=1:nrow(.y), lwd=4, lend=1)
+        }
+        
+        if('connect means' %in% po) {
+          lines(xp[,1], .y$y[,1], col='gray30', type='o', lwd=2, pch=16)
+        }
     }
     
     rave_axis_labels(ylab=local_data$var_dependent_label)
     rave_axis(2, at=axTicks(2))
     
     abline(h=0, col=rave_colors$TRIAL_TYPE_SEPARATOR)
+    # group_analysis_cat2t('OUT WA')    
 }
 
 electrode_inspector_barplot <- function() {
   shiny::validate(shiny::need(!is.null(local_data$lmer_results), message = 'No model calculated'))
   shiny::validate(shiny::need(!is.null(local_data$show_by_electrode_results_rows_selected), message = 'No rows selected'))
   
-    sbj_el = get_selected_subjel()
+  group_analysis_cat2t('IN EIB')
+  
+    selected = get_selected_subjel()
     cd = local_data$collapsed_data
-    cd$sbjel = paste(cd$Subject, cd$Electrode, sep='_')
-    cd %<>% subset((.)$sbjel %in% sbj_el$sbjel_id)
+    ind = cd$Subject %in% attr(factor(selected$Subject), 'levels') &
+      cd$Electrode %in% attr(factor(selected$Electrode), 'levels')
+    
+    cd = cd[ind,]
     
     windowed_activity(collapsed_data = cd)
-    rave_title(sbj_el$lbl)
+    rave_title(attr(selected, 'label'))
+    
+    group_analysis_cat2t('OUT EIB')
 }
 
 output$show_by_electrode_results <- DT::renderDataTable({
     by_electrode_results = local_data$by_electrode_results
-    
+    group_analysis_cat2t('Rendering DT')
     DT::datatable(by_electrode_results, class = 'nowrap',
                   options = list(
                       scrollX = TRUE,
                       order = list(list(2, 'asc'), list(3, 'desc'))
                   ))
 })
+
+custom_plot_download_renderers <- function(plot_name, ...) {
+  rave_context()
+  .__rave_context__. = 'rave_running_local'
+  
+  FUNS = list(
+    'Activity over time' = power_over_time,
+    'Mean activity in analysis window' = windowed_activity,
+    'Subset time series' = electrode_inspector_time_series,
+    'Subset barplot' = electrode_inspector_barplot,
+    'Compare post-hoc variables' = post_hoc_plot
+  )
+  nm = match.arg(plot_name, names(FUNS))
+
+  FUNS[[nm]]()
+}
+
+output$btn_custom_plot_download <- downloadHandler(
+    filename=function(...){
+      paste0(stringr::str_replace_all(input$custom_plot_select,' ', '_'),
+             format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.', input$custom_plot_file_type)
+    },
+    content = function(conn) {
+      pt = input$custom_plot_file_type
+      DEV = match.fun(pt)
+      args = build_file_output_args(pt, input$custom_plot_width, input$custom_plot_height, conn)
+      
+      on.exit(dev.off(), add = TRUE)
+      do.call(DEV, args = args)
+      
+      
+      ##### set the margins of the plot
+      par(mar = c(2.75, 3.5, 2, 1))
+      
+      custom_plot_download_renderers(input$custom_plot_select)
+    })
+
+custom_plot_download <- custom_plot_download_impl(
+  module_id = 'group_analysis_lme',
+  choices=c(
+    'Activity over time', 'Mean activity in analysis window', 'Subset time series', 
+    'subset barplot', 'Compare post-hoc variables')
+)
 
 lmer_diagnosis = function(){
     lmer_results = local_data$lmer_results
@@ -328,7 +439,6 @@ download_all_results <- function() {
                          'Download All Results'),
             tags$p(' ', style='margin-top:20px'))
 }
-
 
 hide_everything_but_post_hoc_plot <- function() {
     tagList(tags$p(' ', style='margin-top:5px'),
@@ -428,9 +538,21 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, proxy, ...){
         
         c(-1, 1) * ceiling(max(abs(by_electrode_results[[d]])))
     }, simplify = FALSE, USE.NAMES = TRUE)
+    .colors = get_heatmap_palette('BlueWhiteRed')
+    pal = expand_heatmap(.colors, ncolors=128)
+    pval_pal = expand_heatmap(
+      rev(tail(.colors, ceiling(length(.colors)/2))),
+      ncolors=128, bias=10)
+    pals = list(pal)
+    pals[2:ncol(by_electrode_results)] = pals
+    # names(pals) = fix_name_for_js(names(by_electrode_results))
+    names(pals) = names(by_electrode_results)
+    
+    pals[str_detect(names(pals), 'p\\.')] = list(pval_pal)
+    pals[names(pals) %in% c('p')] = list(pval_pal)
     
     brain$set_electrode_values(by_electrode_results)
-    re = brain$plot(side_width = side_width, val_ranges = val_ranges,
+    re = brain$plot(side_width = side_width, val_ranges = val_ranges, palettes = pals,
                     side_display = FALSE, control_display=FALSE)
 }
 

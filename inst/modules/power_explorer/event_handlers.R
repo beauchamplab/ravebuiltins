@@ -2,9 +2,10 @@ input = getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 session = getDefaultReactiveDomain()
 
+
 local_data = reactiveValues(
-    instruction_string = "Click on Activity by trial and condition plot for details." %&%
-        "<ul><li>Single-click for trial information</li><li>Double-click for outlier (de)selection</li></ul>",
+    instruction_string = tags$ul(tags$li("Single-click for trial information"),
+                                 tags$li("Double-click for outlier (de)selection (triggers re-calculate)")),
     by_trial_heat_map_click_location = NULL,
     windowed_by_trial_click_location = NULL,
     click_info = NULL,
@@ -13,10 +14,43 @@ local_data = reactiveValues(
     highlight_significant_results = FALSE,
     sheth_special_height = 10,
     sheth_special_width = 15,
-    autocalc_disclaimer = "<div style='margin-top:10px'><b>Auto-calculate is currently off.</b>&nbsp;Outliers are only removed during a calculate cycle.</div>"
+    autocalc_disclaimer = "",
+    plot_options = NULL,
+    condition_stats = "",
+    jitter_seed = sample(1:100,1)
 )
 
 
+brain_proxy =  threeBrain::brain_proxy('power_3d_widget', session = session)
+
+synch_3dviewer_dv <- function() {
+    if(shiny_is_running() && !is.null(local_data[['omnibus_results']])) {
+        controllers = brain_proxy$get_controllers()
+        
+        varname = input$which_result_to_show_on_electrodes
+        if(startsWith(varname, 'Omnibus Activity')) {
+            varname = format_unit_of_analysis_name(input$unit_of_analysis) #colnames(local_data[['omnibus_results']])[1]
+        } else {
+            varname = 'm_' %&% fix_name_for_js(varname)
+        }
+        dipsaus::cat2("trying to set: " , varname, level='INFO')
+        
+        # controllers[['Display Data']] = varname
+        brain_proxy$set_controllers(list('Display Data' = varname))
+    }
+}
+
+observeEvent(input$synch_export_analysis_with_3dviewer, {
+    if(isTRUE(input$synch_export_analysis_with_3dviewer)) {
+        synch_3dviewer_dv()
+    }
+})
+
+observeEvent(input$which_result_to_show_on_electrodes, {
+    if(isTRUE(input$synch_export_analysis_with_3dviewer)) {
+        synch_3dviewer_dv()
+    }
+})
 # trigger 3d viewer rebuild
 rebuild_3d_viewer <- function() {
     if(rave::rave_context()$context %in% c('rave_running', 'default')) {
@@ -26,6 +60,10 @@ rebuild_3d_viewer <- function() {
                                  value = btn_val, method = 'proxy', priority = 'event')
     }
 }
+
+
+
+
     
 ###
 observeEvent(input$heatmap_color_palette, {
@@ -425,6 +463,12 @@ observeEvent(input$windowed_by_trial_dbl_click, {
     local_data$windowed_by_trial_click_location = input$windowed_by_trial_dbl_click
     update_click_information()
     update_trial_outlier_list()
+    
+    if(shiny_is_running()) {
+        dipsaus::cat2('editing outlier list...', level = 'INFO')
+        showNotification(p('Editing outlier list'), type = 'message', duration=2)
+        trigger_recalculate()
+    }
 })
 
 observeEvent(input$synch_3d_viewer_bg, {
@@ -438,8 +482,6 @@ observeEvent(input$background_plot_color_hint, {
         rebuild_3d_viewer()
     }
 })
-
-
 
 observeEvent(input$GROUPS, {
     # print('group_changed')
@@ -463,14 +505,12 @@ observeEvent(input$GROUPS, {
 
 output$trial_click <- renderUI({
     .click <- local_data$click_info
-    .disc = ''
-    if(!auto_recalculate()){
-        .disc = local_data$autocalc_disclaimer
-    }
-    
-    HTML("<div style='margin-left: 5px; min-height:375px'>Nearest Trial: " %&% .click$trial %&% '<br/> Value: ' %&% .click$value %&%
-             '<br/> Trial Type: ' %&% .click$trial_type %&%
-             "<p style='margin-top:20px'>&mdash;<br/>" %&% local_data$instruction_string %&% '</p>' %&% .disc %&% '</div>'
+    HTML(
+        "<div style='margin-left: 5px; min-height:375px'>Trial #: " %&% .click$trial %&% '<br/>Value: ' %&% .click$value %&%
+            '<br/>Label: ' %&% .click$trial_type %&%
+            "<p style='margin-top:20px'>&mdash;<br/>" %&% local_data$condition_stats %&% '</p>' %&%
+            "<p style='margin-top:20px'>&mdash;<br/>" %&% local_data$instruction_string %&% '</p>' %&%
+            '</div>'
     )
 })
 
@@ -487,3 +527,45 @@ click_output = function() {
     return(HTML("<div style='margin-left: 5px; min-height:360px'>" %&%
     "<p style='margin-top:5px'>" %&% local_data$instruction_string %&% '</p>' %&% .disc %&% '</div>'))
 }
+
+
+
+# here we're listening to a bunch of plot options and slinging them into local_data$plot_options so the current list 
+# can stay up to date. this is needed for hi-res figure export
+
+observe({
+    if(!is.null(local_data$plot_options)) {
+        local_data$plot_options[["which_result_to_show_on_electrodes"]] = input[["which_result_to_show_on_electrodes"]]
+        local_data$plot_options[["draw_decorator_labels"]] = input[["draw_decorator_labels"]]
+        local_data$plot_options[["plot_title_options"]] = unlist(input[["plot_title_options"]])
+        local_data$plot_options[["show_outliers_on_plots"]] = input[["show_outliers_on_plots"]]
+        local_data$plot_options[["background_plot_color_hint"]] = input[["background_plot_color_hint"]]
+        local_data$plot_options[["invert_colors_in_palette"]] = input[["invert_colors_in_palette"]]
+        local_data$plot_options[["reverse_colors_in_palette"]] = input[["reverse_colors_in_palette"]]
+        local_data$plot_options[["color_palette"]] = input[["color_palette"]]
+        local_data$plot_options[["heatmap_color_palette"]] = input[["heatmap_color_palette"]]
+        local_data$plot_options[["heatmap_number_color_values"]] = input[["heatmap_number_color_values"]]
+        local_data$plot_options[["max_zlim"]] = input[["max_zlim"]]
+        local_data$plot_options[["invert_colors_in_heatmap_palette"]] = input[["invert_colors_in_heatmap_palette"]]
+        local_data$plot_options[["reverse_colors_in_heatmap_palette"]] = input[["reverse_colors_in_heatmap_palette"]]
+        local_data$plot_options[["percentile_range"]] = input[["percentile_range"]]
+        local_data$plot_options[["plot_time_range"]] = input[["plot_time_range"]]
+        local_data$plot_options[["sort_trials_by_type"]] = input[["sort_trials_by_type"]]
+        local_data$plot_options[["t_filter"]] = input[["t_filter"]]
+        local_data$plot_options[["p_filter"]] = input[["p_filter"]]
+        local_data$plot_options[["mean_filter"]] = input[["mean_filter"]]
+        local_data$plot_options[["show_result_densities"]] = input[["show_result_densities"]]
+        local_data$plot_options[["t_operator"]] = input[["t_operator"]]
+        local_data$plot_options[["p_operator"]] = input[["p_operator"]]
+        local_data$plot_options[["mean_operator"]] = input[["mean_operator"]]
+        local_data$plot_options[["t_operand"]] = input[["t_operand"]]
+        local_data$plot_options[["p_operand"]] = input[["p_operand"]]
+        local_data$plot_options[["mean_operand"]] = input[["mean_operand"]]
+        local_data$plot_options[["analysis_filter_elec_2"]] = input[["analysis_filter_elec_2"]]
+        local_data$plot_options[["analysis_filter_elec"]] = input[["analysis_filter_elec"]]
+        local_data$plot_options[["analysis_filter_variable"]] = input[["analysis_filter_variable"]]
+        local_data$plot_options[["analysis_filter_variable_2"]] = input[["analysis_filter_variable_2"]]
+        local_data$plot_options[["show_heatmap_range"]] = input[["show_heatmap_range"]]    
+    }
+})
+

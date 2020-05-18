@@ -9,7 +9,7 @@ ravebuiltins:::dev_ravebuiltins(T)
                 electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
 # init_module(module_id = 'group_analysis_lme', debug = TRUE)
 .__DEBUG__ = 1
-view_layout('group_analysis_lme', sidebar_width = 3, launch.browser = T)
+view_layout('group_analysis_lme')
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 ######' @auto=TRUE

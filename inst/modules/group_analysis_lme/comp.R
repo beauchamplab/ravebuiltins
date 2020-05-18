@@ -46,10 +46,9 @@ define_initialization({
     
 })
 
-
 #  ---------------------------------  Inputs -----------------------------------
 define_input_analysis_data_csv(
-    inputId= 'analysis_data', label = "Data files located in this project's RAVE directory", 
+    inputId= 'analysis_data', label = "Click in this box to access available datasets", 
     paths = c('_project_data/group_analysis_lme/source', '_project_data/power_explorer/exports'),
     reactive_target = 'local_data$analysis_data_raw', try_load_yaml = TRUE
 )
@@ -98,6 +97,16 @@ define_input(selectInput('omnibus_plots_legend_location', label='Legend Location
                          choices = c('topleft', 'top', 'topright', 'left', 'center', 'right', "bottomleft", "bottom", "bottomright"),
                          selected='top')
 )
+
+define_input(selectInput('omnibus_plots_plot_aesthetics', label='Plot aesthetic',
+                         choices = c('border', 'jittered points', 'points', 'filled', 'connect means', 'show means', 'connect points'), multiple = TRUE,
+                         selected=c('border', 'jittered points'))
+)
+
+define_input(
+  sliderInput('omnibus_plots_time_range', label = 'Plot time window', min = 0, max = 1, value = 0:1, step = 0.01, round = -2)
+)
+
 define_input(
     selectInput('model_dependent', 'Dependent', choices = '', selected = character(0))
 )
@@ -199,6 +208,13 @@ define_input(
   )
 )
 
+# figure export
+define_input(
+  customizedUI('custom_plot_download')
+)
+
+
+
 
 define_input(definition = checkboxInput('multi_window_is_active', 'Active', value=FALSE))
 
@@ -207,10 +223,10 @@ manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'analysis_window', 's
                   'model_formula', 'model_embedsubject', 'run_analysis','download_all_results')
 
 input_layout = list(
-    'Data Import' = list(
+    'Data import' = list(
         'analysis_data'
     ),
-    'Build Condition Groups' = list(
+    'Build condition groups' = list(
       'cond_group',
       'cond_group_ui'
       ),
@@ -222,7 +238,7 @@ input_layout = list(
       'multi_window_is_active', 
       'multi_window_analysis'
     ),
-    'Build Model' = list(
+    'Build model' = list(
         c('model_dependent'),
         c('model_fixed_effects'),
         c('model_random_effects'),
@@ -231,6 +247,8 @@ input_layout = list(
         'download_all_results'
     ),
     '[-]Configure group plots' = list(
+      'omnibus_plots_time_range',
+      'omnibus_plots_plot_aesthetics',
       'omnibus_plots_color_palette',
       'omnibus_plots_legend_location'
     ),
@@ -251,6 +269,9 @@ input_layout = list(
         'post_hoc_plot_vertical_reference_line_custom', 'post_hoc_plot_horizontal_reference_line_custom'),
       c('post_hoc_plot_regression_line', 'post_hoc_plot_equality_line'),
         'post_hoc_plot_show_stats', 'post_hoc_plot_legend_location'
+    ),
+    '[-]Export hi-res plot' = list(
+      c('custom_plot_download')
     )
 )
 
@@ -269,7 +290,7 @@ input_layout = list(
 
 define_output(
     definition = customizedUI('lme_out', style='min-height:500px'),
-    title = 'Model Output',
+    title = 'Model output',
     width = 12,
     order = 2
 )
@@ -290,7 +311,7 @@ define_output(
 
 define_output(
   definition = customizedUI('mass_univariate_results', style='min-height:500px'),
-  title = 'Univariate stat output (select rows to graph)',
+  title = 'Univariate stat output',
   width = 12, order=5
 )
 

@@ -2,6 +2,21 @@ input = getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 session = getDefaultReactiveDomain()
 
+
+cat2_timestamp <- function() {
+    t0 <- proc.time()[3]
+    last_time = t0
+    return(function(lbl, level='DEBUG') {
+        .t = proc.time()[3]
+        tick = .t - last_time
+        last_time <<- .t
+        elapsed = .t - t0
+        dipsaus::cat2(lbl, '\t tick ', round(tick,1), ' sec\tTotal: ', round(elapsed,1), ' sec', level=level)
+    })
+}
+group_analysis_cat2t <- cat2_timestamp()
+
+
 local_data %?<-% reactiveValues(
     # Full data has two parts: local_data$analysis_data_raw, and local_data$additional_data
     # together makes analysis_data
@@ -11,6 +26,7 @@ local_data %?<-% reactiveValues(
     collapsed_data = NULL,
     
     omnibus_plots_color_palette = NULL,
+    omnibus_plots_plot_aesthetics = NULL,
     
     analysis_window = 0:1,
     analysis_window_label = NULL,
@@ -39,11 +55,16 @@ local_filters = reactiveValues(
 
 
 observeEvent(input$show_by_electrode_results_rows_selected, {
+    group_analysis_cat2t('Detected rows selected')
     local_data$show_by_electrode_results_rows_selected = input$show_by_electrode_results_rows_selected
 })
 
 observeEvent(input$omnibus_plots_color_palette, {
     local_data$omnibus_plots_color_palette = input$omnibus_plots_color_palette
+})
+
+observeEvent(input$omnibus_plots_plot_aesthetics, {
+    local_data$omnibus_plots_plot_aesthetics = input$omnibus_plots_plot_aesthetics
 })
 
 # cond_group_ui = function(){
@@ -109,6 +130,10 @@ observe({
     updateSliderInput(session, 'analysis_window', min = time_range[[1]], 
                       max=time_range[[2]], value=analysis_window)
     
+    local_data$omnibus_plots_time_range = time_range
+    updateSliderInput(session, 'omnibus_plots_time_range', min = time_range[[1]], 
+                      max=time_range[[2]], value=time_range)
+    
     nms = names(local_data$analysis_data_filtered)
     
     usual_dvs = c(format_unit_of_analysis_name(get_unit_of_analysis(names=TRUE)), 'Power')
@@ -151,6 +176,14 @@ observeEvent(input$single_analysis_window, {
 observeEvent(input$analysis_window, {
     local_data$analysis_window = input$analysis_window
 })
+
+
+observeEvent(input$omnibus_plots_time_range, {
+    local_data$omnibus_plots_time_range = input$omnibus_plots_time_range
+})
+
+
+
 
 observeEvent(input$multi_window_is_active, {
     shiny::isolate({
@@ -303,7 +336,6 @@ build_stat_names <- function(lbls, stat.vars = c('m', 't', 'p')) {
             lbls, paste0)) %&% ')'
 }
 
-
 flatten_emmeans_pairwise <- function(summ) {
     # summ = bed.pairwise
 
@@ -376,7 +408,6 @@ analyze_single_electrode <- function(bed) {
     }
     res
 }
-
 
 observeEvent(input$run_analysis, {
     if(exists('.__DEBUG__')) {
@@ -607,11 +638,30 @@ observeEvent(input$run_analysis, {
         assign('..local_data', value = shiny::isolate(shiny:::reactiveValuesToList(local_data)), envir = globalenv())
     }
     
-    
 })
 
+observeEvent(input$lme_3dviewer_widget_mouse_dblclicked, {
+    # mouse_event = input$power_3d__mouse_dblclicked$event
+    # object = input$power_3d__mouse_dblclicked$object
+    
+    .data <- input$lme_3dviewer_widget_mouse_dblclicked
+    sbj = .data$subject
+    el = .data$electrode_number
+    if(!is.null(local_data$by_electrode_results)) {
+        ber = local_data$by_electrode_results
+        selected_row = which(ber$Subject == sbj & ber$Electrode == el)
+        dtp = DT::dataTableProxy('show_by_electrode_results', deferUntilFlush = FALSE)
+        DT::selectRows(dtp, selected_row)
+        local_data$show_by_electrode_results_rows_selected = NULL
+    }
+    
+    showNotification(p('Selected ', sbj, el), type = 'message', id = ns('lme_3dviewer_widget__mouse'))
+})
 
-#### Feature selection field handlers ####
+#### Feature selection field handlers
+
+
+
 
 # UI for filters
 # var_sel = function(){

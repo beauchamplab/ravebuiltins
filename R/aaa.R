@@ -156,7 +156,7 @@ get_cex_for_multifigure <- function() {
 rave_axis.default = .rave_axis
 rave_axis <- rave::rave_context_generics('rave_axis', .rave_axis)
 
-rave_axis.rave_running_local = function(side, at, ..., cex.axis=1, cex.lab=1) {
+rave_axis.rave_running_local = function(side, at, ..., cex.axis=1, cex.lab=1, mgpx=c(3,.4,0), mgpy=c(3,.5,0)) {
   rave_axis.default(side=side, at=at,
                     cex.axis=cex.axis, cex.lab=cex.lab, ...)
 }
@@ -177,7 +177,7 @@ rave_axis.rave_running_local = function(side, at, ..., cex.axis=1, cex.lab=1) {
 rave_title.default = .rave_title
 rave_title <- rave::rave_context_generics('rave_title', .rave_title)
 
-rave_title.rave_running_local <- function(main, ..., cex=1.2) {
+rave_title.rave_running_local <- function(main, ..., cex=1) {
   rave_title.default(main=main, cex=cex)
 }
 
@@ -187,8 +187,17 @@ rave_title.rave_running_local <- function(main, ..., cex=1.2) {
 }
 rave_axis_labels.default= .rave_axis_labels
 rave_axis_labels <- rave::rave_context_generics('rave_axis_labels', .rave_axis_labels)
-rave_axis_labels.rave_running_local <- function(..., cex.lab=1) {
-  rave_axis_labels.default(...,cex.lab=cex.lab)
+
+rave_axis_labels.rave_running_local <- function(..., xlab=NULL, ylab=NULL, cex.lab=8) {
+  dipsaus::cat2('RAL:RRL: ', xlab, '|', ylab, level='INFO')
+  
+  
+  if(!is.null(xlab)) {
+    rave_axis_labels.default(..., xlab=xlab, ylab=NULL, line=1.5, cex.lab=cex.lab)
+  }
+  if(!is.null(ylab)) {
+    rave_axis_labels.default(..., ylab=ylab, xlab=NULL, line=2.5, cex.lab=cex.lab)
+  }
 }
 
 
@@ -341,3 +350,60 @@ determine_shift_amount <- function(available_shift, event_time, data_env = rave:
 is.blank <- function(x){
   isTRUE(x == '')
 }
+
+
+### UI impl to share the PDF exporting code where possible
+
+customDownloadButton <- function(outputId, label='Download', class=NULL, icon_lbl="download", ...) {
+  tags$a(id = outputId,
+         class = paste("btn btn-default shiny-download-link", class),
+         href = "", target = "_blank", download = NA, 
+         icon(icon_lbl), label, ...)
+}
+
+
+custom_plot_download_impl <- function(module_id, choices, selected=choices[1], w=4,h=3) {
+  force(choices); force(selected); force(w); force(h)
+  
+  return(function()  {
+    ns <- shiny::NS(module_id)
+    
+    tagList(div(class='rave-grid-inputs',
+                div(style='flex-basis: 100%', selectInput(ns('custom_plot_select'), label = "Choose Graph",
+                                                          choices = choices, selected =selected)),
+                div(style='flex-basis: 25%', numericInput(ns('custom_plot_width'), label='width (inches)', value=w, min=5, step = 1)),
+                div(style='flex-basis: 25%', numericInput(ns('custom_plot_height'), label='height (inches)', value=h, min=3, step = 1)),
+                div(style='flex-basis: 25%', selectInput(ns('custom_plot_file_type'), label='File Type',
+                                                         choices=c('pdf', 'jpeg', 'png', 'tiff', 'svg'), selected='pdf')),
+                
+                div(style='flex-basis: 100%', customDownloadButton(ns('btn_custom_plot_download'),
+                                                                   label = "Download Graph", icon_lbl = 'file-image'))
+    ))
+  })
+}
+
+
+build_file_output_args <- function(ftype, width, height, outfile) {
+  args = list(width=width, height=height, filename=outfile)
+  if(ftype == 'jpeg') {
+    args$units = 'in'
+    args$quality=99
+    args$res = 300
+  } else if(ftype == 'pdf') {
+    args$useDingbats = FALSE
+    args$file = outfile
+    args$filename = NULL
+  } else if (ftype == 'tiff') {
+    args$units = 'in'
+    args$compression = 'lzw'
+    args$res = 300
+  }
+  
+  return(args)
+}
+
+custom_plot_download_handler_impl <- function(RENDER_FUN) {
+
+}
+
+

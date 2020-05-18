@@ -486,8 +486,6 @@ omnibus_results <- cache(
   name = 'omnibus_results'
 )
 
-# assigning this here so that it can be exported easily
-local_data$omnibus_results = omnibus_results
 
 # grab all the details needed for plotting and put them in a list that
 # can be passed around (and I guess modified?)
@@ -503,7 +501,7 @@ if(any(to_copy)) {
 
 # plot time range isn't being set correctly...
 plot_options$plot_time_range = plot_time_range
-
+plot_options$sort_trials_by_type = sort_trials_by_type
 
 # load up local data the plot data and the plot options
 local_data$plot_options = plot_options
@@ -512,6 +510,13 @@ local_data$heat_map_data = heat_map_data
 local_data$scatter_bar_data = scatter_bar_data
 local_data$by_electrode_heat_map_data = by_electrode_heat_map_data
 local_data$by_trial_heat_map_data = by_trial_heat_map_data
+local_data$omnibus_results = omnibus_results
+local_data$electrodes_csv = electrodes_csv
+local_data$has_data = has_data
+
+# flat_data
+# local_data$condition_stats
+
 
 cat2t('Finished calc')
 

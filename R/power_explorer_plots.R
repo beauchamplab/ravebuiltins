@@ -223,7 +223,6 @@ determine_passing_electrodes <- function(results, ...) {
     # update the local_data variable -- can this be done?
     # local_data$electrodes_passing_the_test <- as.numeric(names(pass_the_test))
     # no. instead let's put this value in a textInput??
-    
     if(shiny_is_running()){
         updateTextInput(getDefaultReactiveDomain(), 'current_active_set', 
                         value=deparse_svec(emeta$Electrode[pass_the_test]))
@@ -352,6 +351,7 @@ by_electrode_heat_map_plot <- function(results, ...) {
 # this is separated out as other plots may need to do this
 remove_outliers_from_by_trial_data <- function(bthmd) {
     for(ii in seq_along(bthmd)) {
+        
         .clean <- bthmd[[ii]]$is_clean
         if(sum(.clean) == 0) {
             bthmd[[ii]]$has_trials <- FALSE

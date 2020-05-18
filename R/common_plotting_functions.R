@@ -175,6 +175,7 @@ build_group_contrast_labels <- function(group_names) {
 
 # show power over time with MSE by condition
 time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_time_range=NULL) {
+    rave_context()
     
     # check the plottable range, to make sure we're only plotting what the user has requested
     plot_time_range %?<-% get_data_range(plot_data, 'x')
@@ -232,7 +233,7 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_
 # this is a list to allow different N in each group
 # NB: the reason we use barplot here is that it takes care of the width between groups for us, even though by default we don't actually show the bars
 trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, cols, ebar.cols='gray30', ebar.lwd=3, jitr_x,
-                              pchs=19, pt.alpha=175, xlab='Group', ylab='Mean % Signal Change', ebar.lend=2, show_outliers=TRUE, PANEL.LAST=NULL, ...) {
+                              pchs=16, pt.alpha=175, xlab='Group', ylab='Mean % Signal Change', ebar.lend=2, show_outliers=TRUE, PANEL.LAST=NULL, ...) {
     
     nms <- group_data %>% get_list_elements('name')
     #
@@ -665,8 +666,22 @@ reorder_trials_by_type <- function(bthmd) {
 }
 
 reorder_trials_by_event <- function(bthmd, event_name) {
-    # we want to sort but preserve the order that the conditions were added to the group
-    new_order = order(bthmd$events[[event_name]])
+    
+    
+    if(event_name != 'Condition') {
+        new_order = order(bthmd$events[[event_name]])
+    } else {
+        # We want to sort, but if we're using Condition, we want to preserve the order that the conditions were added to the group.
+        # What if we factor the data, then sort by the 1e7*factor_number + trial_number
+        as_fact = factor(bthmd$events[['Condition']], levels = bthmd$conditions)
+        new_order = order(1e7*as.integer(as_fact) + bthmd$Trial_num)
+        
+        # if we're sorting by condition (or any categorical variable) 
+        # we can show labels
+        ind <- sapply(bthmd$conditions, function(ttype) sum(ttype==bthmd$trials), simplify = FALSE)
+        bthmd$lines <- cumsum(ind)
+        bthmd$ttypes <- names(ind)
+    }
     
     .xlab <- attr(bthmd$data, 'xlab')
     .zlab <- attr(bthmd$data, 'zlab')
@@ -683,13 +698,6 @@ reorder_trials_by_event <- function(bthmd, event_name) {
     }
     attr(bthmd$data, 'zlab') <- .zlab
     
-    # if we're sorting by condition (or any categorical variable) 
-    # we can show labels
-    if(event_name == 'Condition') {
-        ind <- sapply(bthmd$conditions, function(ttype) which(ttype==bthmd$trials), simplify = FALSE)
-        bthmd$lines <- cumsum(c(sapply(ind, length)))
-        bthmd$ttypes <- names(ind)
-    }
     
     bthmd$trials <-  bthmd$trials[new_order]
     bthmd$Trial_num <-  bthmd$Trial_num[new_order]
@@ -1748,12 +1756,21 @@ get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FAL
 }
 
 set_palette <- function(pname) {
-    if(length(pname) == 1) {
+    if (is.null(pname)) {
+      pname = get_palette(get_palette_names = TRUE)[1]  
+    } else if(length(pname) == 1) {
         pname %<>% get_palette
-    }
+    } 
     
     grDevices::palette(pname)
 }
 
 
-
+fix_name_for_js <- function(nm) {
+    str_replace_all(nm, c(
+        '\\(' = '.',
+        '\\)' = '.',
+        '\\ ' = '.',
+        '-' = '.'
+    ))
+}
