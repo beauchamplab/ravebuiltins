@@ -30,12 +30,29 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   }
   
   if( need_calc ){
-    or = cache(name='omnibus_results')
+    or = local_data$omnibus_results#cache(name='omnibus_results')
     
     values = data.frame(t(or))
     values$Subject = as.factor(subject$subject_code)
     values$Electrode = as.numeric(colnames(or))
     values$Time = 0
+    
+    if(!is.null(values$Passes_Filters)) {
+      values$Passes_Filters[values$Passes_Filters==1] = 'Pass'
+      values$Passes_Filters %<>% factor(levels=c('Pass'))
+    }
+    
+    # let's also set the electrode freesurfer label into the dset if we have it
+    if('freesurferlabel' %in% names(electrodes_csv)) {
+      values$Freesurfer_Lbl = electrodes_csv[['freesurferlabel']]
+      
+      values$Freesurfer_Lbl %<>% stringr::str_remove_all('wm_')
+      values$Freesurfer_Lbl %<>% stringr::str_replace_all(
+        c('lh_' = 'L ', 'rh_' = 'R ',
+          'occipital' = 'occ',
+          'temporal' = 'temp', 'middle' = 'mid')
+      )
+    }
     
     brain$set_electrode_values(values)
     # assign('omnibus_results', omnibus_results, globalenv())
@@ -91,7 +108,8 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
     pals[str_detect(names(pals), 'p\\.')] = list(pval_pal)
     pals[names(pals) %in% c('p')] = list(pval_pal)
     
-    pals[['[Subject]']] = expand_heatmap(c("Black", "Black"), ncolors=128)
+    pals[['[Subject]']] = 'black'
+    pals[['Passes_Filters']] = 'black'
     
     re = brain$plot(symmetric = 0, palettes = pals,
                     side_width = side_width / 2, side_canvas = TRUE, 

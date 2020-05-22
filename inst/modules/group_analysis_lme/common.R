@@ -48,8 +48,7 @@ text_to_range = function(str) {
     }
     return (paste0(s1, '+', s2))
 }
-
-
+ 
 pretty_string <- function(s) {
     stringr::str_replace_all(s,c(
         'Pct' = '%',

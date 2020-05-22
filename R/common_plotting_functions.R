@@ -1635,14 +1635,17 @@ cache_heatmap_palette <- function(pname, pal) {
     cache(key='current_rave_heatmap_palette', val=pal, 'current_rave_heatmap_palette', replace=TRUE)
 }
 
-expand_heatmap <- function(pal, results, ncolors, ...) {
+
+#'
+#'@export
+expand_heatmap <- function(pal, results, ncolors, space='Lab', ...) {
     # interpolate_type=c('linear', 'spline'), color_space = c('Lab', 'rgb'),
     if(!missing(results)) {
         ncolors <- results$get_value('heatmap_number_color_values', 101)
         pal %?<-% results$get_value('heatmap_color_palette')
     }
     
-    colorRampPalette(pal, space='Lab', ...)(ncolors)
+    colorRampPalette(pal, space=space, ...)(ncolors)
 }
 
 
@@ -1712,6 +1715,9 @@ get_dark_mode_heatmap_palette <- function(pal, mid_color = par('bg')) {
 }
 
 
+#'
+#'@export
+#'
 get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
     # Some of these are from:
     # http://colorbrewer2.org

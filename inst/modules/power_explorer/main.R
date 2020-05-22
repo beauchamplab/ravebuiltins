@@ -5,8 +5,8 @@
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
 mount_demo_subject()
-# mount_demo_subject(subject_code = 'YCZ', 'Sentences', epoch='YCZ_gingko', electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
 view_layout('power_explorer')
+# mount_demo_subject(subject_code = 'YCZ', 'Sentences', epoch='YCZ_gingko', electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
 
 if(FALSE) {
   attachDefaultDataRepository()
@@ -510,9 +510,17 @@ local_data$heat_map_data = heat_map_data
 local_data$scatter_bar_data = scatter_bar_data
 local_data$by_electrode_heat_map_data = by_electrode_heat_map_data
 local_data$by_trial_heat_map_data = by_trial_heat_map_data
-local_data$omnibus_results = omnibus_results
 local_data$electrodes_csv = electrodes_csv
-local_data$has_data = has_data
+
+if(!is.null(local_data$current_active_set)) {
+  pass = electrodes %in% local_data$current_active_set
+  cas = matrix(as.integer(pass), nrow=1) %>%
+    set_colnames(electrodes) %>% set_rownames('Passes_Filters')
+  omnibus_results %<>% rbind(cas)
+}
+local_data$omnibus_results = omnibus_results
+
+
 
 # flat_data
 # local_data$condition_stats
@@ -520,27 +528,8 @@ local_data$has_data = has_data
 
 cat2t('Finished calc')
 
-if(FALSE){
-  m = to_module(module_id = 'power_explorer', sidebar_width = 3, parse_context = "rave_running_local")
-  init_app(m, launch.browser = TRUE, disable_sidebar = TRUE, simplify_header = TRUE, test.mode = TRUE)
-  execenv = m$private$exec_env$EZT9HYC1p7JdVtU6RAyW
-  rave_context(context = 'rave_running', senv = execenv)
-  attachDefaultDataRepository()
-  ctx = rave_context(); ctx
-  
-  cache(
-    key = list(subject$id, BASELINE_WINDOW, FREQUENCY, all_trial_types,GROUPS,
-               ANALYSIS_WINDOW, unit_of_analysis, preload_info$epoch_name,
-               preload_info$reference_name, trial_outliers_list),
-    val = get_stats_per_electrode(all_trial_types),
-    name = 'omnibus_results'
-  )
-}
-
-cat2t('Updating 3d viewer')
-
 if(rave::rave_context()$context %in% c('rave_running', 'default')) {
-  dipsaus::cat2("Updating 3D viewer")
+  dipsaus::cat2("Update 3D viewer")
   btn_val = isolate(input[['power_3d_btn']]) - 0.001
   dipsaus::set_shiny_input(session = session, inputId = 'power_3d_btn',
                            value = btn_val, method = 'proxy', priority = 'event')

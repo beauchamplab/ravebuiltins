@@ -270,14 +270,22 @@ build_lme_formula_string = function(..., exclude = NULL){
     # fixed effects are easy, except we need to make sure TimeWindow comes after ConditionGroup. This
     # is quickly done by just sorting
     iv %<>% sort
+    
+    # let's also check if freesurfer label is in fe_str. If so, remove Electrode from random effects
     fe_str = paste(iv, collapse='*')
     
-    # randomf effects are harder because of potential nesting of electrode in subject
+    # random effects are harder because of potential nesting of electrode in subject
     re_str = ''
     
     nsub = length(unique(local_data$analysis_data_filtered$Subject))
     if(nsub > 1) {
-        re_str = '(1|Subject/Electrode)'
+        if('freesurferlabel' %in% iv) {
+            re_str = '(1|Subject)'
+            showNotification('Electrode-level variable detected, changing random effect structure',
+                             type = 'message')
+        } else {
+            re_str = '(1|Subject/Electrode)'
+        }
         re %<>% remove_term('Electrode')
         re %<>% remove_term('Subject')
     } else {
@@ -357,8 +365,17 @@ flatten_emmeans_pairwise <- function(summ) {
 }
 
 analyze_single_electrode <- function(bed) {
+    
+    # note that for single electrode analyses, between-electrode variables (e.g., freesurferlabel) 
+    # don't make sense
+    fes <- local_data$var_fixed_effects
+    lens = sapply(fes, function(vfe) {
+        length(unique(bed[[vfe]]))
+    })
+    fes = fes[lens > 1]
+    
     # create a string represent the requested fixed effects
-    fe = paste(local_data$var_fixed_effects, collapse=' * ')
+    fe = paste(fes, collapse=' * ')
     
     # bed <- by_el_data %>% split((.)$UUID) %>% extract2(1)
     if(str_detect(fe, 'TimeWindow')) {
@@ -383,7 +400,7 @@ analyze_single_electrode <- function(bed) {
     }
     
     # main effects
-    bed.mains = lapply(local_data$var_fixed_effects, function(vfe) {
+    bed.mains = lapply(fes, function(vfe) {
         m =summary(emmeans::emmeans(.lm,
                                     as.formula('~' %&% vfe)),
                    infer=c(F,T))[,c(1:2, 5:6)]
@@ -393,7 +410,7 @@ analyze_single_electrode <- function(bed) {
     
     # pairwise comparisons
     bed.pairwise = NULL
-    if(length(local_data$var_fixed_effects) > 0) {
+    if(length(fes) > 0) {
         bed.pairwise = summary(emmeans::emmeans(
             .lm, as.formula('pairwise ~ 1' %?&% fe)),
             infer=c(FALSE, TRUE)) %>% flatten_emmeans_pairwise
@@ -597,12 +614,24 @@ observeEvent(input$run_analysis, {
     
     fo <-  str_replace_all(input$model_formula, input$model_dependent, 'y')
     # fo <- str_replace_all('Pct_Change_Power_1stWord ~ TimeWindow + (1|Subject/Electrode)', 'Pct_Change_Power_1stWord', 'y')
-    # fo = 'y ~ 1 + (1|Subject/Electrode)'
+    # fo = 'y ~ freesurferlabel + (1|Subject)'
     # fo = 'y ~ ConditionGroup + (1|Subject/Electrode) + (0+ConditionGroup|Subject) + (1|Condition)'
     fo %<>% as.formula
     
     tryCatch({
-        # print('trying LME')
+        
+        # check factor sample sizes
+        for(fe in local_data$var_fixed_effects) {
+            # fe = local_data$var_fixed_effects[1]            
+            nl = length(unique(collapsed_data[[fe]]))
+            to_keep = names(which(table(collapsed_data[[fe]]) >= 5))
+            collapsed_data[[fe]] %<>% factor(levels = sort(to_keep))
+            if(length(to_keep) < nl) {
+                showNotification('Dropping ' %&% (nl - length(to_keep)) %&%
+                                 ' levels of ' %&% fe %&% ' because cell counts < 5',
+                                 type = 'warning')
+            }
+        }
         if(length(local_data$var_fixed_effects) > 0) {
             lmer_results = lmerTest::lmer(fo,
                                           data=collapsed_data, na.action=na.omit)

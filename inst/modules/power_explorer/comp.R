@@ -351,7 +351,7 @@ define_input(
   #                                   type = 'primary'))
   
   define_input(
-    definition = actionButtonStyled('select_good_electrodes',label='Visualize Active Electrodes',
+    definition = actionButtonStyled('select_good_electrodes',label='Apply filters to analysis',
                                     icon=shiny::icon('magic'), type = 'default'))
   
   define_input(

@@ -1,6 +1,7 @@
 input = getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 session = getDefaultReactiveDomain()
+static_data = dipsaus::fastmap2()
 
 
 local_data = reactiveValues(
@@ -17,9 +18,9 @@ local_data = reactiveValues(
     autocalc_disclaimer = "",
     plot_options = NULL,
     condition_stats = "",
-    jitter_seed = sample(1:100,1)
+    jitter_seed = sample(1:100,1),
+    current_active_set = NULL
 )
-
 
 brain_proxy =  threeBrain::brain_proxy('power_3d_widget', session = session)
 
@@ -29,11 +30,11 @@ synch_3dviewer_dv <- function() {
         
         varname = input$which_result_to_show_on_electrodes
         if(startsWith(varname, 'Omnibus Activity')) {
-            varname = format_unit_of_analysis_name(input$unit_of_analysis) #colnames(local_data[['omnibus_results']])[1]
+            varname = 't' #format_unit_of_analysis_name(input$unit_of_analysis) #colnames(local_data[['omnibus_results']])[1]
         } else {
-            varname = 'm_' %&% fix_name_for_js(varname)
+            varname = 't_' %&% fix_name_for_js(varname)
         }
-        dipsaus::cat2("trying to set: " , varname, level='INFO')
+        # dipsaus::cat2("trying to set: " , varname, level='INFO')
         
         # controllers[['Display Data']] = varname
         brain_proxy$set_controllers(list('Display Data' = varname))
@@ -60,8 +61,6 @@ rebuild_3d_viewer <- function() {
                                  value = btn_val, method = 'proxy', priority = 'event')
     }
 }
-
-
 
 
     
@@ -372,15 +371,20 @@ observeEvent(input$analysis_filter_variable_2, {
     }
 })
 
+
 observeEvent(input$select_good_electrodes, {
-    if(!is.null(input$current_active_set)) {
+    if (!is.null(input$current_active_set)) {
         updateTextInput(session, 'ELECTRODE_TEXT',
                         value = input$current_active_set)
-        # Trigger recalculate
-        trigger_recalculate()
+        
+        local_data$current_active_set = dipsaus::parse_svec(input$current_active_set)
+        
+        if (!auto_recalculate()) {
+            trigger_recalculate()
+        }
     }
 })
-
+        
 observeEvent(input$clear_outliers, {
     updateSelectInput(session, 'trial_outliers_list', selected=character(0))
     enable_save_button()
