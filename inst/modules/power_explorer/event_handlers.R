@@ -231,6 +231,8 @@ observeEvent(input$synch_with_trial_selector, {
 })
 
 
+
+### this ensures we don't get infinite callbacks from/to the category/numeric electrode selector
 sync_shiny_inputs(
     input = input, session = session, inputIds = c(
         'ELECTRODE_TEXT', 'electrode_category_selector_choices'
@@ -241,12 +243,27 @@ sync_shiny_inputs(
         },
         # electrode_category_selector_choices to electrodes
         function(electrode_category_selector_choices){
+            dipsaus::cat2('updating from ECSC: ', paste0(electrode_category_selector_choices, collapse='|'))
+            
             electrodes_csv %?<-% NULL
             if(!is.data.frame(electrodes_csv)) { return(NULL) }
-            current_els <- parse_svec(input$ELECTRODE_TEXT, sort = TRUE)
+            
+            # current_els <- parse_svec(input$ELECTRODE_TEXT, sort = TRUE)
+            
             all_vals <- electrodes_csv[[input$electrode_category_selector]]
-            vals <- electrode_category_selector_choices
-            new_els <- as.numeric(electrodes_csv$Electrode[all_vals %in% vals]) %>% sort
+            
+            # in case the choices have the electrode labels in them
+            vals <- sapply(electrode_category_selector_choices, remove_count_from_label)
+            dipsaus::cat2('Cleaned: ', paste0(vals, collapse='|'))
+            
+            ### if we've merged hemisphere labels, then the prefix will be wrong, fix it
+            if(isTRUE(input$merge_hemisphere_labels)) {
+                all_vals %<>% remove_hemisphere_labels
+            }
+            
+            new_els <- sort(
+                as.numeric(electrodes_csv$Electrode[all_vals %in% vals])
+            )
             return(new_els)
         }
     ), updates = list(
@@ -256,14 +273,7 @@ sync_shiny_inputs(
         },
         # update electrode_category_selector_choices
         function(els){
-            electrodes_csv %?<-% NULL
-            if(!is.data.frame(electrodes_csv)) { return(NULL) }
-
-            all_vals <- electrodes_csv[[input$electrode_category_selector]]
-            selected <- unique(all_vals[as.numeric(electrodes_csv$Electrode) %in% els])
-            
-            updateSelectInput(session, 'electrode_category_selector_choices',
-                              selected = selected)
+            update_electrode_category_select(els)
         }
     )
 )
@@ -294,45 +304,51 @@ sync_shiny_inputs(
 # })
 
 
-observeEvent(input$electrode_category_selector, {
-    # be careful here so we don't trigger loops!
-    
-    electrodes_csv %?<-% NULL
-    
-    if(is.data.frame(electrodes_csv)) {
-        col_name <- input$electrode_category_selector
-        vals <- electrodes_csv[[col_name]]
-        
-        # to get the selected choices, we need to match with what ELECTRODE_TEXT currently provides
-        .selected <- unique(vals[as.numeric(electrodes_csv$Electrode) %in%
-                                     as.numeric(parse_svec(input$ELECTRODE_TEXT))])
-        
-        updateSelectInput(session, 'electrode_category_selector_choices',
-                          selected = .selected,
-                          choices = unique(vals))
-    }
+observeEvent(input$merge_hemisphere_labels, {
+    update_electrode_category_select()
 })
 
-# observeEvent(input$electrode_category_selector_choices, {
-#     # be careful here so we don't trigger loops!
-#     
-#     
-#     electrodes_csv %?<-% NULL
-#     if(is.data.frame(electrodes_csv)) {
-#         current_els <- as.numeric(parse_svec(input$ELECTRODE_TEXT)  ) %>% sort
-#         all_vals <- electrodes_csv[[input$electrode_category_selector]]
-#         vals <- input$electrode_category_selector_choices
-#         new_els <- as.numeric(electrodes_csv$Electrode[all_vals %in% vals]) %>% sort
-#         
-#         if(!all(new_els == current_els)) {
-#             updateTextInput(session, 'ELECTRODE_TEXT',
-#                             value = deparse_svec(new_els))
-#         } else {
-#             # no change
-#         }
-#     }
-# })
+update_electrode_category_select <- function(els) {
+    electrodes_csv %?<-% NULL
+    if(is.null(electrodes_csv)) return()
+    
+    col_name <- input$electrode_category_selector
+    
+    if(missing(els)) {
+        selected_electrode_numbers = as.numeric(parse_svec(input$ELECTRODE_TEXT))
+    } else {
+        dipsaus::cat2('updating from els: ', els, level='INFO', pal=list('INFO' = 'orangered'))
+        selected_electrode_numbers = els
+    }
+    ecsv = subset(electrodes_csv,
+                  select=c('Electrode', col_name))
+    
+    ecsv$values = ecsv[[col_name]]
+    
+    if(isTRUE(input$merge_hemisphere_labels)) {
+        ecsv$values %<>% remove_hemisphere_labels
+    }
+    
+    labels = make_label_with_count(ecsv$values)
+    
+    .selected = unique(
+        attr(labels, 'map')[which(selected_electrode_numbers %in% ecsv$Electrode)]
+    )
+    
+    assign('uecs', list(
+        .selected, labels, col_name, electrodes_csv, selected_electrode_numbers, input$merge_hemisphere_labels 
+    ), envir = globalenv())
+    
+    updateSelectInput(session, 'electrode_category_selector_choices',
+                      selected = labels[.selected],
+                      choices = labels)
+}
 
+
+
+observeEvent(input$electrode_category_selector, {
+    update_electrode_category_select()
+})
 
 
 observeEvent(input$analysis_filter_variable, {
@@ -371,6 +387,17 @@ observeEvent(input$analysis_filter_variable_2, {
     }
 })
 
+observeEvent(input$reset_electrode_selectors, {
+    if(!is.null(electrodes_csv)) {
+        if('freesurferlabel' %in% names(electrodes_csv)) {
+            updateSelectInput(session, electrode_category_selector, selected = 'freesurferlabel')
+        }else {
+            updateSelectInput(session, electrode_category_selector, selected = 'Label')
+        }
+        updateTextInput(session, 'ELECTRODE_TEXT', value=electrodes_csv$Electrode[1])
+    }
+    
+}, ignoreInit=TRUE)
 
 observeEvent(input$select_good_electrodes, {
     if (!is.null(input$current_active_set)) {

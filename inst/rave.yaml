@@ -18,15 +18,15 @@ modules:
   group_name: Condition Explorer
   order: 1
 - module_id: group_analysis_lme
-  module_label: Linear Mixed Effect model
+  module_label: Linear Mixed Effects Analysis
   group_name: Group Analysis
   order: 6
 - module_id: overview_viewer_3d
-  module_label: 3D Viewer
+  module_label: Surface and Volume Viewer
   group_name: Overview
   order: 4
 - module_id: channel_reference
-  module_label: Reference
+  module_label: Reference Electrodes
   group_name: Overview
   order: 5
 disabled_modules:

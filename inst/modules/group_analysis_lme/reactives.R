@@ -2,6 +2,8 @@ input = getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 session = getDefaultReactiveDomain()
 
+brain_proxy =  threeBrain::brain_proxy('lme_3dviewer_widget', session = session)
+
 
 cat2_timestamp <- function() {
     t0 <- proc.time()[3]
@@ -182,9 +184,6 @@ observeEvent(input$omnibus_plots_time_range, {
     local_data$omnibus_plots_time_range = input$omnibus_plots_time_range
 })
 
-
-
-
 observeEvent(input$multi_window_is_active, {
     shiny::isolate({
         if(isTRUE(input$multi_window_is_active)) {
@@ -197,9 +196,6 @@ observeEvent(input$multi_window_is_active, {
         update_available_effects()
     })
 })
-
-
-
 
 # update_available_effects <- function() {
 #     mre = input$model_random_effects

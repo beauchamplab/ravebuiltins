@@ -58,6 +58,9 @@ define_initialization({
   if(length(column) > 0) {
     elec_filter <- names(electrodes_csv)[column]
     elec_labels <- unique(electrodes_csv[[column]])
+    
+    # we want to add the counts to the freesurfer labels
+    elec_labels = make_label_with_count(electrodes_csv[[column]])
   }
   
   # figure out if there are any outliers to prepopulate the outlier list
@@ -81,12 +84,18 @@ define_initialization({
 # , label='Download copy of electrode meta data')
 # )
 
-define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT', label = 'Select electrodes by number')
+define_input(
+  definition = actionLink('reset_electrode_selectors', 'Reset electrode selectors')
+)
+
+
+
+define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT', label = 'Select electrode by number')
 # define_input_single_electrode(inputId = 'ELECTRODE')
 
 # we also want to be able to select electrodes categorically
 define_input(
-  definition = selectInput('electrode_category_selector', label='Select electrodes by category', choices='', selected=NULL),
+  definition = selectInput('electrode_category_selector', label='Electrodes categories', choices='', selected=NULL),
   init_args = c('choices', 'selected'),
   init_expr = {
     choices = names(electrodes_csv)
@@ -94,7 +103,7 @@ define_input(
   })
 
 define_input(
-  definition = selectInput('electrode_category_selector_choices', label = 'Electrodes to display',
+  definition = selectInput('electrode_category_selector_choices', label = 'Select electrode by category (multi-select)',
                            choices='', selected = NULL, multiple = TRUE
   ),
   init_args = c('choices', 'selected'),
@@ -102,6 +111,10 @@ define_input(
     choices =  unique(elec_labels)
     selected = unique(elec_labels)
   }
+)
+
+define_input(
+  definition = checkboxInput('merge_hemisphere_labels', 'Merge LH/RH categories', value=FALSE)
 )
 
 define_input_condition_groups(inputId = 'GROUPS')
@@ -469,6 +482,18 @@ define_input_auto_recalculate(
 )
 
 
+define_input(customizedUI('do_calculate_btn_float'))
+
+# 
+#   inputId = '', label = 'Recalculate everything', 
+#   type = 'button', button_type = 'primary'
+# )
+# 
+# 
+# register_auto_calculate_widget('do_calculate_btn_float_button', 'button', FALSE)
+
+
+
 # this is hard because we need to figure out which pieces of data are need for quick calculation vs. full calculation
 # define_input_auto_recalculate(
 #   inputId = 'do_quick_calculate_btn', label = 'Recalculate across-electrode stats only', 
@@ -484,7 +509,7 @@ manual_inputs <- c(
   'synch_3d_viewer_bg', 'viewer_color_palette', 'graph_export', 'trial_type_filter', 'synch_with_trial_selector', 'download_electrodes_csv', 'movie_export_trials', 'plots_to_export',
   'btn_save_analysis_settings', 'btn_load_analysis_settings', 'include_outliers_in_export',
   'export_what', 'analysis_prefix', 'export_data', 'current_active_set', 'export_also_download', 'export_time_window', 'sheth_special',
-  'synch_export_analysis_with_3dviewer'
+  'synch_export_analysis_with_3dviewer', 'floating_recalculate'
 )
 
 
@@ -508,10 +533,15 @@ render_inputs <- c(
 # Define layouts if exists
 input_layout = list(
   # '[#cccccc]
-  'Configure analysis' = list(
-    c('electrode_category_selector', 'electrode_category_selector_choices'),
+  'Select electrodes' = list(
+    'electrode_category_selector',
+    'electrode_category_selector_choices',
+    'merge_hemisphere_labels',
     'ELECTRODE_TEXT',
+    'reset_electrode_selectors', 
     'download_electrodes_csv',
+  'do_calculate_btn_float'),
+  'Configure analysis' = list(
     'FREQUENCY',
      c('unit_of_analysis'),
     'BASELINE_WINDOW',
@@ -644,7 +674,7 @@ define_output_3d_viewer(
   outputId = 'power_3d',
   message = 'Click here to reload viewer',
   title = 'Results on surface',
-  height = '50vh',
+  height = '500px',
   order = -1e4
 )
 

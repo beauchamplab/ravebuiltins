@@ -518,6 +518,12 @@ if(!is.null(local_data$current_active_set)) {
     set_colnames(electrodes) %>% set_rownames('Passes_Filters')
   omnibus_results %<>% rbind(cas)
 }
+
+omnibus_results %<>% rbind(
+  matrix(as.integer(electrodes %in% requested_electrodes), nrow=1, dimnames = list('Selected_Electrodes', electrodes))
+)
+
+
 local_data$omnibus_results = omnibus_results
 
 

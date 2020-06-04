@@ -139,6 +139,16 @@ get_cex_for_multifigure <- function() {
   col %?<-% get_foreground_color()
   col.axis %?<-% col
   
+  ## overrule the font scaling if we're writing to a PDF... eventually we'll make this better
+  if(shiny_is_running()) {
+    if('pdf' == names(dev.cur())) {
+      cex.axis = 1
+      cex.lab = 1
+      mgpy = c(3,.5,0)
+      mgpx = c(3,.4,0)
+    } 
+  }
+  
   rutabaga::ruta_axis(
     side = side,
     at = at,
@@ -157,7 +167,8 @@ get_cex_for_multifigure <- function() {
 rave_axis.default = .rave_axis
 rave_axis <- rave::rave_context_generics('rave_axis', .rave_axis)
 
-rave_axis.rave_running_local = function(side, at, ..., cex.axis=1, cex.lab=1, mgpx=c(3,.4,0), mgpy=c(3,.5,0)) {
+rave_axis.rave_running_local = function(side, at, ..., cex.axis=1,
+                                        cex.lab=1, mgpx=c(3,.4,0), mgpy=c(3,.5,0)) {
   rave_axis.default(side=side, at=at,
                     cex.axis=cex.axis, cex.lab=cex.lab, ...)
 }
@@ -182,17 +193,50 @@ rave_title.rave_running_local <- function(main, ..., cex=1) {
   rave_title.default(main=main, cex=cex)
 }
 
-.rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.lab, ...) {
+.rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.lab, line=NA, ...) {
   col %?<-% get_foreground_color()
-  title(xlab=xlab, ylab=ylab, cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, ...)
+  
+  ## overrule the font scaling if we're writing to a PDF... eventually we'll make this better
+  if('pdf' == names(dev.cur())) {
+    if (cex.lab > 1)
+      cex.lab = 1
+    
+    print('in RAL')
+    
+    if(!is.null(ylab)) {
+      yline = if(is.na(line)) {
+        2.5 
+      } else {
+        line
+      }
+      
+      title(xlab=NULL, ylab=ylab,
+            cex.lab=cex.lab*get_cex_for_multifigure(),
+            col.lab=col, line=yline, ...)
+    }
+    
+    if(!is.null(xlab)) {
+      xline = if(is.na(line)) {
+        1.5 
+      } else {
+        line
+      }
+      
+      title(xlab=xlab, ylab=NULL,
+            cex.lab=cex.lab*get_cex_for_multifigure(),
+            col.lab=col, line=xline, ...)
+    }
+    
+    return()
+  }
+  
+  title(xlab=xlab, ylab=ylab, cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, line=line, ...)
 }
+
 rave_axis_labels.default= .rave_axis_labels
 rave_axis_labels <- rave::rave_context_generics('rave_axis_labels', .rave_axis_labels)
 
 rave_axis_labels.rave_running_local <- function(..., xlab=NULL, ylab=NULL, cex.lab=8) {
-  dipsaus::cat2('RAL:RRL: ', xlab, '|', ylab, level='INFO')
-  
-  
   if(!is.null(xlab)) {
     rave_axis_labels.default(..., xlab=xlab, ylab=NULL, line=1.5, cex.lab=cex.lab)
   }
@@ -200,8 +244,6 @@ rave_axis_labels.rave_running_local <- function(..., xlab=NULL, ylab=NULL, cex.l
     rave_axis_labels.default(..., ylab=ylab, xlab=NULL, line=2.5, cex.lab=cex.lab)
   }
 }
-
-
 
 default_plot <- function() {
   plot_clean(1, 1, type='n', main='No Conditions Specified')
@@ -383,7 +425,6 @@ custom_plot_download_impl <- function(module_id, choices, selected=choices[1], w
   })
 }
 
-
 build_file_output_args <- function(ftype, width, height, outfile) {
   args = list(width=width, height=height, filename=outfile)
   if(ftype == 'jpeg') {
@@ -403,8 +444,31 @@ build_file_output_args <- function(ftype, width, height, outfile) {
   return(args)
 }
 
-custom_plot_download_handler_impl <- function(RENDER_FUN) {
+which.equal <- function(needle, haystack) which(needle == haystack)
 
+# append the number of electrodes in each label onto the label
+make_label_with_count <- function(lbl) {
+  tbl = table(lbl)
+  
+  new_lbl = paste0(names(tbl), '[',tbl,']')
+  
+  attr(new_lbl, 'map') = sapply(lbl, which.equal, names(tbl))
+  
+  return(new_lbl)
 }
+
+# remove the [5] or [10] showing the # available electrodes
+# from the end of the freesurfer labels
+remove_count_from_label <- function(str) {
+  stringr::str_remove_all(str, '\\[[0-9]*\\]$')
+}
+
+
+# put this in one place, so we're removing hemi labels consistently
+remove_hemisphere_labels <- function(str) {
+  stringr::str_replace_all(str, 
+                           c('L ' = '', 'R ' = ''))
+}
+
 
 

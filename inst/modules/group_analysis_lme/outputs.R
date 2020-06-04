@@ -66,12 +66,11 @@ observeEvent(input$link_clear_show_by_electrode_results, {
 
 
 power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analysis_window, ylab) {
-  # group_analysis_cat2t('IN POT')
-  set_palette(local_data$omnibus_plots_color_palette)
-  
   # local_data = ..local_data
   lmer_results %?<-% local_data$lmer_results
   shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
+  
+  set_palette(local_data$omnibus_plots_color_palette)
   
   collapsed_data %?<-% local_data$collapsed_data
   agg_over_trial %?<-% local_data$agg_over_trial
@@ -107,9 +106,6 @@ power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analys
       , drop=TRUE, sep=':'
     ))
   }
-  
-  
-  
   # The sample_sizes will be too large if we have multiple TimeWindows involved. So we need to first 
   # aggregate over TimeWindow.... Maybe we could just get the degrees of freedom from the LME ?
   
@@ -228,10 +224,14 @@ windowed_activity <- function(lmer_results, collapsed_data) {
         rownames(yy) = unique(.y[,1])
         colnames(yy) = unique(.y[,2])
         
+        
+        
         xp <- rutabaga::rave_barplot(yy, axes=F, col = adjustcolor(1:nrow(yy), rave_colors$BAR_PLOT_ALPHA),
-                                     border=NA, beside=TRUE,
+                                     border=NA, beside=TRUE, axes=T,
                                      ylim = range(pretty(c(0, plus_minus(.y$y[,1], .y$y[,2])))),
                                      xlab=attr(terms(lmer_results), 'term.labels')[2])
+        # rave_axis(2, at=axTicks(2))
+        # rave_axis_labels(ylab=)
         leg = unique(.y[,1])
         legend(input$omnibus_plots_legend_location, legend=leg, text.col=seq_along(leg),
                cex=rave_cex.lab, bty='n', horiz=F, ncol = floor((length(leg)-1) / 3)+1 ) 
@@ -247,16 +247,16 @@ windowed_activity <- function(lmer_results, collapsed_data) {
         if('filled' %in% po) .col = adjustcolor(1:nrow(.y), 0.7)
         
         .ylim = range(pretty(c(0, plus_minus(.y$y[,1], .y$y[,2]))))
-        if(any('points' %in% po, 'jittered points' %in% po, 'connect points' %in% po)) {
+        if(any( c('points', 'jittered points', 'connect points') %in% po)) {
           .ylim = range(pretty(c(0, collapsed_data$y)))
         }
         
-        xp <- rutabaga::rave_barplot(.y$y[,1],
-                                     names.arg=nms,
-                                     axes=F, col = .col,
-                                     border=.border,
-                                     ylim = .ylim,
-                                     xlab=attr(terms(lmer_results), 'term.labels'))
+        xp <- rutabaga::rave_barplot(
+          .y$y[,1],
+          ylim = .ylim,
+          names.arg=nms, cex.names = ifelse('pdf' == names(dev.cur()), 1, rutabaga:::rave_cex.lab),
+          axes=F, col = .col, border=.border,
+          xlab=attr(terms(lmer_results), 'term.labels'))
         
         jit_len = mean(diff(xp))*.33
         if(is.nan((jit_len))) jit_len = .33
@@ -266,17 +266,17 @@ windowed_activity <- function(lmer_results, collapsed_data) {
         
         if(!('jittered points' %in% po)) jit_len = 0
         
-        xlocs = lapply(seq_along(pts$y), function(ii) runif(length(pts$y[[ii]]), xp[ii,] - jit_len, xp[ii,] + jit_len))
+        xlocs = lapply(seq_along(pts$y), function(ii) {
+          runif(length(pts$y[[ii]]), xp[ii,] - jit_len, xp[ii,] + jit_len)
+        })
         
-        if(any('points' %in% po, 'jittered points' %in% po)) {
+        if(any(c('points', 'jittered points') %in% po)) {
           for(ii in 1:nrow(xp)) {
             points(x=xlocs[[ii]],
                    y=pts$y[[ii]], col=adjustcolor(ii,175/255), pch=16)
           }
         }
-        
         if('connect points' %in% po) {
-          
           np = length(pts$y[[1]])
           
           for(ni in seq_len(np)) {
@@ -362,7 +362,6 @@ output$btn_custom_plot_download <- downloadHandler(
       
       on.exit(dev.off(), add = TRUE)
       do.call(DEV, args = args)
-      
       
       ##### set the margins of the plot
       par(mar = c(2.75, 3.5, 2, 1))
@@ -451,7 +450,7 @@ hide_everything_but_post_hoc_plot <- function() {
 observeEvent(input$btn_hide_everything_but_post_hoc_plot, {
     nms <- c("Data Import", "Build Condition Groups", "Single time window analysis", 
       "Multiple time window analysis", "Build Model", 'Model Output', 'Activity over time',
-      'Mean activity in analysis window', 'Univariate stat output (select rows to graph)',
+      'Mean activity in analysis window', 'Univariate stat output',
       'Statistical results by electrode', 'Subset time series', 'Subset barplot')
       
     lapply(nms, rave::close_tab, module_id = 'group_analysis_lme')
@@ -510,6 +509,69 @@ output$btn_download_all_results <- downloadHandler(
     }
 )
 
+output$download_3dv_colobar <- downloadHandler(
+  filename = function(...) {
+    'group_analysis_lme_colorbar.pdf'
+  }, content = function(conn) {
+    
+    if(is.null(local_data$by_electrode_results)) {
+      showNotification('No data calculated yet, returning default color bar')
+
+      dd = 'Value'
+      vals = -10:10
+      data_range = range(vals)
+      
+    } else {
+      ber = local_data$by_electrode_results
+      dd = brain_proxy$controllers[['Display Data']]
+      vals = ber[[dd]]
+        
+      dr = brain_proxy$controllers[['Display Range']]
+      dr_tokens = stringr::str_split(dr, ',')[[1]]
+      
+      dr_tokens %<>% as.numeric
+      
+      dipsaus::cat2('DR tokens: ', paste0(dr_tokens, collapse = '|'))
+      
+      if(all(is.na(dr_tokens))) {
+        data_range = c(-1,1) * ceiling(max(abs(vals)))
+      } else if(length(dr_tokens) == 1) {
+        data_range = c(-1,1)*abs(dr_tokens[1])
+      } else {
+        data_range = range(dr_tokens)
+      }
+    }
+    
+    if(startsWith(dd, 'p(')) {
+      pal = .__lme_color_palette$pval_pal
+      
+    } else {
+      pal = .__lme_color_palette$pal
+    }
+    as_pdf(conn, w=.4, h=3/2, {
+      par('mar' = c(.75,.75,.75,0.25))
+      image(matrix(seq_along(pal), nrow=1), col=pal, axes=F, useRaster = TRUE)
+      ruta_axis(1, at=0, labels = min(data_range), lwd=0, cex.axis = .65, mgpx=c(0,-.2,0))
+      ruta_axis(3, at=0, labels = max(data_range), lwd=0, mgpx=c(0,.1,0), cex.axis=.65)
+      # go right to the drawing function...
+      .rave_axis_labels(ylab=dd, cex.lab=.65, line=.1)
+    })
+  }
+)
+
+.__lme_color_palette <- list(
+ pname = 'BlueWhiteRed',
+ ncolor = 128,
+ 
+ pal = expand_heatmap(get_heatmap_palette('BlueWhiteRed'), ncolors=128),
+ 
+ pval_pal = expand_heatmap(
+   rev(tail(get_heatmap_palette('BlueWhiteRed'),
+            ceiling(length(get_heatmap_palette('BlueWhiteRed'))/2))),
+   ncolors=128, bias=10)
+)
+
+
 # 3D viewer, takes 3 args
 lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, proxy, ...){
     # Check whether load is needed
@@ -544,6 +606,7 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, proxy, ...){
       rev(tail(.colors, ceiling(length(.colors)/2))),
       ncolors=128, bias=10)
     pals = list(pal)
+    
     pals[2:ncol(by_electrode_results)] = pals
     # names(pals) = fix_name_for_js(names(by_electrode_results))
     names(pals) = names(by_electrode_results)

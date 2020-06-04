@@ -41,17 +41,15 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
       values$Passes_Filters[values$Passes_Filters==1] = 'Pass'
       values$Passes_Filters %<>% factor(levels=c('Pass'))
     }
+    if(!is.null(values$Selected_Electrodes)) {
+      values$Selected_Electrodes[values$Selected_Electrodes==1] = 'Selected'
+      values$Selected_Electrodes %<>% factor(levels='Selected')
+    }
     
     # let's also set the electrode freesurfer label into the dset if we have it
     if('freesurferlabel' %in% names(electrodes_csv)) {
-      values$Freesurfer_Lbl = electrodes_csv[['freesurferlabel']]
-      
-      values$Freesurfer_Lbl %<>% stringr::str_remove_all('wm_')
-      values$Freesurfer_Lbl %<>% stringr::str_replace_all(
-        c('lh_' = 'L ', 'rh_' = 'R ',
-          'occipital' = 'occ',
-          'temporal' = 'temp', 'middle' = 'mid')
-      )
+      # I'm randomizing the factor order here so the colors will not be nearby
+      values$Anatomy = factor(electrodes_csv[['freesurferlabel']], levels=sample(unique(electrodes_csv[['freesurferlabel']])))
     }
     
     brain$set_electrode_values(values)
@@ -70,22 +68,6 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
       controllers[['Display Range']] = sprintf('-%s,%s', v, v )
       # tr = controllers[['Threshold Range']]
     }
-    
-    # if(!length(controllers[['Threshold Data']]) || controllers[['Threshold Data']] == '[None]'){
-    #   controllers[['Threshold Data']] = rownames(or)[2]
-    #   v = 1+ceiling(max(abs(or[2,])) )
-    #   controllers[['Threshold Range']] = sprintf('-%s,-2|2,%s', v, v)
-    #   # threshold format: -10,2|2,10
-    # } else if(is_old_dv & controllers[['Threshold Data']] == 't') {
-    #   # we want to update the threshold range just in case
-    #   old_range = controllers[['Threshold Range']]
-    #   
-    #   if(str_detect(old_range, '|')) {
-    #     rng = str_split(str_split(old_range, '\\|')[[1]], ',')
-    #     new_mx = max(c(rng[[1]] %>% as.numeric %>% abs, 1+ceiling(max(abs(or[2,])) )))
-    #     controllers[['Threshold Range']] = sprintf('-%s,%s|%s,%s', new_mx, rng[[1]][2], rng[[2]][1], new_mx)
-    #   }
-    # }
     
     ### maybe we don't always want to show legend...
     controllers[['Show Legend']] = TRUE
@@ -114,7 +96,8 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
     re = brain$plot(symmetric = 0, palettes = pals,
                     side_width = side_width / 2, side_canvas = TRUE, 
                     side_display = display_side, start_zoom = zoom_level, controllers = controllers,
-                    control_presets = 'syncviewer', timestamp = FALSE)
+                    control_presets = 'syncviewer', timestamp = FALSE,
+                    control_display = FALSE)
     
   }else{
     # optional, if you want to change the way 3D viewer looks in additional tab
@@ -122,13 +105,10 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
     
     # Just initialization, no need to show sidebar
     re = brain$plot(side_width = side_width / 2, side_canvas = TRUE, side_display = display_side,
-                    control_presets = 'syncviewer', timestamp = FALSE)
+                    control_presets = 'syncviewer', timestamp = FALSE, control_display=FALSE)
   }
   
   re
-  
-  # brain$view(value_range = c(-1,1) * max(abs(values)),
-  #            color_ramp = rave_heat_map_colors, side_shift = c(-265, 0))
 }
 
 ## modified from downloadButton
@@ -580,9 +560,23 @@ make_stat_heatmap <- function(mat, nm, band, stat, type='mean', mar) {
 }
 
 download_electrodes_csv <- function() {
-  tagList(downloadLink(ns('btn_electrodes_meta_download'), 'Download copy of meta data for all electrodes'),
-          tags$p('   ', style='margin-bottom:20px'))
+  tagList(tags$p('   ',style='margin-top:20px; margin-bottom:5px'),
+          downloadLink(ns('btn_electrodes_meta_download'), 'Download copy of meta data for all electrodes'))
 }
+
+do_calculate_btn_float = function() {
+  dipsaus::actionButtonStyled(
+    ns('do_calculate_btn_float_button'), label = 'RAVE!',
+    width = '200px', type = 'info',
+    icon = icon('magic'), style = 'z-index: 999999; position: fixed; left: 50px; top:10px; display: block ! important')
+}
+
+
+observeEvent(input$do_calculate_btn_float_button, {
+  if(shiny_is_running() & !auto_recalculate()) {
+    trigger_recalculate()
+  }
+})
 
 output$btn_electrodes_meta_download <- downloadHandler(
   filename=function(...) {

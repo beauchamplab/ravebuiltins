@@ -48,7 +48,7 @@ text_to_range = function(str) {
     }
     return (paste0(s1, '+', s2))
 }
- 
+
 pretty_string <- function(s) {
     stringr::str_replace_all(s,c(
         'Pct' = '%',
@@ -176,6 +176,14 @@ lme_out <- function() {
     
     string_formula = as.character(formula(lmer_results))
     string_formula = paste(string_formula[2], string_formula[1], string_formula[3])
+    
+    lme_message = tryCatch({
+        ifelse(is.null(lmer_results@optinfo$conv$lme4$messages),
+                             'No Message', lmer_results@optinfo$conv$lme4$messages)
+    }, error=function(e) {
+        'No Message'
+    })
+    
     htmltools::p(
         lmer_summary$methTitle, sprintf(' (%s)', lmer_summary$objClass), br(),
         'LME call: ', strong(string_formula), br(),
@@ -201,7 +209,7 @@ lme_out <- function() {
             structure(as.list(quantile(lmer_summary$residuals, na.rm = TRUE)), names = NULL)
         )),
         div(
-            p('LME Message: ', ifelse(is.null(lmer_results@optinfo$conv$lme4$messages), 'No Message', lmer_results@optinfo$conv$lme4$messages))
+            p('LME Message: ', lme_message)
         ),
         hr(),
         h3('Random Effects Table'),

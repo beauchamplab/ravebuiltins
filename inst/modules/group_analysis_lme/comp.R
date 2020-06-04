@@ -292,52 +292,54 @@ define_output(
     definition = customizedUI('lme_out', style='min-height:500px'),
     title = 'Model output',
     width = 12,
-    order = 2
+    order = 100
 )
 
 define_output(
   definition = plotOutput('power_over_time', height='500px'),
   title = 'Activity over time',
   width = 8,
-  order = 1
+  order = 60
 )
 
 define_output(
   definition = plotOutput('windowed_activity', height='500px'),
   title = 'Mean activity in analysis window',
   width = 4,
-  order = 1
+  order = 61
 )
 
 define_output(
   definition = customizedUI('mass_univariate_results', style='min-height:500px'),
   title = 'Univariate stat output',
-  width = 12, order=5
+  width = 12, order=20
 )
 
 define_output(
   definition = plotOutput('electrode_inspector_time_series', height='500px'),
   title = 'Subset time series',
-  width = 8, order=6
+  width = 8, order=50
 )
 
 define_output(
   definition = plotOutput('electrode_inspector_barplot', height='500px'),
   title = 'Subset barplot',
-  width = 4, order=7
+  width = 4, order=51
 )
 
 define_output(
   definition = plotOutput('post_hoc_plot', height='500px'),
   title = 'Compare post-hoc variables',
-  width = 12, order=8
+  width = 12, order=70
 )
 
 define_output_3d_viewer(
     outputId = 'lme_3dviewer',
     message = 'Reload Viewer',
     title = 'Statistical results by electrode',
-    order = 4
+    height = '500px', 
+    additional_ui = htmltools::tagList(' | ', downloadLink(ns('download_3dv_colobar'), 'Download color bar')),
+    order = -1
 )
 
 # 'Multiple Comparisons' = c('multiple_comparisons'),
