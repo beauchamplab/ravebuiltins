@@ -9,6 +9,7 @@ ravebuiltins:::dev_ravebuiltins(T)
                 electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
 # init_module(module_id = 'group_analysis_lme', debug = TRUE)
 .__DEBUG__ = 1
+if(exists('local_data')) rm(local_data)
 view_layout('group_analysis_lme')
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
@@ -28,5 +29,4 @@ mount_demo_subject(force_reload_subject = T)
 module = ravebuiltins:::debug_module('group_analysis_lme')
 
 results = result$results
-
 view_layout('group_analysis_lme', sidebar_width = 3, launch.browser = T)

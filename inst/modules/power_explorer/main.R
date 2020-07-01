@@ -469,7 +469,6 @@ get_stats_per_electrode <- function(ttypes){
   return(combined_res)
 }
 
-
 # cache <- function(key, val, name) {
   # return(val)
 # }
@@ -490,21 +489,23 @@ omnibus_results <- cache(
 # grab all the details needed for plotting and put them in a list that
 # can be passed around (and I guess modified?)
 
-plot_options <- build_plot_options()
+# plot_options <- build_plot_options()
 ## is this safe???
-to_copy = names(plot_options) %in% ls(envir=globalenv())
-if(any(to_copy)) {
-  for(ii in which(to_copy)) {
-    plot_options[[names(plot_options)[ii]]] = get(names(plot_options)[ii], envir = global_env())
-  }
-}
+# to_copy = names(plot_options) %in% ls(envir=globalenv())
+# if(any(to_copy)) {
+#   for(ii in which(to_copy)) {
+#     plot_options[[names(plot_options)[ii]]] = get(names(plot_options)[ii], envir = global_env())
+#   }
+# }
 
 # plot time range isn't being set correctly...
-plot_options$plot_time_range = plot_time_range
-plot_options$sort_trials_by_type = sort_trials_by_type
+# plot_options$plot_time_range = plot_time_range
+# plot_options$sort_trials_by_type = sort_trials_by_type
+# plot_options$draw_decorator_labels = draw_decorator_labels
+# local_data$plot_options = plot_options
+
 
 # load up local data the plot data and the plot options
-local_data$plot_options = plot_options
 local_data$over_time_data = over_time_data
 local_data$heat_map_data = heat_map_data
 local_data$scatter_bar_data = scatter_bar_data
@@ -526,6 +527,9 @@ omnibus_results %<>% rbind(
 
 local_data$omnibus_results = omnibus_results
 
+
+
+### we need to store the plot options 
 
 
 # flat_data
@@ -583,6 +587,8 @@ result = module(ELECTRODE_TEXT = '14', percentile_range = TRUE,
                 )
 results = result$results
 by_trial_heat_map_plot(results)
+
+results$get_variables(level = 3)
 
 across_electrode_statistics_plot(results)
 # result$heat_map_plot()

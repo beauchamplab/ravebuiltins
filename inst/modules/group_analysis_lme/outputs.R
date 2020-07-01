@@ -64,8 +64,13 @@ observeEvent(input$link_clear_show_by_electrode_results, {
     local_data$show_by_electrode_results_rows_selected = NULL
 })
 
-
-power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analysis_window, ylab) {
+power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analysis_window,
+                            ylab, ignoreROIs) {
+  
+  if(missing(ignoreROIs)) {
+    ignoreROIs = !(model_params$how_to_model_roi %in% c('Stratify (Random+Fixed)', 'All possible ITX (Random+Fixed)'))
+  }
+  
   # local_data = ..local_data
   lmer_results %?<-% local_data$lmer_results
   shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
@@ -88,67 +93,152 @@ power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analys
     fixed_effects = vars[-to_exclude]
   }
   
-  by_group = list(agg_over_trial)
-  # need to build a name vector. should be the interaction of all the fixed effects
-  names = 'Overall'
-  if(length(fixed_effects) > 0) {
-    
-    if(length(fixed_effects) == 1) {
-      by_group  <- split(agg_over_trial, list(
-        agg_over_trial[[fixed_effects]]
-      ))
-    } else {
-      by_group = split(agg_over_trial, agg_over_trial[fixed_effects])
+  do_time_series_plot <- function(aot, ignoreROI=TRUE, use_this_range=NULL, axes=c(T,T), decorate=TRUE) {
+    by_group = list(aot)
+    # need to build a name vector. should be the interaction of all the fixed effects
+    names = 'Overall'
+    if(ignoreROI) {
+      to_rem = which(fixed_effects == 'ROI')
+      if(any(to_rem)) {
+        fixed_effects = fixed_effects[-to_rem]
+      }
     }
+    if(length(fixed_effects) > 0) {
+      if(length(fixed_effects) == 1) {
+        by_group  <- split(aot, list(
+          aot[[fixed_effects]]
+        ))
+      } else {
+        by_group = split(aot, aot[fixed_effects])
+      }
+      names = levels(interaction(
+        aot[fixed_effects], drop=TRUE, sep=':'
+      ))
+    }
+    # The sample_sizes will be too large if we have multiple TimeWindows involved. So we need to first 
+    # aggregate over TimeWindow.... Maybe we could just get the degrees of freedom from the LME ?
     
-    names = levels(interaction(
-      collapsed_data[fixed_effects]
-      , drop=TRUE, sep=':'
-    ))
-  }
-  # The sample_sizes will be too large if we have multiple TimeWindows involved. So we need to first 
-  # aggregate over TimeWindow.... Maybe we could just get the degrees of freedom from the LME ?
-  
-  # summary(lmer_results)
-  sample_sizes = rep(1, length(by_group))#length(unique(collapsed_data$uuid)) %>%
+    # summary(lmer_results)
+    sample_sizes = rep(1, length(by_group))#length(unique(collapsed_data$uuid)) %>%
     #   do_aggregate(as.formula('y ~ 1 ' %?&% fixed_effects %?&%
     #                             paste0(..local_data$var_random_effects, collapse = '+')), function(x)1) %>% split()
     # %$% unlist(y)
     
-  lpd <- mapply(function(group, sample_size, name) {
-    # ensure that there are no NA in the se for when we get the range
-    # we aren't using the values other than to plot, so setting NA to 0 shouldn't matter here
-    # e.g., sample size has already been calculated
-    group$y[is.na(group$y[,2]),2] = 0
+    lpd <- mapply(function(group, sample_size, name) {
+      # ensure that there are no NA in the se for when we get the range
+      # we aren't using the values other than to plot, so setting NA to 0 shouldn't matter here
+      # e.g., sample size has already been calculated
+      group$y[is.na(group$y[,2]),2] = 0
+      
+      if(is.null(use_this_range)) {
+        .range = range(plus_minus(group$y))
+      } else {
+        .range = use_this_range
+      }
+      
+      res = list(
+        x = group$Time,
+        data = group$y,
+        N = sample_size,
+        range = .range,
+        has_trials = TRUE,
+        name = name
+      )
+      
+      attr(res$data, 'xlab') = 'Time'
+      attr(res$data, 'ylab') = pretty_string(ylab)
+      res
+    }, by_group, sample_sizes, names, SIMPLIFY = FALSE)
     
-    res = list(
-      x = group$Time,
-      data = group$y,
-      N= sample_size,
-      range = range(plus_minus(group$y)),
-      has_trials = TRUE,
-      name = name
-    )
+    time_series_plot(lpd,
+                     plot_time_range=local_data$omnibus_plots_time_range,
+                     do_update_ylim = is.null(use_this_range), axes=axes)
+    # axis_label_decorator(lpd)
+    if('TimeWindow' %in% vars) {
+      tw = tapply(aot$Time, aot$TimeWindow, range)
+      tw = tw[which(names(tw) != 'ZZZ___')]
+      txt = names(tw)
+      if(!decorate) {
+        txt = rep_len("", length(names(tw)))
+      }
+      mapply(window_decorator, tw, text=txt)
+    } else {
+      txt = 'Analysis Window'
+      if(!decorate) txt = ''
+      window_decorator(analysis_window, text=txt)
+    }
     
-    attr(res$data, 'xlab') = 'Time'
-    attr(res$data, 'ylab') = pretty_string(ylab)
-    res
-  }, by_group, sample_sizes, names, SIMPLIFY = FALSE)
-  
-  time_series_plot(plot_data = lpd, plot_time_range=local_data$omnibus_plots_time_range)
-  axis_label_decorator(lpd)
-  
-  if('TimeWindow' %in% vars) {
-    tw = tapply(agg_over_trial$Time, agg_over_trial$TimeWindow, range)
-    tw = tw[which(names(tw) != 'ZZZ___')]
-    mapply(window_decorator, tw, text=names(tw))
-  } else {
-    window_decorator(analysis_window, text='Analysis Window')
+    # we can't get the sample size right :(
+    legend_decorator(lpd, include = c('name'))#, 'N'))
   }
   
-  # we can't get the sample size right :(
-  legend_decorator(lpd, include = c('name'))#, 'N'))
-  # group_analysis_cat2t('OUT POT')
+  # determine if we are using ROIs
+  if(!ignoreROIs) {
+    if(!is.null(agg_over_trial$ROI)) {
+      
+      common_range = NULL
+      if(isTRUE(input$omnibus_plots_use_common_range)) {
+        common_range = range(plus_minus(agg_over_trial$y))
+      }
+      agg_over_trial$ROI %<>% factor
+      by_roi = split(agg_over_trial, agg_over_trial$ROI)
+      
+      nc = min(nlevels(agg_over_trial$ROI), 3)
+      nr = ceiling(nlevels(agg_over_trial$ROI)/nc)
+      graph_ind = NULL
+      
+      if(isTRUE(input$omnibus_plots_roi_as_lattice)) {
+        if(is.null(common_range)) common_range = range(plus_minus(agg_over_trial$y))
+        graph_ind = seq_len((nc + 1) * (nr + 1))
+        layout(
+          matrix(graph_ind, nrow = nr + 1, byrow = T),
+          widths = c(lcm(2), rep(4, nc)),
+          heights = c(rep(4, nr), lcm(1))
+        )
+        current_graph = 1
+        for(ii in graph_ind) {
+          if(ii %% (nc+1) == 1) {
+            if(ii < nr*(nc+1)) {
+              par(mar=c(0,2,2,0))
+              plot_clean(0:1, pretty(common_range))
+              rave_axis(2, at = axTicks(2), pos=1)
+              rave_axis_labels(ylab=local_data$var_dependent_label, line=0, cex.lab = 1)
+            }  else {
+              par(mar=rep(0,4))
+              plot_clean(0:1, pretty(common_range))
+            }
+          } else if(ii > (nr*(nc+1)) + 1) {
+            par(mar=rep(0,4))
+            plot_clean(local_data$omnibus_plots_time_range, 0:1)
+            rave_axis(1, at=axTicks(1), pos=1)
+          } else {
+            par(mar=c(.5,.5,2,.5))
+            if(current_graph <= length(by_roi)) {
+              do_time_series_plot(by_roi[[current_graph]], axes=c(F,F),
+                                  ignoreROI = TRUE, use_this_range = common_range,
+                                  decorate = current_graph == 1)
+              rave_title(as.character(by_roi[[current_graph]]$ROI[1]))
+            } else {
+              rutabaga::plot_clean(pretty(local_data$omnibus_plots_time_range),
+                                   pretty(common_range))
+            }
+            current_graph = current_graph + 1
+          }
+        }
+        
+      } else {
+        par(mfrow=c(nr, nc))
+        lapply(by_roi, function(aot) {
+          do_time_series_plot(aot, ignoreROI = TRUE, use_this_range = common_range)
+          rave_title(as.character(aot$ROI[1]))
+        })
+      }
+    } else {
+      do_time_series_plot(agg_over_trial)
+    }
+  } else {
+    do_time_series_plot(agg_over_trial)
+  }
 }
 
 electrode_inspector_time_series <- function() {
@@ -203,7 +293,6 @@ get_selected_subjel <- function() {
 windowed_activity <- function(lmer_results, collapsed_data) {
   # group_analysis_cat2t('IN WA')
     set_palette(local_data$omnibus_plots_color_palette)
-    
     # print(grDevices::palette())
     # lmer_results = ..local_data$lmer_results
     # collapsed_data = ..local_data$collapsed_data
@@ -220,20 +309,18 @@ windowed_activity <- function(lmer_results, collapsed_data) {
     po = local_data$omnibus_plots_plot_aesthetics
     if(ncol(.y) > 2) {
         # .y <- collapsed_data %>% do_aggregate(y ~ Subject + TimeWindow, m_se)
-        yy = matrix(.y$y[,1], ncol = nlevels(.y[,2]), byrow=F)
+        yy = matrix(.y$y[,1], ncol = nlevels(factor(.y[,2])), byrow=F)
         rownames(yy) = unique(.y[,1])
         colnames(yy) = unique(.y[,2])
         
-        
-        
         xp <- rutabaga::rave_barplot(yy, axes=F, col = adjustcolor(1:nrow(yy), rave_colors$BAR_PLOT_ALPHA),
-                                     border=NA, beside=TRUE, axes=T,
+                                     border=NA, beside=TRUE, 
                                      ylim = range(pretty(c(0, plus_minus(.y$y[,1], .y$y[,2])))),
                                      xlab=attr(terms(lmer_results), 'term.labels')[2])
         # rave_axis(2, at=axTicks(2))
         # rave_axis_labels(ylab=)
         leg = unique(.y[,1])
-        legend(input$omnibus_plots_legend_location, legend=leg, text.col=seq_along(leg),
+        legend(local_data$omnibus_plots_legend_location, legend=leg, text.col=seq_along(leg),
                cex=rave_cex.lab, bty='n', horiz=F, ncol = floor((length(leg)-1) / 3)+1 ) 
         ebars(xp, .y$y, col=1:nrow(yy), code=0, lwd=2, lend=0)
         
@@ -302,14 +389,11 @@ windowed_activity <- function(lmer_results, collapsed_data) {
     rave_axis(2, at=axTicks(2))
     
     abline(h=0, col=rave_colors$TRIAL_TYPE_SEPARATOR)
-    # group_analysis_cat2t('OUT WA')    
 }
 
 electrode_inspector_barplot <- function() {
   shiny::validate(shiny::need(!is.null(local_data$lmer_results), message = 'No model calculated'))
   shiny::validate(shiny::need(!is.null(local_data$show_by_electrode_results_rows_selected), message = 'No rows selected'))
-  
-  group_analysis_cat2t('IN EIB')
   
     selected = get_selected_subjel()
     cd = local_data$collapsed_data
@@ -320,13 +404,10 @@ electrode_inspector_barplot <- function() {
     
     windowed_activity(collapsed_data = cd)
     rave_title(attr(selected, 'label'))
-    
-    group_analysis_cat2t('OUT EIB')
 }
 
 output$show_by_electrode_results <- DT::renderDataTable({
     by_electrode_results = local_data$by_electrode_results
-    group_analysis_cat2t('Rendering DT')
     DT::datatable(by_electrode_results, class = 'nowrap',
                   options = list(
                       scrollX = TRUE,
@@ -349,6 +430,12 @@ custom_plot_download_renderers <- function(plot_name, ...) {
 
   FUNS[[nm]]()
 }
+custom_plot_download <- custom_plot_download_impl(
+  module_id = 'group_analysis_lme',
+  choices=c(
+    'Activity over time', 'Mean activity in analysis window', 'Subset time series', 
+    'Subset barplot', 'Compare post-hoc variables')
+)
 
 output$btn_custom_plot_download <- downloadHandler(
     filename=function(...){
@@ -363,18 +450,11 @@ output$btn_custom_plot_download <- downloadHandler(
       on.exit(dev.off(), add = TRUE)
       do.call(DEV, args = args)
       
-      ##### set the margins of the plot
+      ##### set the margins of the plot.... this might get overriden
       par(mar = c(2.75, 3.5, 2, 1))
       
       custom_plot_download_renderers(input$custom_plot_select)
     })
-
-custom_plot_download <- custom_plot_download_impl(
-  module_id = 'group_analysis_lme',
-  choices=c(
-    'Activity over time', 'Mean activity in analysis window', 'Subset time series', 
-    'subset barplot', 'Compare post-hoc variables')
-)
 
 lmer_diagnosis = function(){
     lmer_results = local_data$lmer_results
@@ -448,8 +528,8 @@ hide_everything_but_post_hoc_plot <- function() {
 }
 
 observeEvent(input$btn_hide_everything_but_post_hoc_plot, {
-    nms <- c("Data Import", "Build Condition Groups", "Single time window analysis", 
-      "Multiple time window analysis", "Build Model", 'Model Output', 'Activity over time',
+    nms <- c("Data import", "Build condition groups", "Single time window analysis", 
+      "Multiple time window analysis", "Build model", 'Model output', 'Activity over time',
       'Mean activity in analysis window', 'Univariate stat output',
       'Statistical results by electrode', 'Subset time series', 'Subset barplot')
       
@@ -580,6 +660,11 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, proxy, ...){
     
     by_electrode_results = local_data$by_electrode_results
     
+    to_rem = which(names(by_electrode_results) %in% c('jitter(Subject)'))
+    if(any(to_rem)) {
+      by_electrode_results = by_electrode_results[,-to_rem]
+    }
+    
     #make sure all the pvalues are numeric
     by_electrode_results[startsWith(names(by_electrode_results), 'p(')] %<>% lapply(as.numeric)
     
@@ -593,11 +678,14 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, proxy, ...){
     brain = threeBrain::merge_brain(.list = brains, template_surface_types = c('pial', 'inf_200'))
     
     # set_palette()
-    nms <- names(by_electrode_results)[-(1:3)]
+    # nms <- sapply(names(by_electrode_results)[startsWith(names(by_electrode_results),
+    #                                               c('m(', 't(', 'p('))
+                                                  # ]
+  
+    nms <- names(by_electrode_results)[grepl("^[m(|t(|p(|F(]", names(by_electrode_results))]
     val_ranges = sapply(nms, function(d) {
         if (startsWith(d, 'p('))
             return(c(-.2, .2))
-        
         c(-1, 1) * ceiling(max(abs(by_electrode_results[[d]])))
     }, simplify = FALSE, USE.NAMES = TRUE)
     .colors = get_heatmap_palette('BlueWhiteRed')
@@ -607,16 +695,22 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, proxy, ...){
       ncolors=128, bias=10)
     pals = list(pal)
     
-    pals[2:ncol(by_electrode_results)] = pals
+    pals[seq_along(nms)] = pals
     # names(pals) = fix_name_for_js(names(by_electrode_results))
-    names(pals) = names(by_electrode_results)
+    names(pals) = nms
     
-    pals[str_detect(names(pals), 'p\\.')] = list(pval_pal)
+    pals[startsWith(names(pals), 'p(')] = list(pval_pal)
     pals[names(pals) %in% c('p')] = list(pval_pal)
+    
+    make_factor = which(sapply(by_electrode_results, is.character))
+    if(any(make_factor)) {
+      for(ii in make_factor)
+        by_electrode_results[[ii]] %<>% factor
+    }
     
     brain$set_electrode_values(by_electrode_results)
     re = brain$plot(side_width = side_width, val_ranges = val_ranges, palettes = pals,
-                    side_display = FALSE, control_display=FALSE)
+                    side_display = FALSE, control_display=FALSE, timestamp=FALSE)
 }
 
 build_custom_var <- function(ber, var_name, var_string) {
@@ -629,9 +723,9 @@ build_custom_var <- function(ber, var_name, var_string) {
 }
 
 
-# this function does not work, in general.
-# Because it works by string matching, "simple" variable names in your dataframe may conflict with 
-# function names you're using. Be careful. all instances of names(df) in your var_string are going to be str_replaced
+# this function does not work with full generality...
+# It works by string matching, so "simple" variable names in your dataframe may conflict with 
+# function names you're using. Be careful. all instances of names(df) in your var_string are going to be str_replace'd
 # this functions work for our purposes because variables names have parentheses and all manner of special characters that
 # reduce the likelihood of a collision
 eval_in_dataframe <- function(df, var_string) {
@@ -664,7 +758,6 @@ eval_in_dataframe <- function(df, var_string) {
   
   return(vals)
 }
-
 
 post_hoc_plot <- function() {
   shiny::validate(shiny::need(!is.null(local_data$by_electrode_results), message = 'No results available'))
@@ -709,8 +802,9 @@ post_hoc_plot <- function() {
     y = df[[yvar]] %>% as.numeric
     
     if(tolower(zvar) != 'none') {
+      print('z var is: ' %&% zvar)
       z = df[[zvar]]
-      y = resid(lm(y ~ z))
+      if(!is.null(z)) y = resid(lm(y ~ z))
     }
     
     # One hard part here is that the aspect ratio is hard to get right.

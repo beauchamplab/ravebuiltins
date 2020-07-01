@@ -4,8 +4,11 @@
 #' @import rutabaga
 #' @import rave
 #' @import shiny
-#' @importFrom magrittr %>%
 #' @import stringr
+#' @import lme4
+#' @import lmerTest
+#' @import emmeans
+#' @importFrom magrittr %>%
 #' @importFrom magrittr %<>%
 #' @importFrom magrittr %$%
 #' @importFrom magrittr extract2
@@ -14,7 +17,6 @@
 #' @importFrom magrittr set_colnames
 #' @importFrom magrittr equals
 #' @import rlang
-#' @import lmerTest
 #'
 #' @importFrom methods is
 #' @importFrom methods getMethod
@@ -30,6 +32,7 @@
 #' 
 #' @import graphics
 #' 
+#' 
 #' @importFrom stats median
 #' @importFrom stats median.default
 #' @importFrom stats pt
@@ -38,8 +41,11 @@
 #' @importFrom stats symnum
 #' @importFrom stats density
 #' 
+#' @importFrom fst read_fst
+#' @importFrom fst write_fst
+#' 
 NULL
-
+ 
 # Add global variables to pass check
 ..async_quo = NULL
 ..async_var = NULL
@@ -94,11 +100,14 @@ rave_cex.lab <- 1.4
 
 rave_axis_tcl = -0.3
 
+RAVE_ROI_KEY = 'VAR_IS_ROI_'
+
 rave_color_ramp_palette <- colorRampPalette(c('navy', 'white', 'red'), interpolate='linear', space='Lab')
 rave_color_ramp_dark_palette <- colorRampPalette(c('#13547a', 'black', '#ff758c'), interpolate='linear', space='Lab')
 
 ..dark_blue_to_red <- rev(c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#ffffff", 
                         "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061"))
+
 ..light_blue_to_light_red <- c(..dark_blue_to_red[5:1], 'black', ..dark_blue_to_red[11:7])
 ..light_blue_to_gray_to_light_red <- c(..dark_blue_to_red[5:1], '#1E1E1E', ..dark_blue_to_red[11:7])
 
@@ -209,7 +218,6 @@ rave_title.rave_running_local <- function(main, ..., cex=1) {
       } else {
         line
       }
-      
       title(xlab=NULL, ylab=ylab,
             cex.lab=cex.lab*get_cex_for_multifigure(),
             col.lab=col, line=yline, ...)
@@ -236,12 +244,14 @@ rave_title.rave_running_local <- function(main, ..., cex=1) {
 rave_axis_labels.default= .rave_axis_labels
 rave_axis_labels <- rave::rave_context_generics('rave_axis_labels', .rave_axis_labels)
 
-rave_axis_labels.rave_running_local <- function(..., xlab=NULL, ylab=NULL, cex.lab=8) {
+rave_axis_labels.rave_running_local <- function(..., line=-101, xlab=NULL, ylab=NULL, cex.lab=1) {
   if(!is.null(xlab)) {
-    rave_axis_labels.default(..., xlab=xlab, ylab=NULL, line=1.5, cex.lab=cex.lab)
+    if(line < -100) line = 1.5
+    rave_axis_labels.default(..., xlab=xlab, ylab=NULL, line=line, cex.lab=cex.lab)
   }
   if(!is.null(ylab)) {
-    rave_axis_labels.default(..., ylab=ylab, xlab=NULL, line=2.5, cex.lab=cex.lab)
+    if(line < -100) line=2.5
+    rave_axis_labels.default(..., ylab=ylab, xlab=NULL, line=line, cex.lab=cex.lab)
   }
 }
 
@@ -262,7 +272,17 @@ ebars.y = function(x, y, sem, length = 0.05, up = T, down = T, code = 2, ...) {
   }
 }
 
-plus_minus <- rutabaga::plus_minus
+plus_minus <- #rutabaga::plus_minus
+function (x, d) 
+{
+  if (missing(d) & is.matrix(x)) {
+    d <- x[, 2]
+    x <- x[, 1]
+    
+    if(any(is.na(d))) d[is.na(d)] = 0
+  }
+  c(x - d, x + d)
+}
 
 abs_cdiff <- function(m) {
   if(!is.matrix(m))
@@ -418,6 +438,7 @@ custom_plot_download_impl <- function(module_id, choices, selected=choices[1], w
                 div(style='flex-basis: 25%', numericInput(ns('custom_plot_height'), label='height (inches)', value=h, min=3, step = 1)),
                 div(style='flex-basis: 25%', selectInput(ns('custom_plot_file_type'), label='File Type',
                                                          choices=c('pdf', 'jpeg', 'png', 'tiff', 'svg'), selected='pdf')),
+                div(style='flex-basis:100%', checkboxInput(ns('save_hires_plot_to_server'), label='Save a copy on the server')),
                 
                 div(style='flex-basis: 100%', customDownloadButton(ns('btn_custom_plot_download'),
                                                                    label = "Download Graph", icon_lbl = 'file-image'))
@@ -468,6 +489,11 @@ remove_count_from_label <- function(str) {
 remove_hemisphere_labels <- function(str) {
   stringr::str_replace_all(str, 
                            c('L ' = '', 'R ' = ''))
+}
+
+remove_gyrus_sulcus_labels <- function(str) {
+  stringr::str_replace_all(str,
+                           c('GS ' = '', 'G ' ='', 'S '=''))
 }
 
 

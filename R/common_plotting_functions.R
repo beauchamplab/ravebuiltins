@@ -172,9 +172,9 @@ build_group_contrast_labels <- function(group_names) {
           function(x) paste(group_names[x],collapse='.vs.'))
 }
 
-
 # show power over time with MSE by condition
-time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_time_range=NULL) {
+time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_time_range=NULL,
+                             do_update_ylim=TRUE, axes=TRUE) {
     rave_context()
     
     # check the plottable range, to make sure we're only plotting what the user has requested
@@ -182,7 +182,6 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_
     
     for(ii in seq_along(plot_data)) {
         if (! all(plot_data[[ii]]$x %within% plot_time_range) ) {
-            
             attrs = attributes(plot_data[[ii]]$data)
             
             ind <- plot_data[[ii]]$x %within% plot_time_range
@@ -192,9 +191,10 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_
             attrs$dim = attributes(plot_data[[ii]]$data)$dim
             attributes(plot_data[[ii]]$data) = attrs
             
-            
             # we need to update the range of the plots
-            plot_data[[ii]]$range <- .fast_range(plus_minus(plot_data[[ii]]$data))
+            if(do_update_ylim) {
+                plot_data[[ii]]$range <- .fast_range(plus_minus(plot_data[[ii]]$data))
+            }
         }
     }
     
@@ -208,8 +208,10 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_
     # draw the axes AFTER the first paneling, should this go in PANEL.FIRST?
     # it's weird because the PANEL.FIRST is responsible for labeling the axes, so why not for drawing them?
     # the counter is that we need the xlim and ylim to make the plot. So it's easy to just draw the labels here
-    rave_axis(1, xlim)
-    rave_axis(2, ylim)
+    axes %<>% rep_len(2)
+    if(axes[1]) rave_axis(1, xlim)
+    if(axes[2]) rave_axis(2, ylim)
+    
     abline(h=0, col='gray70')
     
     # draw each time series
@@ -962,7 +964,7 @@ set_palette_helper <- function(results, plot_options, ...) {
     }
     
     # setting the background color here triggers a cascade of color changes
-    if(.bg == 'Gray') {
+    if(tolower(.bg) == 'gray') {
         par('bg'=rave_colors$DARK_GRAY)
     } else {
         par('bg'=.bg)
@@ -1095,7 +1097,14 @@ set_font_scaling <- function(plot_options, FONT_SCALING = c('shiny', 'Rutabaga',
 }
 
 build_plot_options <- function(..., FONT_SCALING=c('shiny', 'Rutabaga', 'R')) {
-    options <- list(
+    # this works
+    options <- fastmap::fastmap()
+    
+    #this does not work
+    # options <- dipsaus::fastmap2()
+    # options$mset(a=2, b=3)
+    
+    options$mset(
         plot_time_range = c(-Inf,Inf),
         draw_decorator_labels = FALSE,
         plot_title_options = c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range', 
@@ -1117,16 +1126,17 @@ build_plot_options <- function(..., FONT_SCALING=c('shiny', 'Rutabaga', 'R')) {
         log_scale = FALSE,
         max_zlim = 0,
         percentile_range = TRUE,
-        
         sort_trials_by_type = 'Trial Number'
     )
+    
     
     options %<>% set_font_scaling(FONT_SCALING)
     
     
     # any named arguments will override the defaults
     v = list(...)
-    options[names(v)] = v
+    # options[names(v)] = v
+    if(length(v))    options$mset(.list=v)
 
     return(options)
 }
@@ -1137,7 +1147,6 @@ do_on_inclusion <- function(needle, expr, haystack) {
         eval(expr)
     }
 }
-
 
 #
 # helper that calls out to sub-decorators based on user-selected options
@@ -1213,7 +1222,6 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
     legend(location, legend=legend_text, ncol=ceiling(length(ii)/3),
            inset=c(.025,.075), bty='n',
            text.col=ii, cex=rave_cex.lab*get_cex_for_multifigure())
-    
     
     invisible()
 }

@@ -30,8 +30,10 @@ define_initialization({
     
     rescan_source = function(update = TRUE, new_selected = NULL){
         choices = c(
-            list.files(power_explorer_dir, pattern = '\\.[cC][sS][vV]$'),
-            list.files(group_analysis_src, pattern = '\\.[cC][sS][vV]$')
+            # list.files(power_explorer_dir, pattern = '\\.[cC][sS][vV]$'),
+            # list.files(group_analysis_src, pattern = '\\.[cC][sS][vV]$')
+          list.files(power_explorer_dir, pattern = '\\.(fst|csv)$'),
+          list.files(group_analysis_src, pattern = '\\.(fst|csv)$')
         )
         # Order file names by date-time (descending order)
         dt = stringr::str_extract(choices, '[0-9]{8}-[0-9]{6}')
@@ -89,6 +91,17 @@ load_scripts(rlang::quo({
 }))
 
 
+
+define_input(definition = checkboxInput('omnibus_plots_use_common_range',
+                                        label='Use common scale for ROI subplots', value=TRUE)
+)
+
+define_input(definition = checkboxInput('omnibus_plots_roi_as_lattice',
+                                        label='Trellis-style ROI plot', value=FALSE)
+)
+
+
+
 define_input(definition = selectInput('omnibus_plots_color_palette', label="Subject color palette",
                                       choices = get_palette(get_palette_names = TRUE),
                                       selected = 'Beautiful Field'))
@@ -108,14 +121,42 @@ define_input(
 )
 
 define_input(
-    selectInput('model_dependent', 'Dependent', choices = '', selected = character(0))
+    selectInput('model_dependent', 'Dependent variable', choices = '', selected = character(0))
+)
+
+define_input(
+  selectInput('model_roi_variable', 'ROI variable', choices = '', selected = character(0), multiple = FALSE)
+)
+
+define_input(
+  selectInput('filter_by_roi', 'Regions included (add/remove to filter in/out)', choices = '',
+              selected = character(0), multiple = TRUE)
+)
+
+define_input(
+  checkboxInput('roi_ignore_hemisphere', 'Collapse L/R hemisphere', value =FALSE)
+)
+
+define_input(
+  checkboxInput('roi_ignore_gyrus_sulcus', 'Collapse gyrus/sulcus', value = FALSE)
+)
+
+
+define_input(
+  selectInput('how_to_model_roi', 'ROI analysis type',
+              choices = c('Stratify (Random+Fixed)',  'All possible ITX (Random+Fixed)',  'Random effect only', 'Average electrodes w/n ROI', 'Filter Only'),
+              selected = 'Stratify (Random+Fixed)', multiple = FALSE)
+)
+
+define_input(
+    selectInput('model_fixed_effects', 'Fixed effects (select 0, 1, or more)',
+                choices = '', selected = character(0), multiple = TRUE)
 )
 define_input(
-    selectInput('model_fixed_effects', 'Fixed effects', choices = '', selected = character(0), multiple = TRUE)
+    selectInput('model_random_effects', 'Random effects (Subject/Electrode required for multi-subject)',
+                choices = '', selected = character(0), multiple = TRUE)
 )
-define_input(
-    selectInput('model_random_effects', 'Random effects (Subject/Electrode required for multi-subject)', choices = '', selected = character(0), multiple = TRUE)
-)
+
 define_input(
     textAreaInput('model_formula', 'Formula', placeholder = 'y ~ X1 + X2 + (1|Subject/Electrode)')
 )
@@ -139,7 +180,7 @@ define_input(definition = textInput('post_hoc_plot_yvar_custom', label = 'Custom
 define_input(definition = textInput('post_hoc_plot_ylim', label='Y range', value = ''))
 
 
-define_input(definition = selectInput('post_hoc_plot_zvar', label = 'Partial/Regress out Z', multiple = FALSE, choices=NULL))
+define_input(definition = selectInput('post_hoc_plot_zvar', label = 'Partial/Regress out Z', multiple = FALSE, choices=c('None')))
 define_input(definition = textInput('post_hoc_plot_zvar_custom', label = 'Custom Z variable', placeholder = 'm(Group_E)'))
 
 
@@ -208,6 +249,12 @@ define_input(
   )
 )
 
+define_input(
+  definition = selectInput('how_to_model_multi_window', label = 'Time Window analysis type', 
+                           choices = c('Stratify',  'All possible ITX'),
+                           selected = 'Stratify')
+)
+
 # figure export
 define_input(
   customizedUI('custom_plot_download')
@@ -220,7 +267,8 @@ define_input(definition = checkboxInput('multi_window_is_active', 'Active', valu
 
 manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'analysis_window', 'single_analysis_window',
                   'post_hoc_plot_xlim', 'post_hoc_plot_ylim', 'multi_window_is_active', 'model_dependent', 'model_fixed_effects', 'model_random_effects', 'model_splinetime',
-                  'model_formula', 'model_embedsubject', 'run_analysis','download_all_results')
+                  'model_formula', 'model_embedsubject', 'run_analysis','download_all_results',
+                  'model_roi_variable', 'filter_by_roi', 'how_to_model_roi', 'roi_ignore_hemisphere', 'roi_ignore_gyrus_sulcus')
 
 input_layout = list(
     'Data import' = list(
@@ -240,6 +288,10 @@ input_layout = list(
     ),
     'Build model' = list(
         c('model_dependent'),
+        c('model_roi_variable'),
+        c('how_to_model_roi'),
+        c('filter_by_roi'),
+        c('roi_ignore_hemisphere', 'roi_ignore_gyrus_sulcus'),
         c('model_fixed_effects'),
         c('model_random_effects'),
         'model_formula',
@@ -250,7 +302,9 @@ input_layout = list(
       'omnibus_plots_time_range',
       'omnibus_plots_plot_aesthetics',
       'omnibus_plots_color_palette',
-      'omnibus_plots_legend_location'
+      'omnibus_plots_legend_location',
+      c('omnibus_plots_use_common_range',
+        'omnibus_plots_roi_as_lattice')
     ),
     '[-]Plot post-hoc variables' = list(
       'hide_everything_but_post_hoc_plot',
@@ -289,11 +343,28 @@ input_layout = list(
 # )
 
 define_output(
-    definition = customizedUI('lme_out', style='min-height:500px'),
-    title = 'Model output',
+    definition = customizedUI('lme_out', style='min-height:200px'),
+    title = 'Overall results',
     width = 12,
     order = 100
 )
+
+
+define_output(
+  definition = customizedUI('multiple_comparisons', style='min-height:200px'),
+  title = 'Contrast results',
+  width = 12,
+  order = 200
+)
+
+define_output(
+  definition = customizedUI('regression_output', style='min-height:200px'),
+  title = 'Full model output',
+  width = 12,
+  order = 200
+)
+
+
 
 define_output(
   definition = plotOutput('power_over_time', height='500px'),

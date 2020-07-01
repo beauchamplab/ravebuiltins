@@ -2,8 +2,7 @@ input <- getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 
 power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
-  
-  showNotification(p('Generating 3d viewer...'))
+  showNotification(p('Rebuild 3d viewer...'), id='power_3d_fun')
   brain = rave::rave_brain2(subject = subject)
   
   if(is.null(brain)){
@@ -96,8 +95,7 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
     re = brain$plot(symmetric = 0, palettes = pals,
                     side_width = side_width / 2, side_canvas = TRUE, 
                     side_display = display_side, start_zoom = zoom_level, controllers = controllers,
-                    control_presets = 'syncviewer', timestamp = FALSE,
-                    control_display = FALSE)
+                    control_presets = 'syncviewer', timestamp = FALSE)
     
   }else{
     # optional, if you want to change the way 3D viewer looks in additional tab
@@ -107,6 +105,10 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
     re = brain$plot(side_width = side_width / 2, side_canvas = TRUE, side_display = display_side,
                     control_presets = 'syncviewer', timestamp = FALSE, control_display=FALSE)
   }
+  
+  
+  
+  shiny::removeNotification('power_3d_fun')
   
   re
 }
@@ -144,22 +146,29 @@ output$btn_custom_plot_download <- downloadHandler(
     args = build_file_output_args(pt, input$custom_plot_width, input$custom_plot_height, conn)
     
     on.exit(dev.off(), add = TRUE)
+    
+    if(isTRUE(input$save_hires_plot_to_server)) {
+      
+      fname <- paste0(stringr::str_replace_all(input$custom_plot_select,' ', '_'),
+                      format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.', pt)
+      .dir <- paste0(subject$dirs$rave_dir, '/figures/')
+      if(!dir.exists(.dir)) dir.create(.dir, showWarnings = TRUE, recursive = TRUE)
+      on.exit({
+        file.copy(conn, paste0(.dir, fname))
+      }, add=TRUE, after = TRUE)
+    }
     do.call(DEV, args = args)
     
     #### set the margins of the plot
     par(mar = c(2.75, 3.5, 2, 1))
-    
     custom_plot_download_renderers(input$custom_plot_select)
   })
 
 custom_plot_download_renderers <- function(nm) {
-  plot_options = local_data$plot_options
+  plot_options = ravebuiltins_power_explorer_plot_options$as_list()
   plot_options %<>% set_font_scaling('Rutabaga')
   
-  rave_context()
-  .__rave_context__. = 'rave_running_local'
-  
-  dipsaus::cat2('setting rave context')
+  # dipsaus::cat2('setting rave context')
   
   pest  = function() {
     vars = c("has_data","which_result_to_show_on_electrodes","unit_of_analysis","omnibus_results","mean_filter",
@@ -170,9 +179,15 @@ custom_plot_download_renderers <- function(nm) {
     ll = list()
     in_local_data = vars %in% names(local_data)
     ll[vars[in_local_data]] = lapply(vars[in_local_data], function(v) local_data[[v]])
+    
+    .input <- isolate(shiny::reactiveValuesToList(input))
     for(v in vars[!in_local_data]) {
-        ll[[v]] = input[[v]]
+        ll[[v]] = .input[[v]]
     }
+    
+    ll$has_data = length(ll$omnibus_results) > 1
+    
+    assign('ll', ll, envir = globalenv())
     across_electrode_statistics_plot(build_results_object(ll))
   }
   aotbe = function() {
@@ -245,14 +260,9 @@ custom_plot_download_renderers <- function(nm) {
                         axes=c(TRUE, !need_wide))
   }
   aotbc = function() {
-    .__rave_context__. = 'rave_running_local'
-    rave_context()
-    
-    # assign('ld', local_data, envir = globalenv())
-    # assign('..local_data', value = shiny::isolate(shiny:::reactiveValuesToList(local_data)), envir = globalenv())
     time_series_plot(plot_data = local_data$over_time_data,
                      plot_time_range = plot_options$plot_time_range,
-                     PANEL.FIRST = time_series_decorator(plot_options=local_data$plot_options)
+                     PANEL.FIRST = time_series_decorator(plot_options=ravebuiltins_power_explorer_plot_options$as_list())
     )
     
   }
@@ -273,7 +283,9 @@ custom_plot_download_renderers <- function(nm) {
     'Per trial, averaged across electrodes' = ptaac
   )
   nm = match.arg(nm, names(FUNS))
-  set_palette_helper(plot_options=local_data$plot_options)
+  
+  dipsaus::cat2('Got method: ', nm, level='INFO')
+  set_palette_helper(plot_options=ravebuiltins_power_explorer_plot_options$as_list())
   FUNS[[nm]]()
 }
 
@@ -564,19 +576,19 @@ download_electrodes_csv <- function() {
           downloadLink(ns('btn_electrodes_meta_download'), 'Download copy of meta data for all electrodes'))
 }
 
-do_calculate_btn_float = function() {
-  dipsaus::actionButtonStyled(
-    ns('do_calculate_btn_float_button'), label = 'RAVE!',
-    width = '200px', type = 'info',
-    icon = icon('magic'), style = 'z-index: 999999; position: fixed; left: 50px; top:10px; display: block ! important')
-}
+# do_calculate_btn_float = function() {
+#   dipsaus::actionButtonStyled(
+#     ns('do_calculate_btn_float_button'), label = 'RAVE!',
+#     width = '200px', type = 'info', 
+#     icon = icon('magic'), style = 'z-index: 999; position: fixed; left: 50px; top:10px; display: block !important')
+# }
 
 
-observeEvent(input$do_calculate_btn_float_button, {
-  if(shiny_is_running() & !auto_recalculate()) {
-    trigger_recalculate()
-  }
-})
+# observeEvent(input$do_calculate_btn_float_button, {
+#   if(shiny_is_running() & !auto_recalculate()) {
+#     trigger_recalculate()
+#   }
+# })
 
 output$btn_electrodes_meta_download <- downloadHandler(
   filename=function(...) {
@@ -762,11 +774,10 @@ write_out_data_ui <- function(){
 output$export_data_and_download <- downloadHandler(
   filename = function(){
     analysis_prefix = stringr::str_replace_all(analysis_prefix, '[^\\w]+', '_')
-    paste0(analysis_prefix, '.csv')
+    paste0(analysis_prefix, '.fst')
   },
   content = function(con){
     res_path = write_out_data_function()
-    # R.utils::gzip(res_path, destname = con)
     file.copy(res_path, to=con)
   }
 )
@@ -795,7 +806,7 @@ save_inputs <- function(yaml_path, variables_to_export){
 }
 
 # export data for group analysis
-write_out_data_function <- function(){
+write_out_data_function <- function(write_out_movie_csv=TRUE){
   project_name = subject$project_name
   subject_code = subject$subject_code
   
@@ -804,7 +815,7 @@ write_out_data_function <- function(){
   electrodes = electrodes[electrodes %in% preload_info$electrodes]
   
   progress = progress('Exporting baselined data...', max = 3 + length(electrodes))
-  on.exit({ progress$close() })
+  on.exit({ progress$close() }, add = TRUE)
   progress$inc('Collecting data')
   
   # Get trial conditions
@@ -846,7 +857,7 @@ write_out_data_function <- function(){
   }
   
   # Baseline
-  progress$inc('Generating results... (might take a while)')
+  progress$inc('Generating results... (might take a few minutes)')
   
   # Memory-friendly baseline but might be more time consuming
   power = module_tools$get_power(referenced = TRUE)
@@ -863,7 +874,6 @@ write_out_data_function <- function(){
   unit_name = format_unit_of_analysis_name(unit_of_analysis)
   
   # here we want to take into the event of interest as well I think we just shift the entire data set here. we can
-  
   res = rave::lapply_async(electrodes, function(e){
     # e = electrodes[1]
     progress$inc(sprintf('Electrode %d', e))
@@ -944,27 +954,41 @@ write_out_data_function <- function(){
     res$TrialIsOutlier[res$Trial %in% .trial_outlier_list] = TRUE
   }
   
+  # tack on the electrode info
+  vars_to_add = c('electrode', 'hemisphere', 'freesurferlabel', 'group')
+  v_index = sapply(vars_to_add, which.equal, tolower(names(subject$meta$electrode)))
+  
+  from_el = subject$meta$electrode[,v_index, drop=FALSE]
+  if(ncol(from_el) > 1) {
+    names(from_el)[-1] = paste0(RAVE_ROI_KEY, names(from_el)[-1])
+  }
+  
+  res = merge(res, from_el)
+  
   # Write out results
   progress$inc('Writing out on server, preparing...')
   # write to server _project_data/power_explorer/file
   analysis_prefix = stringr::str_replace_all(analysis_prefix, '[^\\w]+', '_')
   now = strftime(Sys.time(), '-%Y%m%d-%H%M%S')
   
-  fname = paste0(analysis_prefix, now, '.csv')
+  fname = paste0(analysis_prefix, now, '.fst')
   dirname = file.path(subject$dirs$subject_dir, '..', '_project_data', 'power_explorer', 'exports')
   dir.create(dirname, showWarnings = FALSE, recursive = TRUE)
   
-  data.table::fwrite(res, file.path(dirname, fname), append = FALSE)
-  
+  fst::write_fst(
+    res, file.path(dirname, fname), compress = 99
+  )
   save_inputs(file.path(dirname, paste0(fname, '.yaml')))
   
   # Collapse Trial and save to 3D viewer
-  # res$  Pct_Change_Power_Trial_Onset
-  
-  collapsed_trial = reshape2::dcast(res, Project+Subject+Electrode+Time~Condition, mean, value.var = paste0(unit_name, '_', 'Trial_Onset'))
-  dirname_viewer = file.path(subject$dirs$subject_dir, '..', '_project_data', '3dviewer')
-  dir.create(dirname_viewer, showWarnings = FALSE, recursive = TRUE)
-  data.table::fwrite(collapsed_trial, file.path(dirname_viewer, paste0(analysis_prefix, '-collapsed_trial-_epoch_trial_onset_', now, '.csv')), append = FALSE)
+  if(write_out_movie_csv) {
+    collapsed_trial = reshape2::dcast(res, Project+Subject+Electrode+Time~Condition, mean, value.var = paste0(unit_name, '_', 'Trial_Onset'))
+    dirname_viewer = file.path(subject$dirs$subject_dir, '..', '_project_data', '3dviewer')
+    dir.create(dirname_viewer, showWarnings = FALSE, recursive = TRUE)
+    data.table::fwrite(collapsed_trial,
+                       file.path(dirname_viewer, paste0(analysis_prefix, '-collapsed_trial-_epoch_trial_onset_', now, '.csv')),
+                       append = FALSE)
+  }
   
   return(normalizePath(file.path(dirname, fname)))
 }

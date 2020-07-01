@@ -3,15 +3,19 @@
 #' @param ... other parameters passed to module output
 #' @export
 over_time_plot <- function(results, ...) {
+    print("OTP")
+    
     has_data <- results$get_value('has_data', FALSE)
 
     validate(need(has_data, message="No Condition Specified"))
     
     set_palette_helper(results)
     
+    po = results$get_value('ravebuiltins_power_explorer_plot_options')$as_list()
+    
     time_series_plot(plot_data = results$get_value('over_time_data'),
                      plot_time_range = results$get_value('plot_time_range'),
-                     PANEL.FIRST = time_series_decorator(plot_options=results$get_value('plot_options'))
+                     PANEL.FIRST = time_series_decorator(plot_options=po)
     )
 }
 
@@ -177,7 +181,7 @@ determine_passing_electrodes <- function(results, ...) {
     operators <- sapply(v %&% '_operator', function(e) results$get_value(e))
     operands <- sapply(v %&% '_operand', function(e) results$get_value(e))
     
-    pass_the_test <- rep(TRUE, length(results$get_value('electrodes')))
+    pass_the_test <- rep(TRUE, ncol(res))#length(results$get_value('electrodes')))
     
     # operands[1] = '50'
     for(ii in seq_along(filters)) {
@@ -220,9 +224,6 @@ determine_passing_electrodes <- function(results, ...) {
         }
     } 
 
-    # update the local_data variable -- can this be done?
-    # local_data$electrodes_passing_the_test <- as.numeric(names(pass_the_test))
-    # no. instead let's put this value in a textInput??
     if(shiny_is_running()){
         updateTextInput(getDefaultReactiveDomain(), 'current_active_set', 
                         value=deparse_svec(emeta$Electrode[pass_the_test]))
@@ -288,6 +289,7 @@ windowed_comparison_plot <- function(results, ...){
     
     po = results$get_value('plot_options')
     
+    ### check if we need to highlight any points
     trial_scatter_plot(
         group_data = results$get_value('scatter_bar_data'),
         show_outliers = results$get_value('show_outliers_on_plots'),
@@ -384,7 +386,7 @@ remove_outliers_from_by_trial_data <- function(bthmd) {
 # the only difference between this plot and the time x freq heat_map_plot
 # is the data and the decoration. Use the core heatmap function
 # to enforce consistent look/feel
-by_trial_heat_map_plot <- function(results) {
+by_trial_heat_map_plot <- function(results, ...) {
     rave_context()
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
@@ -394,7 +396,8 @@ by_trial_heat_map_plot <- function(results) {
     by_trial_heat_map_data <- results$get_value('by_trial_heat_map_data')
     
     #base decorator
-    decorator <- by_trial_heat_map_decorator(plot_options = results$get_value('plot_options'))
+    po = results$get_value('ravebuiltins_power_explorer_plot_options')$as_list()
+    decorator <- by_trial_heat_map_decorator(plot_options = po)
     
     # if the user wants the data to be sorted by trial type (rather than trial number) then we
     # need to sort the data
@@ -408,7 +411,7 @@ by_trial_heat_map_plot <- function(results) {
             decorator %<>% add_decorator(trial_type_boundaries_hm_decorator)
         } else  {
             decorator %<>% add_decorator(by_trial_analysis_window_decorator(event_name= sort_trials_by_type,
-                                                                            show_label = results$get_value('draw_decorator_labels')))
+                                                                            show_label = po$draw_decorator_labels))
         }
     }
     

@@ -6,7 +6,8 @@ static_data = dipsaus::fastmap2()
 
 local_data = reactiveValues(
     instruction_string = tags$ul(tags$li("Single-click for trial information"),
-                                 tags$li("Double-click for outlier (de)selection (triggers re-calculate)")),
+                                 tags$li("Double-click for outlier (de)selection (triggers re-calculate loop).", tags$br(), "Clicks made during
+                                         re-calculate loop may not be detected.")),
     by_trial_heat_map_click_location = NULL,
     windowed_by_trial_click_location = NULL,
     click_info = NULL,
@@ -21,6 +22,9 @@ local_data = reactiveValues(
     jitter_seed = sample(1:100,1),
     current_active_set = NULL
 )
+
+# this is non-reactive because rave will trigger re-render for us
+ravebuiltins_power_explorer_plot_options <- build_plot_options()
 
 brain_proxy =  threeBrain::brain_proxy('power_3d_widget', session = session)
 
@@ -313,6 +317,8 @@ update_electrode_category_select <- function(els) {
     if(is.null(electrodes_csv)) return()
     
     col_name <- input$electrode_category_selector
+    if(is.null(col_name) || nchar(col_name) < 1) {return()}
+    dipsaus::cat2('Col name: ', col_name, level='INFO')
     
     if(missing(els)) {
         selected_electrode_numbers = as.numeric(parse_svec(input$ELECTRODE_TEXT))
@@ -335,9 +341,9 @@ update_electrode_category_select <- function(els) {
         attr(labels, 'map')[which(selected_electrode_numbers %in% ecsv$Electrode)]
     )
     
-    assign('uecs', list(
-        .selected, labels, col_name, electrodes_csv, selected_electrode_numbers, input$merge_hemisphere_labels 
-    ), envir = globalenv())
+    # assign('uecs', list(
+    #     .selected, labels, col_name, electrodes_csv, selected_electrode_numbers, input$merge_hemisphere_labels 
+    # ), envir = globalenv())
     
     updateSelectInput(session, 'electrode_category_selector_choices',
                       selected = labels[.selected],
@@ -465,9 +471,17 @@ update_click_information <- function() {
                   digits = abs(min(0, -1+floor(log10(max(abs(scatter_bar_data[[.gi]]$data)))))))
     
     .type <- scatter_bar_data[[.gi]]$trials[.ind]
+    .click_info <- list('trial' = .trial, 'value' = .val, 'trial_type' = .type)
     
-    
-    local_data$click_info <- list('trial' = .trial, 'value' = .val, 'trial_type' = .type)
+    # if(is.null(local_data$click_info)) {
+        local_data$click_info <- list('trial' = .trial, 'value' = .val, 'trial_type' = .type)
+    # } else {
+    #     # are we clicking a new location same place?
+    #     if(.trial != local_data$click_info$trial) {
+    #         local_data$click_info <- .click_info
+    #     }
+    #     local_data$click_info <- NULL
+    # }
 }
 
 update_trial_outlier_list <- function() {
@@ -486,20 +500,21 @@ update_trial_outlier_list <- function() {
 }
 
 observeEvent(input$windowed_by_trial_click, {
+    # dipsaus::cat2('Single click!', level='INFO')
     local_data$windowed_by_trial_click_location = input$windowed_by_trial_click
     update_click_information()
 })
 
 observeEvent(input$windowed_by_trial_dbl_click, {
+    showNotification(p('Editing outlier list, please wait...'), type = 'warning', duration=3)
+    
     local_data$windowed_by_trial_click_location = input$windowed_by_trial_dbl_click
+    
     update_click_information()
+    
     update_trial_outlier_list()
     
-    if(shiny_is_running()) {
-        dipsaus::cat2('editing outlier list...', level = 'INFO')
-        showNotification(p('Editing outlier list'), type = 'message', duration=2)
-        trigger_recalculate()
-    }
+    trigger_recalculate()
 })
 
 observeEvent(input$synch_3d_viewer_bg, {
@@ -559,44 +574,16 @@ click_output = function() {
     "<p style='margin-top:5px'>" %&% local_data$instruction_string %&% '</p>' %&% .disc %&% '</div>'))
 }
 
-
-
-# here we're listening to a bunch of plot options and slinging them into local_data$plot_options so the current list 
+# here we're listening to a bunch of plot options and slinging them into ravebuiltins_power_explorer_plot_options so the current list 
 # can stay up to date. this is needed for hi-res figure export
-
 observe({
-    if(!is.null(local_data$plot_options)) {
-        local_data$plot_options[["which_result_to_show_on_electrodes"]] = input[["which_result_to_show_on_electrodes"]]
-        local_data$plot_options[["draw_decorator_labels"]] = input[["draw_decorator_labels"]]
-        local_data$plot_options[["plot_title_options"]] = unlist(input[["plot_title_options"]])
-        local_data$plot_options[["show_outliers_on_plots"]] = input[["show_outliers_on_plots"]]
-        local_data$plot_options[["background_plot_color_hint"]] = input[["background_plot_color_hint"]]
-        local_data$plot_options[["invert_colors_in_palette"]] = input[["invert_colors_in_palette"]]
-        local_data$plot_options[["reverse_colors_in_palette"]] = input[["reverse_colors_in_palette"]]
-        local_data$plot_options[["color_palette"]] = input[["color_palette"]]
-        local_data$plot_options[["heatmap_color_palette"]] = input[["heatmap_color_palette"]]
-        local_data$plot_options[["heatmap_number_color_values"]] = input[["heatmap_number_color_values"]]
-        local_data$plot_options[["max_zlim"]] = input[["max_zlim"]]
-        local_data$plot_options[["invert_colors_in_heatmap_palette"]] = input[["invert_colors_in_heatmap_palette"]]
-        local_data$plot_options[["reverse_colors_in_heatmap_palette"]] = input[["reverse_colors_in_heatmap_palette"]]
-        local_data$plot_options[["percentile_range"]] = input[["percentile_range"]]
-        local_data$plot_options[["plot_time_range"]] = input[["plot_time_range"]]
-        local_data$plot_options[["sort_trials_by_type"]] = input[["sort_trials_by_type"]]
-        local_data$plot_options[["t_filter"]] = input[["t_filter"]]
-        local_data$plot_options[["p_filter"]] = input[["p_filter"]]
-        local_data$plot_options[["mean_filter"]] = input[["mean_filter"]]
-        local_data$plot_options[["show_result_densities"]] = input[["show_result_densities"]]
-        local_data$plot_options[["t_operator"]] = input[["t_operator"]]
-        local_data$plot_options[["p_operator"]] = input[["p_operator"]]
-        local_data$plot_options[["mean_operator"]] = input[["mean_operator"]]
-        local_data$plot_options[["t_operand"]] = input[["t_operand"]]
-        local_data$plot_options[["p_operand"]] = input[["p_operand"]]
-        local_data$plot_options[["mean_operand"]] = input[["mean_operand"]]
-        local_data$plot_options[["analysis_filter_elec_2"]] = input[["analysis_filter_elec_2"]]
-        local_data$plot_options[["analysis_filter_elec"]] = input[["analysis_filter_elec"]]
-        local_data$plot_options[["analysis_filter_variable"]] = input[["analysis_filter_variable"]]
-        local_data$plot_options[["analysis_filter_variable_2"]] = input[["analysis_filter_variable_2"]]
-        local_data$plot_options[["show_heatmap_range"]] = input[["show_heatmap_range"]]    
+    if(exists('ravebuiltins_power_explorer_plot_options')){
+        ..input <- shiny::reactiveValuesToList(input)
+        nm = names(..input)
+        nm <- nm[nm %in% ravebuiltins_power_explorer_plot_options$keys()]
+        if(length(nm) > 0) {
+            ravebuiltins_power_explorer_plot_options$mset(.list=..input[nm])
+        }
     }
 })
 

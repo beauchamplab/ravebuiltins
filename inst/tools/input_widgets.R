@@ -400,6 +400,7 @@ define_input_condition_groups <- function(
 
 define_input_analysis_data_csv <- function(
   inputId, label, paths, reactive_target = sprintf('local_data[[%s]]', inputId),
+  file_match_string = '\\.(csv|fst)$',
   multiple = TRUE, label_uploader = '...', try_load_yaml = TRUE, allow_uploader = FALSE){
   
   input_ui = inputId
@@ -419,7 +420,7 @@ define_input_analysis_data_csv <- function(
       assign(!!input_ui, function(){
         project_dir = dirname(subject$dirs$subject_dir)
         search_paths = file.path(project_dir, !!paths)
-        choices = unlist(lapply(search_paths, list.files, pattern = '\\.[cC][sS][vV]$'))
+        choices = unlist(lapply(search_paths, list.files, pattern = !!file_match_string))
         # Order file names by date-time (descending order)
         dt = stringr::str_extract(choices, '[0-9]{8}-[0-9]{6}')
         od = order(strptime(dt, '%Y%m%d-%H%M%S'), decreasing = TRUE)
@@ -462,7 +463,7 @@ define_input_analysis_data_csv <- function(
           if(!length(search_paths)){
             return(NULL)
           }
-          choices = unlist(lapply(search_paths, list.files, pattern = '\\.[cC][sS][vV]$'))
+          choices = unlist(lapply(search_paths, list.files, pattern = !!file_match_string))
           # Order file names by date-time (descending order)
           dt = stringr::str_extract(choices, '[0-9]{8}-[0-9]{6}')
           od = order(strptime(dt, '%Y%m%d-%H%M%S'), decreasing = TRUE)
@@ -504,7 +505,14 @@ define_input_analysis_data_csv <- function(
           tryCatch({
             print('Observe input_uploader')
             # try to load as csv, check column names
-            dat = read.csv(path, header = TRUE, nrows = 10)
+            if(endsWith(path, 'csv')) {
+              dat = read.csv(path, header = TRUE, nrows = 3)
+            } else if (endsWith(path, 'fst')) {
+              dat = fst::read_fst(path, from = 1, 3)
+            } else {
+              stop('unable to parse file type: ', path)
+            }
+            
             if(all(csv_headers %in% names(dat))){
               now = strftime(Sys.time(), '-%Y%m%d-%H%M%S(manual).csv')
               # pass, write to group_analysis_src with name
@@ -537,7 +545,11 @@ define_input_analysis_data_csv <- function(
           metas = lapply(source_files, function(fpath){
             fpath = find_source(search_paths, fpath)
             if( is.null(fpath) ){ return(NULL) }
-            dat = read.csv( fpath , header = TRUE, nrows = 1)
+            if(endsWith(fpath, 'csv')) {
+              dat = read.csv( fpath , header = TRUE, nrows = 1)
+            } else {
+              dat = fst::read_fst(fpath, from=1, to=2)
+            }
             list(
               fpath = fpath,
               header = names(dat)
@@ -549,11 +561,13 @@ define_input_analysis_data_csv <- function(
           # Read all data
           project_name = subject$project_name
           tbls = dipsaus::drop_nulls(lapply(metas, function(x){
-            
             print('trying to load ' %&% x$fpath)
-            
-            progress$inc('Loading...' %&% x$fpath)
-            tbl = data.table::fread(file = x$fpath, stringsAsFactors = FALSE, header = TRUE)
+            progress$inc(rutabaga::get_filename(x$fpath))
+            if(endsWith(x$fpath, 'csv')) {
+              tbl = data.table::fread(file = x$fpath, stringsAsFactors = FALSE, header = TRUE)
+            } else {
+              tbl = fst::read_fst(x$fpath)
+            }
             tbl = tbl[tbl$Project %in% project_name, ]
             if(!nrow(tbl)){
               return(NULL)

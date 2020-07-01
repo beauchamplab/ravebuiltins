@@ -56,8 +56,8 @@ define_initialization({
   # if there is a FreeSurferLabel column let's go with that, otherwise we'll fall back to the Label column
   column <- which(tolower(names(electrodes_csv)) == 'freesurferlabel')
   if(length(column) > 0) {
-    elec_filter <- names(electrodes_csv)[column]
-    elec_labels <- unique(electrodes_csv[[column]])
+    elec_filter <- names(electrodes_csv)[column[1]]
+    elec_labels <- unique(electrodes_csv[[column[1]]])
     
     # we want to add the counts to the freesurfer labels
     elec_labels = make_label_with_count(electrodes_csv[[column]])
@@ -87,8 +87,6 @@ define_initialization({
 define_input(
   definition = actionLink('reset_electrode_selectors', 'Reset electrode selectors')
 )
-
-
 
 define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT', label = 'Select electrode by number')
 # define_input_single_electrode(inputId = 'ELECTRODE')
