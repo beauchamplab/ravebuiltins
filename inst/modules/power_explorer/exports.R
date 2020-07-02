@@ -131,9 +131,29 @@ download_all_graphs = function(){
 
 ### hi-res plot download
 custom_plot_download <- custom_plot_download_impl(module_id = 'power_explorer',
-  c('Per electrode statistical tests', 'Activity over time by electrode', 'Activity over time by frequency',
-    'Activity over time by trial', 'Activty over time by condition', 'Per trial, averaged across electrodes')
+  c('Activity over time by frequency',
+    'Activity over time by trial',
+    'Activty over time by condition',
+    'Per trial, averaged across electrodes', 
+    'Activity over time by electrode',
+    'Per electrode statistical tests')
 )
+
+get_validated_plot_sizes <- function(pname, w, h) {
+  valid_sizes <- list(
+    'Per electrode statistical tests' = c(5, 2),
+    'Activity over time by electrode' = c(5, 2),
+    'Activity over time by frequency' = c(5,2),
+    'Activity over time by trial' = c(5,2),
+    'Activty over time by condition' = c(5,2),
+    'Per trial, averaged across electrodes' = c(2,3)
+  )
+  w = max(w, valid_sizes[[pname]][1])
+  h = max(h, valid_sizes[[pname]][2])
+  
+  return(c(w,h))
+}  
+
 
 output$btn_custom_plot_download <- downloadHandler(
   filename=function(...){
@@ -157,12 +177,20 @@ output$btn_custom_plot_download <- downloadHandler(
         file.copy(conn, paste0(.dir, fname))
       }, add=TRUE, after = TRUE)
     }
+    
+    wh <- get_validated_plot_sizes(input$custom_plot_select,
+                                   input$custom_plot_width, input$custom_plot_height)
+    args[c('width', 'height')] = wh
+    
     do.call(DEV, args = args)
     
     #### set the margins of the plot
-    par(mar = c(2.75, 3.5, 2, 1))
+    par(mar = c(1, 3.5, 2, 1))
     custom_plot_download_renderers(input$custom_plot_select)
   })
+
+
+
 
 custom_plot_download_renderers <- function(nm) {
   plot_options = ravebuiltins_power_explorer_plot_options$as_list()
@@ -283,7 +311,6 @@ custom_plot_download_renderers <- function(nm) {
     'Per trial, averaged across electrodes' = ptaac
   )
   nm = match.arg(nm, names(FUNS))
-  
   dipsaus::cat2('Got method: ', nm, level='INFO')
   set_palette_helper(plot_options=ravebuiltins_power_explorer_plot_options$as_list())
   FUNS[[nm]]()

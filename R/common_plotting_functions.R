@@ -238,7 +238,7 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
                               pchs=16, pt.alpha=175, xlab='Group', ylab='Mean % Signal Change', ebar.lend=2, show_outliers=TRUE, PANEL.LAST=NULL, ...) {
     
     nms <- group_data %>% get_list_elements('name')
-    #
+    
     # #yes, sometimes people use the same name for different groups, or don't give names. Let's create new names
     gnames <- paste0(LETTERS[seq_along(nms)], nms)
     
@@ -1362,7 +1362,12 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
            })
 
     if(!isFALSE(text)) {
-        text(text.x, text.y, labels = text, pos=4, col=text.col, cex=rave_cex.lab*get_cex_for_multifigure())
+        cex = rave_cex.lab*get_cex_for_multifigure()
+        if(plotting_to_file()) {
+            cex = 1
+        }
+        text(text.x, text.y, labels = text, pos=4, col=text.col,
+             cex=cex)
     }
 }
 

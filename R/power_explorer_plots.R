@@ -50,8 +50,6 @@ across_electrode_statistics_plot <- function(results, ...) {
     }
     par(mar=c(5.1, 4.1+2, 4.1, 2.1))
     
-    
-    
     lapply(c('mean', 't'), function(sv) {
         wrap_density(across_electrode_statistics_plot_helper(results, sv,
                                                              passing_electrodes=passing_electrodes))

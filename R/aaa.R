@@ -140,7 +140,7 @@ get_cex_for_multifigure <- function() {
 
 
 # Internal use, not exported
-.rave_axis <- function(side, at, tcl=rave_axis_tcl, labels=at, las=1, cex.axis=rave_cex.axis,
+rave_axis <- function(side, at, tcl=rave_axis_tcl, labels=at, las=1, cex.axis=rave_cex.axis,
                       cex.lab=rave_cex.lab, mgpy=c(3, .6, 0), mgpx=c(3, .75, 0), col, col.axis, ...) {
   
   # if the color isn't specified, then we are free to set the color to what we want.
@@ -149,13 +149,11 @@ get_cex_for_multifigure <- function() {
   col.axis %?<-% col
   
   ## overrule the font scaling if we're writing to a PDF... eventually we'll make this better
-  if(shiny_is_running()) {
-    if('pdf' == names(dev.cur())) {
+  if(shiny_is_running() && plotting_to_file()) {
       cex.axis = 1
       cex.lab = 1
       mgpy = c(3,.5,0)
       mgpx = c(3,.4,0)
-    } 
   }
   
   rutabaga::ruta_axis(
@@ -173,16 +171,12 @@ get_cex_for_multifigure <- function() {
   )
 }
 
-rave_axis.default = .rave_axis
-rave_axis <- rave::rave_context_generics('rave_axis', .rave_axis)
-
-rave_axis.rave_running_local = function(side, at, ..., cex.axis=1,
-                                        cex.lab=1, mgpx=c(3,.4,0), mgpy=c(3,.5,0)) {
-  rave_axis.default(side=side, at=at,
-                    cex.axis=cex.axis, cex.lab=cex.lab, ...)
+plotting_to_file <- function() {
+  names(dev.cur()) %in% c('pdf', 'quartz_off_screen')
 }
 
-.rave_title <- function(main, cex=rave_cex.main, col, font=1) {
+
+rave_title <- function(main, cex=rave_cex.main, col, font=1) {
   if(missing(col)) {
     col = if(par('bg') == 'black') {
       'white'
@@ -193,66 +187,49 @@ rave_axis.rave_running_local = function(side, at, ..., cex.axis=1,
     }
   }
   
+  if(plotting_to_file()) {
+   cex = 1
+  }
   title(main=list(main, cex=cex*get_cex_for_multifigure(), col=col, font=font))
 }
-rave_title.default = .rave_title
-rave_title <- rave::rave_context_generics('rave_title', .rave_title)
 
-rave_title.rave_running_local <- function(main, ..., cex=1) {
-  rave_title.default(main=main, cex=cex)
-}
-
-.rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.lab, line=NA, ...) {
+rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.lab, line=NA, ...) {
   col %?<-% get_foreground_color()
   
   ## overrule the font scaling if we're writing to a PDF... eventually we'll make this better
-  if('pdf' == names(dev.cur())) {
-    if (cex.lab > 1)
-      cex.lab = 1
-    
-    print('in RAL')
+  if(plotting_to_file()) {
+    if (cex.lab > 1) cex.lab = 1
     
     if(!is.null(ylab)) {
-      yline = if(is.na(line)) {
-        2.5 
-      } else {
-        line
-      }
       title(xlab=NULL, ylab=ylab,
             cex.lab=cex.lab*get_cex_for_multifigure(),
-            col.lab=col, line=yline, ...)
+            col.lab=col, line=2.5, ...)
     }
     
     if(!is.null(xlab)) {
-      xline = if(is.na(line)) {
-        1.5 
-      } else {
-        line
-      }
-      
       title(xlab=xlab, ylab=NULL,
             cex.lab=cex.lab*get_cex_for_multifigure(),
-            col.lab=col, line=xline, ...)
+            col.lab=col, line=1.5, ...)
     }
     
     return()
   }
   
-  title(xlab=xlab, ylab=ylab, cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, line=line, ...)
+  title(xlab=xlab, ylab=ylab, 
+        cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, line=line, ...)
 }
 
-rave_axis_labels.default= .rave_axis_labels
-rave_axis_labels <- rave::rave_context_generics('rave_axis_labels', .rave_axis_labels)
-
-rave_axis_labels.rave_running_local <- function(..., line=-101, xlab=NULL, ylab=NULL, cex.lab=1) {
-  if(!is.null(xlab)) {
-    if(line < -100) line = 1.5
-    rave_axis_labels.default(..., xlab=xlab, ylab=NULL, line=line, cex.lab=cex.lab)
+rave_barplot <- function (height, cex.axis = rave_cex.axis, cex.lab = rave_cex.lab, 
+          cex.names = rave_cex.lab, ...) 
+{
+  if(plotting_to_file()) {
+    cex.axis = min(1, cex.axis)
+    cex.lab = min(1, cex.lab)
+    cex.names = min(1, cex.names)
   }
-  if(!is.null(ylab)) {
-    if(line < -100) line=2.5
-    rave_axis_labels.default(..., ylab=ylab, xlab=NULL, line=line, cex.lab=cex.lab)
-  }
+  
+  rutabaga::rave_barplot(height, cex.axis = cex.axis, cex.lab = cex.lab,
+                         cex.names = cex.names, las = 1, ...)
 }
 
 default_plot <- function() {
@@ -416,7 +393,6 @@ is.blank <- function(x){
 
 
 ### UI impl to share the PDF exporting code where possible
-
 customDownloadButton <- function(outputId, label='Download', class=NULL, icon_lbl="download", ...) {
   tags$a(id = outputId,
          class = paste("btn btn-default shiny-download-link", class),
@@ -425,7 +401,7 @@ customDownloadButton <- function(outputId, label='Download', class=NULL, icon_lb
 }
 
 
-custom_plot_download_impl <- function(module_id, choices, selected=choices[1], w=4,h=3) {
+custom_plot_download_impl <- function(module_id, choices, selected=choices[1], w=5,h=3) {
   force(choices); force(selected); force(w); force(h)
   
   return(function()  {
@@ -434,8 +410,8 @@ custom_plot_download_impl <- function(module_id, choices, selected=choices[1], w
     tagList(div(class='rave-grid-inputs',
                 div(style='flex-basis: 100%', selectInput(ns('custom_plot_select'), label = "Choose Graph",
                                                           choices = choices, selected =selected)),
-                div(style='flex-basis: 25%', numericInput(ns('custom_plot_width'), label='width (inches)', value=w, min=5, step = 1)),
-                div(style='flex-basis: 25%', numericInput(ns('custom_plot_height'), label='height (inches)', value=h, min=3, step = 1)),
+                div(style='flex-basis: 25%', numericInput(ns('custom_plot_width'), label='width (inches)', value=w, min=1, step = 1)),
+                div(style='flex-basis: 25%', numericInput(ns('custom_plot_height'), label='height (inches)', value=h, min=1, step = 1)),
                 div(style='flex-basis: 25%', selectInput(ns('custom_plot_file_type'), label='File Type',
                                                          choices=c('pdf', 'jpeg', 'png', 'tiff', 'svg'), selected='pdf')),
                 div(style='flex-basis:100%', checkboxInput(ns('save_hires_plot_to_server'), label='Save a copy on the server')),

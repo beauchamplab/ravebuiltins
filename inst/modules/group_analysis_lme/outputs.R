@@ -608,10 +608,7 @@ output$download_3dv_colobar <- downloadHandler(
         
       dr = brain_proxy$controllers[['Display Range']]
       dr_tokens = stringr::str_split(dr, ',')[[1]]
-      
       dr_tokens %<>% as.numeric
-      
-      dipsaus::cat2('DR tokens: ', paste0(dr_tokens, collapse = '|'))
       
       if(all(is.na(dr_tokens))) {
         data_range = c(-1,1) * ceiling(max(abs(vals)))
@@ -634,7 +631,7 @@ output$download_3dv_colobar <- downloadHandler(
       ruta_axis(1, at=0, labels = min(data_range), lwd=0, cex.axis = .65, mgpx=c(0,-.2,0))
       ruta_axis(3, at=0, labels = max(data_range), lwd=0, mgpx=c(0,.1,0), cex.axis=.65)
       # go right to the drawing function...
-      .rave_axis_labels(ylab=dd, cex.lab=.65, line=.1)
+      rave_axis_labels(ylab=dd, cex.lab=.65, line=.1)
     })
   }
 )

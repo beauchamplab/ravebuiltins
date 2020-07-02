@@ -80,7 +80,6 @@ any_trials <- any(has_trials)
 # grab it, if not, then recaclulate, but remove the previous one to save on space
 
 calculate_baseline <- function(elecs) {
-  
   if(missing(elecs)) {
     elecs = requested_electrodes
   }
@@ -109,11 +108,9 @@ bl_power <- cache(
   key = list(subject$id, requested_electrodes, BASELINE_WINDOW,
              preload_info$time_points, unit_of_analysis, global_baseline,
              any_trials, preload_info$epoch_name, preload_info$reference_name),
-  
   val = calculate_baseline(),
   name = 'bl_power'
 )
-
 cat2t('Finished baseline')
 
 jitter_seed <- cache(key = 'jitter_seed', val = sample(1:100, 1), name = 'jitter_seed')
