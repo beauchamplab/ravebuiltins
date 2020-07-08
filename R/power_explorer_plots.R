@@ -3,8 +3,6 @@
 #' @param ... other parameters passed to module output
 #' @export
 over_time_plot <- function(results, ...) {
-    print("OTP")
-    
     has_data <- results$get_value('has_data', FALSE)
 
     validate(need(has_data, message="No Condition Specified"))

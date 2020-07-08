@@ -424,7 +424,7 @@ get_stats_per_electrode <- function(ttypes){
         df2 = df_shell
         df2$y = trial_means[as.character(df_shell$flat_data.orig_trial_number)]
         df2$group_f %<>% factor(levels = gnames)
-        .lsm <- lsmeans::lsmeans(lm(y ~ group_f, data=df2), pairwise ~ group_f)
+         .lsm <- lsmeans::lsmeans(lm(y ~ group_f, data=df2), pairwise ~ group_f)
         lmat = matrix(c(t(summary(.lsm$lsmeans, infer = T)[c('lsmean', 't.ratio', 'p.value')])))
         cntr = summary(.lsm, adjust='none')$contrasts
         cmat = as.matrix(c(t(as.matrix(cntr[,c('estimate','t.ratio', 'p.value')]))))

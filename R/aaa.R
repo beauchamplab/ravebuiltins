@@ -138,6 +138,24 @@ get_cex_for_multifigure <- function() {
   return (cex_multiplier)
 }
 
+plotting_to_file <- function() {
+  i = get0(".Devices", envir = baseenv(),
+           ifnotfound = list("-1"), inherits = FALSE)
+  
+  if("-1" == i[[1]]) {
+    return (FALSE)
+  }
+  
+  if(length(i) < dev.cur()){
+    return (FALSE)
+  }
+  
+  i = i[[dev.cur()]]
+  
+  return (
+    isTRUE('dipsaus_dev_name' %in% names(attributes(i)))
+  )
+}
 
 # Internal use, not exported
 rave_axis <- function(side, at, tcl=rave_axis_tcl, labels=at, las=1, cex.axis=rave_cex.axis,
@@ -171,9 +189,6 @@ rave_axis <- function(side, at, tcl=rave_axis_tcl, labels=at, las=1, cex.axis=ra
   )
 }
 
-plotting_to_file <- function() {
-  names(dev.cur()) %in% c('pdf', 'quartz_off_screen')
-}
 
 
 rave_title <- function(main, cex=rave_cex.main, col, font=1) {

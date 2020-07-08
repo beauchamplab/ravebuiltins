@@ -165,31 +165,31 @@ output$btn_custom_plot_download <- downloadHandler(
     DEV = match.fun(pt)
     args = build_file_output_args(pt, input$custom_plot_width, input$custom_plot_height, conn)
     
-    on.exit(dev.off(), add = TRUE)
-    
-    if(isTRUE(input$save_hires_plot_to_server)) {
-      
-      fname <- paste0(stringr::str_replace_all(input$custom_plot_select,' ', '_'),
-                      format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.', pt)
-      .dir <- paste0(subject$dirs$rave_dir, '/figures/')
-      if(!dir.exists(.dir)) dir.create(.dir, showWarnings = TRUE, recursive = TRUE)
-      on.exit({
-        file.copy(conn, paste0(.dir, fname))
-      }, add=TRUE, after = TRUE)
-    }
     
     wh <- get_validated_plot_sizes(input$custom_plot_select,
                                    input$custom_plot_width, input$custom_plot_height)
     args[c('width', 'height')] = wh
     
-    do.call(DEV, args = args)
+    rgd <- dipsaus::dev_create('RAVE_PLOTTER' = do.call(DEV, args = args))
+    on.exit({
+      rgd$dev_off()
+    }, add = TRUE)
     
     #### set the margins of the plot
-    par(mar = c(1, 3.5, 2, 1))
+    par(mar = c(3, 3.5, 2, 1))
+    if(isTRUE(input$save_hires_plot_to_server)) {
+      fname <- paste0(stringr::str_replace_all(input$custom_plot_select,' ', '_'),
+                      format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.', pt)
+      .dir <- paste0(subject$dirs$rave_dir, '/figures/')
+      if(!dir.exists(.dir)) dir.create(.dir, showWarnings = TRUE, recursive = TRUE)
+      on.exit({
+        dipsaus::cat2('Trying to copy from: ', conn, ', to: ', paste0(.dir, fname))
+        file.copy(conn, paste0(.dir, fname))
+      }, add=TRUE, after = TRUE)
+    }
+    
     custom_plot_download_renderers(input$custom_plot_select)
   })
-
-
 
 
 custom_plot_download_renderers <- function(nm) {
@@ -311,11 +311,10 @@ custom_plot_download_renderers <- function(nm) {
     'Per trial, averaged across electrodes' = ptaac
   )
   nm = match.arg(nm, names(FUNS))
-  dipsaus::cat2('Got method: ', nm, level='INFO')
   set_palette_helper(plot_options=ravebuiltins_power_explorer_plot_options$as_list())
   FUNS[[nm]]()
+  
 }
-
 
 #### Sheth special
 sheth_special <- function() {

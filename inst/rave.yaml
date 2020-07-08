@@ -1,4 +1,5 @@
 package_name: ravebuiltins
+finalize_installation: ravebuiltins_finalize_installation
 dev_subject:
   project_name: demo
   subject_code: YAB

@@ -23,8 +23,6 @@
 draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_scale=FALSE,
                                 show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
                                 PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), plot_time_range=NULL, ...) {
-    rave_context()
-    
     k <- sum(hmaps %>% get_list_elements('has_trials'))
     orig.pars <- layout_heat_maps(k)
     # I'm getting error about pin here... let's just rely on the graphics device being reset?
@@ -43,7 +41,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
         # trying to be smart about the size of the margin to accomodate the angular text. R doesn't auto adjust :(
         max_char_count = max(sapply(hmaps, function(h) ifelse(h$has_trials, max(nchar(h$conditions)), 1)))
         
-        par(mar = c(5.1,
+        par(mar = c(par('mar')[1],
                     5.1 + max(0,(max_char_count - 5)*0.95),
                     2, 2))
     }
@@ -133,7 +131,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
     })
     
     if(show_color_bar){
-        .mar <- c(5.1, 3.5, 2, 1)
+        .mar <- c(par('mar')[1], 3.5, 2, 1)
         if(is.function(PANEL.COLOR_BAR)) {
             .mar[3] = 4
         }
@@ -175,8 +173,6 @@ build_group_contrast_labels <- function(group_names) {
 # show power over time with MSE by condition
 time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_time_range=NULL,
                              do_update_ylim=TRUE, axes=TRUE) {
-    rave_context()
-    
     # check the plottable range, to make sure we're only plotting what the user has requested
     plot_time_range %?<-% get_data_range(plot_data, 'x')
     
@@ -201,6 +197,8 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_
     xlim <- pretty(plot_time_range)#get_list_elements(plot_data, 'x') %>% unlist)
     ylim <- pretty(get_data_range(plot_data) %>% unlist, min.n=2, n=4)
     
+    
+    dipsaus::cat2('MAR: ', paste0(par('mar'),collapse = ' '), level = 'INFO')
     rutabaga::plot_clean(xlim, ylim)
     
     if(isTRUE(is.function(PANEL.FIRST))) PANEL.FIRST(plot_data)
@@ -555,7 +553,7 @@ layout_heat_maps <- function(k, ratio=4) {
     }
     
     layout(matrix(1:(k+1), nrow=1), widths=c(rep(ratio, k), lcm(cbar_wid)) )
-    par(mar=c(5.1, 4.5, 2, 2))
+    par(mar=c(par('mar')[1], par('mar')[2], 2, 2))
     invisible(opars)
 }
 
@@ -1218,10 +1216,15 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
     if (all(valid.names %in% include)) {
         legend_text = paste0(nms, ' (n=', ns, ')')
     }
+    
+    .cex = rave_cex.lab*get_cex_for_multifigure()
+    if(plotting_to_file()) {
+        .cex = 1*get_cex_for_multifigure()
+    }
 
     legend(location, legend=legend_text, ncol=ceiling(length(ii)/3),
            inset=c(.025,.075), bty='n',
-           text.col=ii, cex=rave_cex.lab*get_cex_for_multifigure())
+           text.col=ii, cex=.cex)
     
     invisible()
 }
@@ -1647,7 +1650,6 @@ cache_heatmap_palette <- function(pname, pal) {
     cache(key='current_rave_heatmap_palette_name', val=pname, 'current_rave_heatmap_palette_name', replace=TRUE)
     cache(key='current_rave_heatmap_palette', val=pal, 'current_rave_heatmap_palette', replace=TRUE)
 }
-
 
 #'
 #'@export

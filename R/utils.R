@@ -177,3 +177,72 @@ htmltable_mat <- function(mat, ...) {
   )
   return(re)
 }
+
+#'@export
+ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never')) {
+  upgrade = match.arg(upgrade)
+
+  checks <- list(
+    'Demo Subject Data' = 
+      dir.exists(sprintf('%s/demo/DemoSubject/', rave::rave_options('data_dir'))),
+    'Demo Subject Raw Data' = 
+      dir.exists(sprintf('%s/DemoSubject/', rave::rave_options('raw_data_dir'))),
+    'Demo Group Data' = 
+      file.exists(sprintf('%s/demo/_project_data/power_explorer/exports/KC_all-20200605-121949.fst',
+                          rave::rave_options('data_dir')))
+  )
+  
+  needs <- mapply(function(ck, nm) {
+    if(ck) {
+      if(upgrade == 'ask') {
+        return (dipsaus::ask_yesno("Re-install " %&% nm %&% "?"))
+      } else if(upgrade == 'never') {
+        return (FALSE)
+      }
+    }
+    return (TRUE)
+  }, checks, names(checks))
+  
+  
+  ### Demo subject data files
+  if(needs[1]) {
+    dipsaus::rs_exec({
+      res = download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectData.zip",
+                          destfile = f <- tempfile(fileext = ".zip"))
+      if(res==0) {
+        extract_to = sprintf('%s/', rave::rave_options('data_dir'))
+        unzip(f, exdir = extract_to)
+      } else {
+        stop('Unable to download demo subject data')
+      }
+    }, name = 'Demo Subject Data')
+  }
+  
+  ### Demo subject raw data files
+  if(needs[2]) {
+    dipsaus::rs_exec({
+      res = download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectRaw.zip",
+                          destfile = f <- tempfile(fileext = ".zip"))
+      if(res==0) {
+        extract_to = sprintf('%s/', rave::rave_options('raw_data_dir'))
+        unzip(f, exdir = extract_to)
+      } else {
+        stop('Unable to download demo subject raw data')
+      }
+    }, name = 'Demo Subject Raw')
+  }
+  
+  ## Demo group data files
+  if(needs[3]) {
+    dipsaus::rs_exec({
+      res = download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoGroupData.zip",
+                          destfile = f <- tempfile(fileext = ".zip"))
+      if(res==0) {
+        extract_to = sprintf('%s/demo/', rave::rave_options('data_dir'))
+        unzip(f, exdir = extract_to)
+      } else {
+        stop('Unable to download group data')
+      }
+    }, name = 'Demo Group Data')
+  }
+}
