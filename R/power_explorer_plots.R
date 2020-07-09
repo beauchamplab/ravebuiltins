@@ -307,8 +307,6 @@ windowed_comparison_plot <- function(results, ...){
 #' }
 #' @export
 heat_map_plot <- function(results, ...){
-    rave_context()
-    
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
 

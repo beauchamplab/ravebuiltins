@@ -116,6 +116,11 @@ define_input(
 )
 
 define_input_condition_groups(inputId = 'GROUPS')
+
+define_input(selectInput('windowed_analysis_type', label = 'How should Electrode be treated?',
+                         selected = 'Random intercept',
+                         choices=c('Random intercept', 'Contrasts per electrode','Collapse electrode','Fixed effect')))
+
 define_input_frequency(inputId = 'FREQUENCY', initial_value = c(70,150))
 define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis time (relative to analysis event)', initial_value = c(0,1))
 define_input_time(inputId = 'plot_time_range', label='Plot Time Range (relative to analysis event)')
@@ -128,7 +133,6 @@ define_input(definition = selectInput('event_of_interest', 'Analysis Event',
                choices = epoch_event_types
              }
 )
-
 
 # define_input_analysis_file_chooser('analysis_settings', read_source = c('Analysis Settings' = 'analysis_yamls'))
 define_input_analysis_yaml_chooser(
@@ -550,6 +554,7 @@ input_layout = list(
     'do_calculate_btn', 'auto_calculate', 'do_quick_calculate_btn'
   ),
   '[-]Create condition contrasts' = list(
+    'windowed_analysis_type',
     'GROUPS',
     'analysis_settings'
   ),
@@ -674,6 +679,13 @@ define_output_3d_viewer(
   title = 'Results on surface',
   height = '500px',
   order = -1e4
+)
+
+define_output(
+  definition = customizedUI('compare_condition_results', style='min-height:200px'),
+  title = 'Comparing Conditions',
+  width = 12,
+  order = 200
 )
 
 

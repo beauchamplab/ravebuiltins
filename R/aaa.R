@@ -5,10 +5,11 @@
 #' @import rave
 #' @import shiny
 #' @import stringr
-#' @import lme4
-#' @import lmerTest
 #' @import emmeans
 #' @importFrom magrittr %>%
+#' @importFrom lme4 VarCorr
+#' @importFrom lme4 formatVC
+#' @importFrom lmerTest lmer
 #' @importFrom magrittr %<>%
 #' @importFrom magrittr %$%
 #' @importFrom magrittr extract2
@@ -459,6 +460,7 @@ build_file_output_args <- function(ftype, width, height, outfile) {
 which.equal <- function(needle, haystack) which(needle == haystack)
 
 # append the number of electrodes in each label onto the label
+#' @export
 make_label_with_count <- function(lbl) {
   tbl = table(lbl)
   
@@ -471,17 +473,20 @@ make_label_with_count <- function(lbl) {
 
 # remove the [5] or [10] showing the # available electrodes
 # from the end of the freesurfer labels
+#' @export
 remove_count_from_label <- function(str) {
   stringr::str_remove_all(str, '\\[[0-9]*\\]$')
 }
 
 
 # put this in one place, so we're removing hemi labels consistently
+#' @export
 remove_hemisphere_labels <- function(str) {
   stringr::str_replace_all(str, 
                            c('L ' = '', 'R ' = ''))
 }
 
+#' @export
 remove_gyrus_sulcus_labels <- function(str) {
   stringr::str_replace_all(str,
                            c('GS ' = '', 'G ' ='', 'S '=''))

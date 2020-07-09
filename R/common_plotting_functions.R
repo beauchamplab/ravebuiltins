@@ -1644,9 +1644,10 @@ get_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
 }
 
 cache_heatmap_palette <- function(pname, pal) {
-    rave_context()
     # usually people will call the set_heatmap_palette_helper, this function is provided in case we
     # need to subvert the usual route
+    # dipsaus::cat2('Caching heatmap: ', pname, level='INFO')
+    
     cache(key='current_rave_heatmap_palette_name', val=pname, 'current_rave_heatmap_palette_name', replace=TRUE)
     cache(key='current_rave_heatmap_palette', val=pal, 'current_rave_heatmap_palette', replace=TRUE)
 }
@@ -1663,14 +1664,11 @@ expand_heatmap <- function(pal, results, ncolors, space='Lab', ...) {
     colorRampPalette(pal, space=space, ...)(ncolors)
 }
 
-
 # here we take care of the dark mode business, as well as reversing, inverting, and inside-out for the color scale
 # Dark mode does an inside out by default ?
 # please call set_palette_helper BEFORE calling this function so that we don't have to worry about setting
 # the background plot color again
 set_heatmap_palette_helper <- function(results, plot_options, ...) {
-    rave_context()
-    
     results %?<-% build_results_object(plot_options)
     
     requested_palette_name = paste(results$get_value('heatmap_color_palette'),
@@ -1785,7 +1783,6 @@ set_palette <- function(pname) {
     
     grDevices::palette(pname)
 }
-
 
 fix_name_for_js <- function(nm) {
     str_replace_all(nm, c(

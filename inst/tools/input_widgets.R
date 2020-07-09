@@ -637,8 +637,6 @@ define_input_analysis_data_csv <- function(
 }
 
 
-
-
 define_input_table_filters <- function(
   inputId, label = 'Filter', 
   watch_target = 'local_data[["analysis_data"]]', 
@@ -943,8 +941,6 @@ define_input_table_filters <- function(
   parent_frame = parent.frame()
   eval_dirty(quo, env = parent_frame)
 }
-
-
 
 
 # options to save and load analysis parameters

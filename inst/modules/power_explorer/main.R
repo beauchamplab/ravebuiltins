@@ -20,7 +20,7 @@ if(FALSE) {
                 list(group_name='V-only', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v')),
                 list(group_name='AV', group_conditions=c('known_av', 'last_av', 'drive_av', 'meant_av')))
   FREQUENCY = c(75,150)
-  ELECTRODE_TEXT = '14-19'
+  ELECTRODE_TEXT = '13-24'
 }
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
@@ -121,11 +121,11 @@ scatter_bar_data <- over_time_data <- by_electrode_heat_map_data <-
 flat_data <- data.frame()
 
 # set transform method
-# .transform <- electrode_transform(combine_method)
-
-# for transforms, the idea is to apply at each trial for each frequency
-# then when things get it will already be done
 collapse_method = 'mean'
+
+
+contrast_conditions <- list()
+
 
 for(ii in which(has_trials)) {
   #ii=1
@@ -238,10 +238,8 @@ for(ii in which(has_trials)) {
     N = Nclean
   )
   
-  
   power_all_shifted_clean_freq_subset = power_all_shifted_clean$subset(Frequency = Frequency %within% FREQUENCY)
   power_all_shifted_freq_subset = power_all_shifted$subset(Frequency = Frequency %within% FREQUENCY)
-  
   
   # 2. power @ trial over time
   cat2t('Building by_trial heatmap data')
@@ -253,6 +251,7 @@ for(ii in which(has_trials)) {
   )
 
   # 2.5 by electrode over time
+  cat2t('Building by_electrode_heat_map_data')
   by_electrode_heat_map_data[[ii]] <- wrap_data(
     power_all_shifted_clean_freq_subset$collapse(keep = c(3,4), method = collapse_method),
     x=power_all_shifted_clean_freq_subset$dimnames$Time,
@@ -262,6 +261,7 @@ for(ii in which(has_trials)) {
   
   # 3. Time only
   # coll freq and trial for line plot w/ ebar.
+  cat2t('Building over_time_data')
   over_time_data[[ii]] = wrap_data(t(
     apply(power_all_shifted_clean_freq_subset$collapse(keep = 3:4, method = collapse_method), 1, .fast_mse)),
     xlab='Time (s)', ylab='auto', N=dim(power_all_shifted_clean_freq_subset)[4L], x=power_all_shifted_clean_freq_subset$dimnames$Time
@@ -284,6 +284,7 @@ for(ii in which(has_trials)) {
   
   # scatter bar data -- here we want all of the data because we are going to highlight (or not) the outliers -- same for by-trial heatmap
   # if(show_outliers_on_plots) {
+  cat2t('Building scatter_bar_data')
   scatter_bar_data[[ii]] <- wrap_data(
     rowMeans(power_all_shifted_freq_subset$subset(Time = (Time %within% ANALYSIS_WINDOW), data_only = TRUE)),
     xlab='Group', ylab='auto', x=power_all_shifted_freq_subset$dimnames$Time
@@ -314,12 +315,123 @@ for(ii in which(has_trials)) {
                'y' = with(scatter_bar_data[[ii]], data[is_clean])
     )
   )
-  cat2t(paste0('Loop ', ii))
+  
+  ### add in the stats data
+  nm <- GROUPS[[ii]]$group_name
+  if(!isTRUE(nm != "" & !is.null(nm))) {
+    nm = 'GROUP_' %&% ii
+  }
+  m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% ANALYSIS_WINDOW)$collapse(keep=c(1,4))
+  
+  contrast_conditions[[nm]] = data.frame(
+    y = c(m),
+    Electrode = rep(electrodes, each = nrow(m)),
+    Group = nm,
+    TrialNumber = rep(
+      power_all_shifted_clean_freq_subset$dimnames$Trial,
+      times = length(electrodes)
+    )
+  )
 }
 
 flat_data$group_i = flat_data$group
 flat_data$group %<>% factor
 
+overall_stats <- do.call(rbind, contrast_conditions)
+overall_stats$Group %<>% factor(levels = names(contrast_conditions))
+overall_stats$Electrode %<>% factor
+combine_emmeans_results <- function(r) {
+  # as.data.frame(r$emmeans)
+  # as.data.frame(r$contrasts)
+  
+  if(all(c('Electrode', 'Group') %in% names(as.data.frame(r$emmeans)))) {
+    d = as.data.frame(r$emmeans)
+    d$Electrode <- paste0('E', d$Electrode)
+    gind <- which(names(d) == 'Group')
+    tbl = d[,-gind]
+    tbl$Electrode %<>% paste(as.character(d$Group), sep=':')
+  } else {
+    tbl = as.data.frame(r$emmeans)
+  }
+  names(tbl)[1:2] = c('label', 'estimate')
+  
+  contr = as.data.frame(r$contrasts)
+  if('Electrode' %in% names(contr)) {
+    contr$label = contr$Electrode %&% ':' %&% contr$contrast
+    contr = subset(contr, select = -c(contrast, Electrode))
+    rbind(tbl, contr)    
+  } else {
+    rbind(tbl, contr %>% set_colnames(colnames(tbl)))
+  }
+}
+
+summary_statistics <- switch(
+  windowed_analysis_type,
+  'Random intercept' = {
+    
+    if(nlevels(overall_stats$Group) > 1) {
+      combine_emmeans_results(
+        emmeans::emmeans(
+          lmerTest::lmer(y ~ Group + (1|Electrode), data = overall_stats),
+          options = list(infer=c(F,T)),
+          specs = pairwise ~ Group)
+      )
+    } else {
+      r <- as.data.frame(emmeans::emmeans(lmerTest::lmer(
+        y ~ 1 + (1|Electrode), data=overall_stats
+      ), specs=~1, options=list(infer=c(F,T))))
+      names(r)[1:2] = c('label', 'estimate')
+      r
+    }
+  },
+  'Contrasts per electrode' = {
+    if(nlevels(overall_stats$Group) > 1) {
+      combine_emmeans_results(
+        emmeans::emmeans(
+          lmerTest::lmer(y ~ Group*Electrode + (1|Electrode), data = overall_stats),
+          options = list(infer=c(F,T)),
+          specs = pairwise ~ Group|Electrode)
+      )
+    } else {
+      r <- as.data.frame(emmeans::emmeans(
+        lmerTest::lmer(y ~ Electrode + (1|TrialNumber), data=overall_stats)
+      , specs = pairwise ~ Electrode, options=list(infer=c(F,T)))$emmeans
+      )
+      names(r)[1:2] = c('label', 'estimate')
+      r$label = 'E' %&% r$label
+      r
+    }
+  },
+  'Collapse electrode' = {
+    .d <- aggregate(y ~ TrialNumber+Group, mean, data=overall_stats)
+    if(nlevels(.d$Group) > 1) {
+      combine_emmeans_results(emmeans::emmeans(lm(y ~ Group, data=.d), pairwise ~ Group))
+    } else {
+      r = as.data.frame(
+        emmeans::emmeans(lm(y ~ 1, data=.d), ~ 1, options=list(infer=c(F,T)))
+      )
+      names(r)[1:2] = c('label', 'estimate')
+      r
+    }
+  },
+  'Fixed effect' = {
+    if(nlevels(overall_stats$Group) > 1) {
+      combine_emmeans_results(emmeans::emmeans(
+        lmerTest::lmer(y ~ Group*Electrode + (1|TrialNumber), data=overall_stats),
+        options = list(infer=c(F,T)),
+        specs=pairwise~Electrode*Group, infer=c(F,T)
+      ))
+    } else {
+      combine_emmeans_results(emmeans::emmeans(lmerTest::lmer(y~factor(Electrode)+(1|TrialNumber), data=overall_stats),
+                                               options = list(infer=c(T,T)),
+                                               specs=pairwise~Electrode, infer=c(F,T))
+      )
+    }
+  }
+)
+
+local_data$summary_statistics = summary_statistics
+  
 # this can be used elsewhere to quickly check the number of groups that have data
 has_data = sum(has_trials)
 
@@ -371,7 +483,6 @@ get_stats_per_electrode <- function(ttypes){
   # Do not baseline all elecs simultaneously, otherwise memory will explode
   cat2t('starting elec calc')
   # e = electrodes[1]
-  
   
   shift_amount = new_range = NULL
   if(event_of_interest != epoch_event_types[1]) {
@@ -466,13 +577,14 @@ get_stats_per_electrode <- function(ttypes){
   return(combined_res)
 }
 
+
 # cache <- function(key, val, name) {
   # return(val)
 # }
 
 # gspe <- get_stats_per_electrode(all_trial_types)
 
-cat2t('start calc result, generating digest...')
+cat2t('start calc result')
 # assign("GROUPS", GROUPS, envir = globalenv())
 omnibus_results <- cache(
   key = list(subject$id, BASELINE_WINDOW, FREQUENCY, all_trial_types, GROUPS,global_baseline,

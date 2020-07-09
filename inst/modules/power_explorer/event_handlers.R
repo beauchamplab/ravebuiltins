@@ -334,7 +334,6 @@ update_electrode_category_select <- function(els) {
     if(isTRUE(input$merge_hemisphere_labels)) {
         ecsv$values %<>% remove_hemisphere_labels
     }
-    
     labels = make_label_with_count(ecsv$values)
     
     .selected = unique(
@@ -344,6 +343,9 @@ update_electrode_category_select <- function(els) {
     # assign('uecs', list(
     #     .selected, labels, col_name, electrodes_csv, selected_electrode_numbers, input$merge_hemisphere_labels 
     # ), envir = globalenv())
+    
+    if(length(.selected) < 1) 
+        .selected = 1
     
     updateSelectInput(session, 'electrode_category_selector_choices',
                       selected = labels[.selected],
@@ -559,6 +561,15 @@ output$trial_click <- renderUI({
             '</div>'
     )
 })
+
+compare_condition_results <- function(...) {
+    shiny::validate(shiny::need(!is.null(local_data$summary_statistics), 'No results calculated'))
+    
+    htmltools::div(
+        htmltable_mat(local_data$summary_statistics)
+    )
+}
+
 
 click_output = function() {
     if(!is.null(local_data$windowed_by_trial_click_location)) {

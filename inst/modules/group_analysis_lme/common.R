@@ -71,8 +71,6 @@ multiple_comparisons <- function() {
     if(is.null(local_data$lmer_results)){
         return(htmltools::div(style='color:#a1a1a1; text-align:center; ', 'No model calculated yet'))
     }
-    
-    
     # local_data = ..local_data
     
     lmer_results = local_data$lmer_results
