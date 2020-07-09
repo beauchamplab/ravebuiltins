@@ -20,7 +20,8 @@ local_data = reactiveValues(
     plot_options = NULL,
     condition_stats = "",
     jitter_seed = sample(1:100,1),
-    current_active_set = NULL
+    current_active_set = NULL,
+    summary_statistics = NULL
 )
 
 # this is non-reactive because rave will trigger re-render for us
