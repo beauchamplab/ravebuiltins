@@ -340,9 +340,9 @@ update_electrode_category_select <- function(els) {
         attr(labels, 'map')[which(selected_electrode_numbers %in% ecsv$Electrode)]
     )
     
-    # assign('uecs', list(
-    #     .selected, labels, col_name, electrodes_csv, selected_electrode_numbers, input$merge_hemisphere_labels 
-    # ), envir = globalenv())
+    assign('uecs', list(
+        .selected, labels, col_name, electrodes_csv, selected_electrode_numbers, input$merge_hemisphere_labels
+    ), envir = globalenv())
     
     if(length(.selected) < 1) 
         .selected = 1
