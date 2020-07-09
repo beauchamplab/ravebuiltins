@@ -321,17 +321,20 @@ for(ii in which(has_trials)) {
   if(!isTRUE(nm != "" & !is.null(nm))) {
     nm = 'GROUP_' %&% ii
   }
+  cat2t('m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% ANALYSIS_WINDOW)$collapse(keep=c(1,4))')
   m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% ANALYSIS_WINDOW)$collapse(keep=c(1,4))
-  prod(dim(m))
   
-  .electrodes = power_all_shifted_clean_freq_subset$dimnames$Electrode
+  print(dim(m))
+  
+  els = power_all_shifted_clean_freq_subset$dimnames$Electrode
+  
   contrast_conditions[[nm]] = data.frame(
     y = c(m),
     Group = nm,
-    Electrode = rep(.electrodes, each = nrow(m)),
+    Electrode = rep(els, each = nrow(m)),
     TrialNumber = rep(
       power_all_shifted_clean_freq_subset$dimnames$Trial,
-      times = length(.electrodes)
+      times = length(els)
     )
   )
 }
