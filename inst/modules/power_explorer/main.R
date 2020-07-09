@@ -324,10 +324,12 @@ for(ii in which(has_trials)) {
   cat2t('m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% ANALYSIS_WINDOW)$collapse(keep=c(1,4))')
   m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% ANALYSIS_WINDOW)$collapse(keep=c(1,4))
   
-  print(dim(m))
   
   els = power_all_shifted_clean_freq_subset$dimnames$Electrode
   
+  assign('vals', list(
+    m, els, nm, power_all_shifted_clean_freq_subset$dimnames$Trial
+  ), envir = global_env())
   contrast_conditions[[nm]] = data.frame(
     y = c(m),
     Group = nm,
