@@ -126,7 +126,6 @@ collapse_method = 'mean'
 
 contrast_conditions <- list()
 
-
 for(ii in which(has_trials)) {
   #ii=1
   cat2t(sprintf('main calc loop %s of %s', ii, sum(has_trials)))
@@ -317,33 +316,40 @@ for(ii in which(has_trials)) {
   )
   
   ### add in the stats data
-  nm <- GROUPS[[ii]]$group_name
-  if(!isTRUE(nm != "" & !is.null(nm))) {
-    nm = 'GROUP_' %&% ii
-  }
-  cat2t('m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% ANALYSIS_WINDOW)$collapse(keep=c(1,4))')
-  m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% ANALYSIS_WINDOW)$collapse(keep=c(1,4))
-  
-  
-  els = power_all_shifted_clean_freq_subset$dimnames$Electrode
-  
-  assign('vals', list(
-    m, els, nm, power_all_shifted_clean_freq_subset$dimnames$Trial
-  ), envir = global_env())
-  contrast_conditions[[nm]] = data.frame(
-    y = c(m),
-    Group = nm,
-    Electrode = rep(els, each = nrow(m)),
-    TrialNumber = rep(
-      power_all_shifted_clean_freq_subset$dimnames$Trial,
-      times = length(els)
+  if(FALSE) {
+    nm <- GROUPS[[ii]]$group_name
+    if(!isTRUE(nm != "" & !is.null(nm))) {
+      nm = 'GROUP_' %&% ii
+    }
+    cat2t('m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% ANALYSIS_WINDOW)$collapse(keep=c(1,4))')
+    m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% ANALYSIS_WINDOW)$collapse(keep=c(1,4))
+    
+    
+    els = power_all_shifted_clean_freq_subset$dimnames$Electrode
+    
+    assign('vals', list(
+      m, els, nm, power_all_shifted_clean_freq_subset$dimnames$Trial
+    ), envir = global_env())
+    
+    contrast_conditions[[nm]] = data.frame(
+      y = c(m),
+      Group = nm,
+      Electrode = rep(els, each = nrow(m)),
+      TrialNumber = rep(
+        power_all_shifted_clean_freq_subset$dimnames$Trial,
+        times = length(els)
+      )
     )
-  )
+    
+  }
 }
 
 flat_data$group_i = flat_data$group
 flat_data$group %<>% factor
 
+
+if(FALSE) {
+  
 overall_stats <- do.call(rbind, contrast_conditions)
 overall_stats$Group %<>% factor(levels = names(contrast_conditions))
 overall_stats$Electrode %<>% factor
@@ -438,7 +444,8 @@ summary_statistics <- switch(
 )
 
 local_data$summary_statistics = summary_statistics
-  
+}
+
 # this can be used elsewhere to quickly check the number of groups that have data
 has_data = sum(has_trials)
 
