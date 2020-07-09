@@ -20,7 +20,7 @@ if(FALSE) {
                 list(group_name='V-only', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v')),
                 list(group_name='AV', group_conditions=c('known_av', 'last_av', 'drive_av', 'meant_av')))
   FREQUENCY = c(75,150)
-  ELECTRODE_TEXT = '13-24'
+  ELECTRODE_TEXT = '10-15'
 }
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
@@ -322,14 +322,16 @@ for(ii in which(has_trials)) {
     nm = 'GROUP_' %&% ii
   }
   m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% ANALYSIS_WINDOW)$collapse(keep=c(1,4))
+  prod(dim(m))
   
+  .electrodes = power_all_shifted_clean_freq_subset$dimnames$Electrode
   contrast_conditions[[nm]] = data.frame(
     y = c(m),
-    Electrode = rep(electrodes, each = nrow(m)),
     Group = nm,
+    Electrode = rep(.electrodes, each = nrow(m)),
     TrialNumber = rep(
       power_all_shifted_clean_freq_subset$dimnames$Trial,
-      times = length(electrodes)
+      times = length(.electrodes)
     )
   )
 }
