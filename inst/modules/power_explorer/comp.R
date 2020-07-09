@@ -56,6 +56,9 @@ define_initialization({
   # if there is a FreeSurferLabel column let's go with that, otherwise we'll fall back to the Label column
   column <- which(tolower(names(electrodes_csv)) == 'freesurferlabel')
   if(length(column) > 0) {
+    # make sure there are no NAs in the data
+    electrodes_csv[[column[1]]] [is.na(electrodes_csv[[column[1]]])] = "UNK"
+    
     elec_filter <- names(electrodes_csv)[column[1]]
     elec_labels <- unique(electrodes_csv[[column[1]]])
     
