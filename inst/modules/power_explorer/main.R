@@ -21,6 +21,7 @@ if(FALSE) {
                 list(group_name='AV', group_conditions=c('known_av', 'last_av', 'drive_av', 'meant_av')))
   FREQUENCY = c(75,150)
   ELECTRODE_TEXT = '10-15'
+  ELECTRODE_TEXT = '1,5-6,8-9'
 }
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
@@ -316,20 +317,22 @@ for(ii in which(has_trials)) {
   )
   
   ### add in the stats data
-  if(FALSE) {
+  if(T) {
     nm <- GROUPS[[ii]]$group_name
     if(!isTRUE(nm != "" & !is.null(nm))) {
       nm = 'GROUP_' %&% ii
     }
-    cat2t('m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% ANALYSIS_WINDOW)$collapse(keep=c(1,4))')
+    cat2t('Calc subset analyses')
     m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% ANALYSIS_WINDOW)$collapse(keep=c(1,4))
-    
     
     els = power_all_shifted_clean_freq_subset$dimnames$Electrode
     
-    assign('vals', list(
-      m, els, nm, power_all_shifted_clean_freq_subset$dimnames$Trial
-    ), envir = global_env())
+    if(exists('.__DEBUG__')) {
+      assign('vals', list(
+        contrast_conditions,
+        m, els, nm, power_all_shifted_clean_freq_subset$dimnames$Trial
+      ), envir = global_env())
+    }
     
     contrast_conditions[[nm]] = data.frame(
       y = c(m),
@@ -348,7 +351,7 @@ flat_data$group_i = flat_data$group
 flat_data$group %<>% factor
 
 
-if(FALSE) {
+if(T) {
   
 overall_stats <- do.call(rbind, contrast_conditions)
 overall_stats$Group %<>% factor(levels = names(contrast_conditions))
@@ -376,6 +379,10 @@ combine_emmeans_results <- function(r) {
   } else {
     rbind(tbl, contr %>% set_colnames(colnames(tbl)))
   }
+}
+
+if(nlevels(overall_stats$Electrode) == 1) {
+  windowed_analysis_type = 'Collapse electrode'
 }
 
 summary_statistics <- switch(

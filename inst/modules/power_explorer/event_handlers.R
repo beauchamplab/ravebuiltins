@@ -345,8 +345,9 @@ update_electrode_category_select <- function(els) {
         .selected, labels, col_name, electrodes_csv, selected_electrode_numbers, input$merge_hemisphere_labels
     ), envir = globalenv())
     
-    if(length(.selected) < 1) 
+    if(length(.selected) < 1) {
         .selected = 1
+    }
     
     updateSelectInput(session, 'electrode_category_selector_choices',
                       selected = labels[.selected],
