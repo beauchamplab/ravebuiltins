@@ -384,6 +384,7 @@ combine_emmeans_results <- function(r) {
 if(nlevels(overall_stats$Electrode) == 1) {
   windowed_analysis_type = 'Collapse electrode'
 }
+cat2t('running as: ' %&% windowed_analysis_type)
 
 summary_statistics <- switch(
   windowed_analysis_type,
