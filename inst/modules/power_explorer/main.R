@@ -4,6 +4,7 @@
 # rm(list = ls(all.names=T)); rstudioapi::restartSession()
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
+
 mount_demo_subject()
 view_layout('power_explorer')
 # mount_demo_subject(subject_code = 'YCZ', 'Sentences', epoch='YCZ_gingko', electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
@@ -395,7 +396,7 @@ summary_statistics <- switch(
         emmeans::emmeans(
           lmerTest::lmer(y ~ Group + (1|Electrode), data = overall_stats),
           options = list(infer=c(F,T)),
-          specs = pairwise ~ Group)
+          specs = pairwise ~ Group, infer=c(F,T))
       )
     } else {
       r <- as.data.frame(emmeans::emmeans(lmerTest::lmer(
@@ -411,7 +412,7 @@ summary_statistics <- switch(
         emmeans::emmeans(
           lmerTest::lmer(y ~ Group*Electrode + (1|Electrode), data = overall_stats),
           options = list(infer=c(F,T)),
-          specs = pairwise ~ Group|Electrode)
+          specs = pairwise ~ Group|Electrode, infer=c(F,T))
       )
     } else {
       r <- as.data.frame(emmeans::emmeans(
@@ -426,7 +427,9 @@ summary_statistics <- switch(
   'Collapse electrode' = {
     .d <- aggregate(y ~ TrialNumber+Group, mean, data=overall_stats)
     if(nlevels(.d$Group) > 1) {
-      combine_emmeans_results(emmeans::emmeans(lm(y ~ Group, data=.d), pairwise ~ Group))
+      combine_emmeans_results(emmeans::emmeans(lm(y ~ Group, data=.d), 
+                                               options = list(infer=c(F,T)),
+                                               pairwise ~ Group, infer=c(F,T)))
     } else {
       r = as.data.frame(
         emmeans::emmeans(lm(y ~ 1, data=.d), ~ 1, options=list(infer=c(F,T)))
@@ -599,13 +602,6 @@ get_stats_per_electrode <- function(ttypes){
   return(combined_res)
 }
 
-
-# cache <- function(key, val, name) {
-  # return(val)
-# }
-
-# gspe <- get_stats_per_electrode(all_trial_types)
-
 cat2t('start calc result')
 # assign("GROUPS", GROUPS, envir = globalenv())
 omnibus_results <- cache(
@@ -615,7 +611,6 @@ omnibus_results <- cache(
   val = get_stats_per_electrode(ttypes = all_trial_types),
   name = 'omnibus_results'
 )
-
 
 # grab all the details needed for plotting and put them in a list that
 # can be passed around (and I guess modified?)
@@ -658,14 +653,10 @@ omnibus_results %<>% rbind(
 
 local_data$omnibus_results = omnibus_results
 
-
-
 ### we need to store the plot options 
-
 
 # flat_data
 # local_data$condition_stats
-
 
 cat2t('Finished calc')
 
@@ -722,8 +713,8 @@ by_trial_heat_map_plot(results)
 results$get_variables(level = 3)
 
 across_electrode_statistics_plot(results)
-# result$heat_map_plot()
-# heat_map_plot(results)
+result$heat_map_plot()
+heat_map_plot(results)
 windowed_comparison_plot(results)
 dev.off()
 over_time_plot(results)

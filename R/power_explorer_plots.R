@@ -283,7 +283,8 @@ windowed_comparison_plot <- function(results, ...){
     
     set_palette_helper(results)
     
-    po = results$get_value('plot_options')
+    # po = results$get_value('plot_options')
+    po <- results$get_value('ravebuiltins_power_explorer_plot_options')$as_list()
     
     ### check if we need to highlight any points
     trial_scatter_plot(
@@ -312,13 +313,13 @@ heat_map_plot <- function(results, ...){
 
     set_palette_helper(results)
     set_heatmap_palette_helper(results)
-    
+    po <- results$get_value('ravebuiltins_power_explorer_plot_options')$as_list()
     draw_many_heat_maps(hmaps = results$get_value('heat_map_data'),
                         log_scale = results$get_value('log_scale'),
                         max_zlim = results$get_value('max_zlim', 0),
                         percentile_range=results$get_value('percentile_range'),
                         plot_time_range = results$get_value('plot_time_range'),
-                        PANEL.LAST = spectrogram_heatmap_decorator(plot_options = results$get_value('plot_options')),
+                        PANEL.LAST = spectrogram_heatmap_decorator(plot_options = po),
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator,0)
     )
 }
@@ -332,12 +333,12 @@ by_electrode_heat_map_plot <- function(results, ...) {
     set_heatmap_palette_helper(results)
     
     by_electrode_heat_map_data <- results$get_value('by_electrode_heat_map_data')
-    
+    po <- results$get_value('ravebuiltins_power_explorer_plot_options')$as_list()
     draw_many_heat_maps(by_electrode_heat_map_data,
                         percentile_range=results$get_value('percentile_range'),
                         max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
                         plot_time_range = results$get_value('plot_time_range'),
-                        PANEL.LAST=by_electrode_heat_map_decorator(plot_options = results$get_value('plot_options')),
+                        PANEL.LAST=by_electrode_heat_map_decorator(plot_options = po),
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator, 0)
                         )
 }
