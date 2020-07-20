@@ -273,14 +273,11 @@ regression_output <- function() {
     
     tbl_html = htmltable_coefmat(lmer_summary$coefficients)
     
-    if('lm' %in% class(lmer_results)) {
-        rand_eff_table = htmltools::p('No random effects in model...')        
-    } else {
+    if(inherits(lmer_results, "lmerModLmerTest")) {
         rand_eff_table = htmltable_mat(lme4::formatVC(lme4::VarCorr(lmer_results)))
+    } else {
+        rand_eff_table = htmltools::p('No random effects in model...')        
     }
-    
-    
-    
     
     htmltools::p(
     lmer_summary$methTitle, sprintf(' (%s)', lmer_summary$objClass), br(),

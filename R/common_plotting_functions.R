@@ -197,8 +197,7 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_
     xlim <- pretty(plot_time_range)#get_list_elements(plot_data, 'x') %>% unlist)
     ylim <- pretty(get_data_range(plot_data) %>% unlist, min.n=2, n=4)
     
-    
-    dipsaus::cat2('MAR: ', paste0(par('mar'),collapse = ' '), level = 'INFO')
+    # dipsaus::cat2('MAR: ', paste0(par('mar'),collapse = ' '), level = 'INFO')
     rutabaga::plot_clean(xlim, ylim)
     
     if(isTRUE(is.function(PANEL.FIRST))) PANEL.FIRST(plot_data)
