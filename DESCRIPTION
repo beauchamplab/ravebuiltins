@@ -32,7 +32,7 @@ Imports:
     magrittr (>= 1.5),
     circular (>= 0.4-93),
     lmerTest (>= 3.1-0),
-    lsmeans,
+    emmeans (>= 1.4.8),
     knitr,
     assertthat,
     shinyjs,

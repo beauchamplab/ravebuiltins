@@ -432,11 +432,11 @@ observeEvent(input$run_analysis, {
         # cond_group = list(list('group_conditions' = 'Dynamic'), list('group_conditions' = 'Static'))
         # cond_group = list(list('group_conditions' = c('Dynamic', 'Static')))
         
-        # cond_group = list(
-            # list(group_name = 'A-only', group_conditions = c('drive_a','last_a', 'meant_a', 'known_a')),
-            # list(group_name = 'V-only', group_conditions = c('drive_v','last_v', 'meant_v', 'known_v')),
-            # list(group_name = 'AV', group_conditions = c('drive_av','last_av', 'meant_av', 'known_av'))
-        # )
+        cond_group = list(
+        list(group_name = 'A-only', group_conditions = c('drive_a','last_a', 'meant_a', 'known_a')),
+        list(group_name = 'V-only', group_conditions = c('drive_v','last_v', 'meant_v', 'known_v')),
+        list(group_name = 'AV', group_conditions = c('drive_av','last_av', 'meant_av', 'known_av'))
+        )
     }
     
     cond_group <- dipsaus::drop_nulls(lapply(input$cond_group, function(g){
@@ -611,7 +611,7 @@ observeEvent(input$run_analysis, {
     by_el_results$Electrode <-  as.numeric(as.character(by_el_results$Electrode))
     
     # create a jittered subject value that can be used for plotting
-    by_el_results$`jitter(Subject)` = jitter(as.integer(by_el_results$Subject))
+    by_el_results$`jitter(Subject)` = jitter(as.integer(factor(by_el_results$Subject)))
     
     yi <- which(startsWith(names(by_el_results), 'F('))
     if(any(yi)) {

@@ -352,8 +352,6 @@ flat_data$group_i = flat_data$group
 flat_data$group %<>% factor
 
 
-if(T) {
-  
 overall_stats <- do.call(rbind, contrast_conditions)
 overall_stats$Group %<>% factor(levels = names(contrast_conditions))
 overall_stats$Electrode %<>% factor
@@ -455,7 +453,6 @@ summary_statistics <- switch(
 )
 
 local_data$summary_statistics = summary_statistics
-}
 
 # this can be used elsewhere to quickly check the number of groups that have data
 has_data = sum(has_trials)
@@ -605,7 +602,7 @@ get_stats_per_electrode <- function(ttypes){
 cat2t('start calc result')
 # assign("GROUPS", GROUPS, envir = globalenv())
 omnibus_results <- cache(
-  key = list(subject$id, BASELINE_WINDOW, FREQUENCY, all_trial_types, GROUPS,global_baseline,
+  key = list(subject$id, BASELINE_WINDOW, FREQUENCY, all_trial_types, GROUPS, global_baseline,
                    ANALYSIS_WINDOW, unit_of_analysis, preload_info$epoch_name, event_of_interest,
                    preload_info$reference_name, trial_outliers_list),
   val = get_stats_per_electrode(ttypes = all_trial_types),

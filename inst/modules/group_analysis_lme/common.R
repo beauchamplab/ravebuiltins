@@ -272,6 +272,16 @@ regression_output <- function() {
     })
     
     tbl_html = htmltable_coefmat(lmer_summary$coefficients)
+    
+    if('lm' %in% class(lmer_results)) {
+        rand_eff_table = htmltools::p('No random effects in model...')        
+    } else {
+        rand_eff_table = htmltable_mat(lme4::formatVC(lme4::VarCorr(lmer_results)))
+    }
+    
+    
+    
+    
     htmltools::p(
     lmer_summary$methTitle, sprintf(' (%s)', lmer_summary$objClass), br(),
     'LME call: ', strong(string_formula), br(),
@@ -301,7 +311,7 @@ regression_output <- function() {
     ),
     hr(),
     h4('Random Effects Table'),
-    htmltable_mat(lme4::formatVC(lme4::VarCorr(lmer_results))),
+    rand_eff_table,
     hr(),
     # coef table
     h4('LME Regression Table'),
