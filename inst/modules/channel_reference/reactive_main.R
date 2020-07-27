@@ -116,7 +116,8 @@ output[['elec_loc']] <- threeBrain::renderBrain({
         if(!length(name) || is.blank(name)){ name = 'Current Group' }
         
         # join electrodes.csv with ref table
-        tbl = merge(ref_tbl, subject$electrodes[,c('Electrode', 'Coord_x','Coord_y','Coord_z', 'Label')], id = 'Electrode', suffixes = c('.x', ''))
+        tbl = merge(ref_tbl, subject$electrodes[,c('Electrode', 'Coord_x','Coord_y','Coord_z', 'Label')],
+                    id = 'Electrode', suffixes = c('.x', ''))
         tbl$Label[is.na(tbl$Label)] = 'No Label'
         
         electrodes = group_info$electrodes
@@ -129,7 +130,7 @@ output[['elec_loc']] <- threeBrain::renderBrain({
         }) ->
             marker
         
-        lev = factor(c('Current Group', 'Bad Electrode'))
+        lev = factor(c('Curr Group', 'Bad El'), levels = c('Curr Group', 'Bad El'))
         values = rep(lev[1], length(electrodes))
         bad_electrodes = dipsaus:::parse_svec(input[[('ref_bad')]])
         values[electrodes %in% bad_electrodes] = lev[2]
@@ -141,7 +142,7 @@ output[['elec_loc']] <- threeBrain::renderBrain({
         # make a table
         tbl = data.frame(
             Electrode = electrodes,
-            Type = values,
+            ElectrodeType = values,
             Note = marker
         )
         if(!nrow(tbl)){ return() }
@@ -153,7 +154,7 @@ output[['elec_loc']] <- threeBrain::renderBrain({
                 volumes = FALSE, surfaces = TRUE, side_canvas = FALSE, 
                 background = bg,
                 control_panel = FALSE, palettes = list(
-                    'Type' = c('red', 'navy')
+                    'ElectrodeType' = c('navy', 'red')
                 ), side_display = FALSE, control_display = FALSE, cex = 0.5)
         }else{
             # Maybe load N27 brain if not exists
@@ -161,7 +162,7 @@ output[['elec_loc']] <- threeBrain::renderBrain({
                 volumes = FALSE, surfaces = FALSE, side_canvas = FALSE, 
                 background = bg,
                 control_panel = FALSE, palettes = list(
-                    'Type' = c('red', 'navy')
+                    'ElectrodeType' = c('navy', 'red')
                 ), side_display = FALSE, control_display = FALSE, cex = 0.5)
         }
         

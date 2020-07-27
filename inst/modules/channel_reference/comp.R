@@ -97,7 +97,7 @@ define_input(
 
 
 define_input(
-    textInput('ref_electrodes', label = 'Electrodes', value = '', 
+    textInput('ref_electrodes', label = 'Electrodes included in reference signal', value = '', 
               placeholder = 'e.g. 1-3,5'), 
     update_level = 0
 )
@@ -109,19 +109,18 @@ define_input(
 
 
 input_layout = list(
-    'Overall' = list('ref_name',
-                     'ref_name_alt',
-                     'ref_group'),
-    'Group Inspection' = list('cur_group',
-                              'elec_loc_ui',
-                              'cur_group_ui'),
-    '[-] Reference Generator' = list(
+    'Generate Reference Signals' = list(
         'ref_electrodes',
         'ref_calc'
-    )
+    ),
+    'Create Reference Groups' = list('ref_name',
+                     'ref_name_alt',
+                     'ref_group'),
+    'View Reference Groups' = list('cur_group',
+                              'elec_loc_ui',
+                              'cur_group_ui')
+
 )
-
-
 
 # End of input
 # ----------------------------------  Outputs ----------------------------------
