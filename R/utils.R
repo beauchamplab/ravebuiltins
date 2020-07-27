@@ -207,11 +207,11 @@ ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never
   ### Demo subject data files
   if(needs[1]) {
     dipsaus::rs_exec({
-      res = download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectData.zip",
+      res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectData.zip",
                           destfile = f <- tempfile(fileext = ".zip"))
       if(res==0) {
         extract_to = sprintf('%s/', rave::rave_options('data_dir'))
-        unzip(f, exdir = extract_to)
+        utils::unzip(f, exdir = extract_to)
       } else {
         stop('Unable to download demo subject data')
       }
@@ -221,11 +221,11 @@ ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never
   ### Demo subject raw data files
   if(needs[2]) {
     dipsaus::rs_exec({
-      res = download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectRaw.zip",
+      res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectRaw.zip",
                           destfile = f <- tempfile(fileext = ".zip"))
       if(res==0) {
         extract_to = sprintf('%s/', rave::rave_options('raw_data_dir'))
-        unzip(f, exdir = extract_to)
+        utils::unzip(f, exdir = extract_to)
       } else {
         stop('Unable to download demo subject raw data')
       }
@@ -235,11 +235,11 @@ ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never
   ## Demo group data files
   if(needs[3]) {
     dipsaus::rs_exec({
-      res = download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoGroupData.zip",
+      res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoGroupData.zip",
                           destfile = f <- tempfile(fileext = ".zip"))
       if(res==0) {
         extract_to = sprintf('%s/demo/', rave::rave_options('data_dir'))
-        unzip(f, exdir = extract_to)
+        utils::unzip(f, exdir = extract_to)
       } else {
         stop('Unable to download group data')
       }
