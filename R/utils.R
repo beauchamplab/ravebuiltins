@@ -210,7 +210,7 @@ ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never
       res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectData.zip",
                           destfile = f <- tempfile(fileext = ".zip"))
       if(res==0) {
-        extract_to = sprintf('%s/', rave::rave_options('data_dir'))
+        extract_to = sprintf('%s/demo/', rave::rave_options('data_dir'))
         utils::unzip(f, exdir = extract_to)
       } else {
         stop('Unable to download demo subject data')
