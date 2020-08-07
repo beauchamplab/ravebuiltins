@@ -2,9 +2,9 @@ package_name: ravebuiltins
 finalize_installation: ravebuiltins_finalize_installation
 dev_subject:
   project_name: demo
-  subject_code: YAB
+  subject_code: DemoSubject
   electrodes: '14,15'
-  epoch: YABaOutlier
+  epoch: auditory_onset
   time_range:
     pre: 1.0
     post: 2.0
