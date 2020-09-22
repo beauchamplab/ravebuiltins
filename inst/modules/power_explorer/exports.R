@@ -833,6 +833,8 @@ save_inputs <- function(yaml_path, variables_to_export){
 
 # export data for group analysis
 write_out_data_function <- function(write_out_movie_csv=TRUE){
+  
+  dipsaus::cat2('start WOD', level='INFO')
   project_name = subject$project_name
   subject_code = subject$subject_code
   
@@ -850,6 +852,9 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   trials = module_tools$get_meta('trials')
   trial_number = trials$Trial[trials$Condition %in% conditions]
   
+  
+  dipsaus::cat2('Line 856', level='INFO')
+  
   # check if they want to include outliers
   .trial_outlier_list = input$trial_outliers_list
   if(length(.trial_outlier_list) > 0 && (!input$include_outliers_in_export)) {
@@ -864,7 +869,7 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   
   # get baseline
   baseline_range = input$BASELINE_WINDOW
-  
+  dipsaus::cat2('Line 872', level='INFO')
   # Do some checks
   
   # Check 1: if no electrode is chosen
@@ -881,7 +886,7 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
     ))), type = 'error', id = ns('export_csv'))
     return()
   }
-  
+  dipsaus::cat2('Line 889', level='INFO')
   # Baseline
   progress$inc('Generating results... (might take a few minutes)')
   
@@ -898,7 +903,7 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   unit_of_analysis <- input$unit_of_analysis
   baseline_method = get_unit_of_analysis(unit_of_analysis)
   unit_name = format_unit_of_analysis_name(unit_of_analysis)
-  
+  dipsaus::cat2('Line 906', level='INFO')
   # here we want to take into the event of interest as well I think we just shift the entire data set here. we can
   res = rave::lapply_async(electrodes, function(e){
     # e = electrodes[1]
@@ -969,11 +974,11 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   .globals = c('unit_name', 'unit_dims', 'baseline_method', 'power', 'event_of_interest',
                   'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list'),
   .gc = FALSE)
-  
+  dipsaus::cat2('Line 977', level='INFO')
   res = do.call('rbind', res)
   res$Project = project_name
   res$Subject = subject_code
-  
+  dipsaus::cat2('Line 981', level='INFO')
   # flag outliers as needed
   res$TrialIsOutlier = FALSE
   if(!is.null(.trial_outlier_list) && length(.trial_outlier_list) > 0) {
@@ -988,8 +993,14 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   if(ncol(from_el) > 1) {
     names(from_el)[-1] = paste0(RAVE_ROI_KEY, names(from_el)[-1])
   }
-  
+  dipsaus::cat2('Line 996', level='INFO')
   res = merge(res, from_el)
+  dipsaus::cat2('Line 998', level='INFO')
+  # also add in the block numbers per DABI request
+  if(exists('epoch_data')) {
+    res <- merge(res, epoch_data[,c('Block', 'Trial')], by='Trial')
+  }
+  dipsaus::cat2('Line 1003', level='INFO')
   
   # Write out results
   progress$inc('Writing out on server, preparing...')
