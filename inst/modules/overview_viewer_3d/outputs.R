@@ -50,6 +50,7 @@ brain_viewer_fun <- function( render_value, side_width, env, proxy ){
 
 generate_brain <- function( brain, proxy ){
     set_palette('Beautiful Field')
+    
     session = shiny::getDefaultReactiveDomain()
     k = sprintf('output_%s_height', ns('brain_viewer_widget'))
     side_width = (session$clientData[[k]] - 100) / 3
@@ -63,14 +64,18 @@ generate_brain <- function( brain, proxy ){
     camera = proxy$isolate('main_camera')
     camera$zoom %?<-% 1
     
-    
     controllers = proxy$get_controllers()
     controllers[['Background Color']] = bgcolor
     controllers[['Subject']] = NULL
     
+    
+    pname <- input$heatmap_color_palette
+    
+    pals <- build_3dv_palette(names(brain$electrodes$value_table), pal_names = pname)
+    
     brain$plot(side_width = side_width, background = bgcolor, 
                controllers = controllers, start_zoom = camera$zoom, 
-               side_display = FALSE)
+               side_display = FALSE, palettes = pals)
 }
 
 download_ui <- function(){
@@ -159,7 +164,6 @@ output$electrode_table <- DT::renderDataTable({
 
 electrode_details <- function(){
     # listen to dblclick information
-    
     click_info = proxy$mouse_event_click
     
     if( !isTRUE(click_info$is_electrode) ){

@@ -4,8 +4,8 @@
 devtools::document()
 ravebuiltins:::dev_ravebuiltins(T)
 mount_demo_subject()
-
-init_module(module_id = 'overview_viewer_3d', debug = TRUE)
+# view_layout('overview_viewer_3d')
+# init_module(module_id = 'overview_viewer_3d', debug = TRUE)
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
@@ -18,16 +18,23 @@ project_dir = normalizePath(file.path(subject$dirs$rave_dir, '../../'))
 
 # Step 2. Read all csv files and combine them
 local_env$tables = list()
+
+
 selected_paths = lapply(data_files, function(p){
   path = normalizePath(file.path(project_dir, '_project_data', '3dviewer',  p), mustWork = FALSE)
   if(!file.exists(path)){ return() }
   
   # Read in path
   tryCatch({
-    dat = read.csv( path , stringsAsFactors = FALSE )
+    if(endsWith(path, 'csv')) {
+      dat = read.csv( path , stringsAsFactors = FALSE )
+    } else if (endsWith(path, 'fst')) {
+      dat = fst::read_fst(path)
+    }
+    dipsaus::cat2('34')
     nms = names(dat)
     if( !nrow(dat) ){ return() }
-    
+    dipsaus::cat2('37')
     # 1. Electrode
     if( !'Electrode' %in% nms ){ return() }
     
@@ -56,6 +63,7 @@ selected_paths = lapply(data_files, function(p){
     local_env$tables[[ path ]] = dat
     return(path)
   }, error = function(e){
+    print(e)
     NULL
   })
 })

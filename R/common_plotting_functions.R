@@ -24,7 +24,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
                                 show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
                                 PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), plot_time_range=NULL, ...) {
     k <- sum(hmaps %>% get_list_elements('has_trials'))
-    orig.pars <- layout_heat_maps(k)
+    orig.pars <- layout_heat_maps(k, layout_color_bar = show_color_bar)
     # I'm getting error about pin here... let's just rely on the graphics device being reset?
     # on.exit({
         # par(orig.pars)
@@ -58,6 +58,13 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             max_zlim <- quantile(unlist(lapply(hmaps, getElement, 'data')),
                                  probs = max_zlim / 100,
                                  na.rm = TRUE)
+        }
+        
+        if(max_zlim > 100) {
+            max_zlim %<>% round(-1)
+        }
+        else if(max_zlim > 10) {
+            max_zlim %<>% round_to_nearest(5)
         }
     }
 
@@ -222,7 +229,6 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_
     
     # if someone wants to add "top-level" decorations, now is the time
     if(is.function(PANEL.LAST)) PANEL.LAST(plot_data)
-    
     invisible(plot_data)
 }
 
@@ -388,7 +394,9 @@ spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Y
         if(length(title_options) > 0) {
             .args[names(title_options)] = title_options
         }
-        do.call(title_decorator, args=.args)
+        if(!is.null(title_options)) {
+            do.call(title_decorator, args=.args)
+        }
         
         axis_label_decorator(plot_data, Xmap = Xmap, Ymap = Ymap)
         
@@ -455,13 +463,13 @@ spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Y
 }
 
 # here we just call the spectrogram decorator with some special setup options
-by_trial_heat_map_decorator <- function(plot_data=NULL, plot_options, Xmap=force, Ymap=force, ...) {
+by_trial_heat_map_decorator <- function(plot_data=NULL, plot_options, Xmap=force, Ymap=force,
+                                        title_options=list(allow_sample_size=FALSE), atype='line', btype='line', ...) {
     args <- list(
-        plot_options=plot_options, Xmap=Xmap, Ymap=Ymap, atype='line', btype='line',
-        title_options = list(allow_sample_size=FALSE),
+        plot_options=plot_options, Xmap=Xmap, Ymap=Ymap, atype=atype, btype=btype,
+        title_options = title_options,
         ...
     )
-    
     
     # this is not great to be hard-coding Trial Number and Condition here...
     if(!(plot_options$sort_trials_by_type %in% c('Trial Number', 'Condition'))) {
@@ -527,7 +535,7 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
     
     if(!('matrix' %in% class(mat))) {
         warning('mat is not a matrix... check it out: make_image_mat')
-        # assign('make_image_mat', mat, globalenv())
+        assign('make_image_mat', mat, globalenv())
     }
 
     image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
@@ -542,7 +550,7 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
 # setup so that heatmaps look nice and you have enough space for the color bar
 # ratio: heatmap to color bar width ratio
 # k is the number of heatmaps, excluding the color bar
-layout_heat_maps <- function(k, ratio=4) {
+layout_heat_maps <- function(k, ratio=4, layout_color_bar=TRUE) {
     opars <- par(no.readonly = TRUE)
     
     cbar_wid = 3.5
@@ -551,7 +559,11 @@ layout_heat_maps <- function(k, ratio=4) {
         # cat2t('setting skinny cbar')
     }
     
-    layout(matrix(1:(k+1), nrow=1), widths=c(rep(ratio, k), lcm(cbar_wid)) )
+    if(layout_color_bar) {
+        layout(matrix(1:(k+1), nrow=1), widths=c(rep(ratio, k), lcm(cbar_wid)) )
+    } else {
+        layout(matrix(1:k, nrow=1), widths=rep(ratio, k))
+    }
     par(mar=c(par('mar')[1], par('mar')[2], 2, 2))
     invisible(opars)
 }
@@ -597,16 +609,18 @@ str_rng <- function(rng) {
 
 
 rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change', ylab.line=1.5,
-                           mar=c(5.1, 5.1, 2, 2), ...) {
+                           mar=c(5.1, 5.1, 2, 2), horizontal=FALSE, ...) {
     rave_context()
 
     clrs %?<-% get_currently_active_heatmap()
     cbar <- matrix(seq(-zlim, zlim, length=length(clrs))) %>% t
+    
+    if(horizontal) cbar %<>% t
+    
     par(mar=mar)
-    image(cbar,
+    image(cbar, useRaster = FALSE,
           col=clrs, axes=F, ylab='', main='',
           col.lab = get_foreground_color())
-
     
     # check if any other graphics params were requested, direct them to the proper function
     more = list(...)
@@ -614,11 +628,16 @@ rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change', 
     ral.args = list(ylab=ylab, line=ylab.line)
     if('cex.lab' %in% more) ral.args$cex.lab = more$cex.lab
     
-    do.call(rave_axis_labels, ral.args)
+    if(horizontal) {
+        rave_title(ral.args$ylab)
+    } else {
+        do.call(rave_axis_labels, ral.args)
+    }
     
-    ra.args = list(side=2, at=0:1, labels=pretty_round(c(-zlim,zlim)), tcl=0)
+    ra.args = list(side=2, at=0:1, labels=pretty_round(c(-zlim,zlim), allow_negative_round = TRUE), tcl=0)
     if('cex.axis' %in% more) ra.args$cex.axis = more$cex.axis
     
+    if(horizontal) ra.args$side = 1
     do.call(rave_axis, ra.args)
 
     ra.args[c('at', 'labels', 'tcl')] = list(0.5, 0, 0.3)
@@ -665,8 +684,6 @@ reorder_trials_by_type <- function(bthmd) {
 }
 
 reorder_trials_by_event <- function(bthmd, event_name) {
-    
-    
     if(event_name != 'Condition') {
         new_order = order(bthmd$events[[event_name]])
     } else {
@@ -947,9 +964,8 @@ build_results_object <- function(l) {
 
 #works by side effect to change the palette used by the current graphics device
 # and set the RAVE theme to light or dark
+
 set_palette_helper <- function(results, plot_options, ...) {
-    rave_context()
-    
     results %?<-% build_results_object(plot_options)
     
     .bg <- results$get_value('background_plot_color_hint', 'white')
@@ -1148,7 +1164,7 @@ do_on_inclusion <- function(needle, expr, haystack) {
 #
 # helper that calls out to sub-decorators based on user-selected options
 #
-time_series_decorator <- function(plot_data, plot_options, ...) {
+time_series_decorator <- function(plot_data, plot_options, do_not_shade = c(), ...) {
     .plot_options <- plot_options$plot_title_options 
     ddl = plot_options$draw_decorator_labels
     
@@ -1171,11 +1187,13 @@ time_series_decorator <- function(plot_data, plot_options, ...) {
                 if(!ddl) {
                     nm <- FALSE
                 }
-                window_decorator(plot_data[[1]][[full_name]],
-                                 type='shaded', shade.col = rave_colors[[full_name]], text = nm,
-                                 label_placement_offset = ifelse(
-                                     nm == 'Baseline', 0.9, 0.8)
-                )
+                if(!(full_name %in% do_not_shade)) {
+                    window_decorator(plot_data[[1]][[full_name]],
+                                     type='shaded', shade.col = rave_colors[[full_name]], text = nm,
+                                     label_placement_offset = ifelse(
+                                         nm == 'Baseline', 0.9, 0.8)
+                    )
+                }
             }
         })
         
@@ -1229,12 +1247,15 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
 }
 
 
-pretty_round <- function(x) {
+pretty_round <- function(x, allow_negative_round=FALSE) {
     max_x <- max(abs(x))
     dig = 0
     if(max_x < 1) {
         dig = abs(floor(log10(max_x)))
     } 
+    if(allow_negative_round && max_x > 100 ) {
+        dig = -1
+    }
     round(x, dig)
 }
 
@@ -1271,8 +1292,6 @@ add_strings_to_plot_title <- function(strings, color_variable, width_factor=1.5,
         
     }, strings, nchars, color_variable)
 }
-
-
 
 get_unit_of_analysis <- function(requested_unit, names=FALSE) {
     ll = list(
@@ -1363,13 +1382,12 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
                do_poly(x, y, col=shade.col)
            })
 
-    if(!isFALSE(text)) {
+    if(!isFALSE(text) && nchar(text) > 0) {
         cex = rave_cex.lab*get_cex_for_multifigure()
         if(plotting_to_file()) {
             cex = 1
         }
-        text(text.x, text.y, labels = text, pos=4, col=text.col,
-             cex=cex)
+        text(text.x, text.y, labels = text, pos=4, col=text.col,cex=cex)
     }
 }
 
@@ -1737,6 +1755,7 @@ get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FAL
     .heatmap_palettes <- list(
         BlueWhiteRed = c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#ffffff", 
                              "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061") %>% rev,
+        BlueGrayRed = rev(c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#b4b4b4", "#92c5de", "#4393c3", "#2166ac", "#053061")),
         Spectral = c('#9e0142','#d53e4f','#f46d43','#fdae61','#fee08b','#ffffbf',
                      '#e6f598','#abdda4','#66c2a5','#3288bd','#5e4fa2') %>% rev,
         BrownWhiteGreen = c('#543005','#8c510a','#bf812d','#dfc27d','#f6e8c3','#f5f5f5',
@@ -1772,6 +1791,29 @@ get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FAL
     
     return (pal)
 }
+
+
+build_3dv_palette <- function(var_names, pal_names) {
+    if(length(var_names) < 1) stop('invalid names provided to build 3dv pal')
+    
+    .colors = get_heatmap_palette(pal_names[[1]])
+    pal = expand_heatmap(.colors, ncolors=128)
+    
+    pval_pal = expand_heatmap(
+        rev(tail(.colors, ceiling(length(.colors)/2))),
+        ncolors=128, bias=10)
+    pals = list(pal)
+    
+    pals[seq_along(var_names)] = pals
+    names(pals) = var_names
+    
+    pals[startsWith(names(pals), 'p(')] = list(pval_pal)
+    pals[names(pals) %in% c('p')] = list(pval_pal)
+    
+    return(pals)
+}
+
+
 
 set_palette <- function(pname) {
     if (is.null(pname)) {

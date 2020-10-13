@@ -85,8 +85,8 @@ define_input_auto_recalculate(
 
 # Add csv file
 define_input(
-    definition = shiny::fileInput('csv_file', label = 'Upload a csv Data File', 
-                                  accept = 'text/csv', multiple = TRUE)
+    definition = shiny::fileInput('csv_file', label = 'Upload fst or csv data files', 
+                                  accept = c('.csv', '.fst'), multiple = TRUE)
 )
 define_input(definition = customizedUI('file_check', width = '100%'))
 
@@ -112,6 +112,19 @@ define_input(
     rave::customizedUI('electrode_details')
 )
 
+define_input(
+    definition = selectInput(inputId = 'heatmap_color_palette', label='Heatmap color palette', multiple=FALSE, 
+                             choices = get_heatmap_palette(get_palette_names = TRUE),
+                             selected = get_heatmap_palette(get_palette_names = TRUE)[1]),
+    
+    # cache the color palette across data reloads. needs init_args and init_expr
+    init_args = c('selected'),
+    init_expr = {
+        selected = cache_input('heatmap_color_palette',
+                               val = get_heatmap_palette(get_palette_names = TRUE)[1])
+    }
+)
+
 
 
 input_layout = list(
@@ -125,6 +138,9 @@ input_layout = list(
         c('csv_file'),
         c('file_check'),
         c('viewer_result_btn2')
+    ),
+    'Viewer Controls' = list(
+        'heatmap_color_palette'
     ),
     'Data Inspector' = list(
         'electrode_details'
