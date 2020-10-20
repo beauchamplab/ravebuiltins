@@ -833,13 +833,12 @@ save_inputs <- function(yaml_path, variables_to_export){
 
 # export data for group analysis
 write_out_data_function <- function(write_out_movie_csv=TRUE){
-  
   dipsaus::cat2('start WOD', level='INFO')
   project_name = subject$project_name
   subject_code = subject$subject_code
   
   # get electrodes to be exported
-  electrodes = parse_svec(current_active_set)
+  electrodes = parse_svec(input$current_active_set)
   electrodes = electrodes[electrodes %in% preload_info$electrodes]
   
   progress = progress('Exporting baselined data...', max = 3 + length(electrodes))
@@ -851,7 +850,6 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   conditions = conditions[conditions %in% preload_info$condition]
   trials = module_tools$get_meta('trials')
   trial_number = trials$Trial[trials$Condition %in% conditions]
-  
   
   dipsaus::cat2('Line 856', level='INFO')
   
@@ -904,7 +902,7 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   baseline_method = get_unit_of_analysis(unit_of_analysis)
   unit_name = format_unit_of_analysis_name(unit_of_analysis)
   dipsaus::cat2('Line 906', level='INFO')
-  # here we want to take into the event of interest as well I think we just shift the entire data set here. we can
+  # here we want to take into the event of interest as well I think we just shift the entire data set here
   res = rave::lapply_async(electrodes, function(e){
     # e = electrodes[1]
     progress$inc(sprintf('Electrode %d', e))
@@ -919,8 +917,7 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
     
     ### here I think we just want to export all the events...
     by_event_type <- sapply(epoch_event_types, function(eot) {
-      
-      # eot = epoch_event_types[7]
+      # eot = epoch_event_types[2]
       
       if(eot != epoch_event_types[1]) {
         epoch_info = get_events_data(epoch_event_types)
@@ -945,37 +942,32 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
       flat$Condition = unlist(cond_list[flat$Trial])
       flat$Electrode = e
       
-      flat$uuid = paste0(flat$Trial, '_', formatC(flat$Time, width = 12, digits=10, flag='0'))
+      # flat$uuid = paste0(flat$Trial, '_', formatC(flat$Time, width = 12, digits=10, flag='0'))
       
       return(flat)
     }, USE.NAMES = TRUE, simplify = FALSE)
     
+    # if there is only one event, return it, else we need to merge the results
     if(length(by_event_type) == 1) return (by_event_type[[1]])
     
     full_matrix = by_event_type[[1]]
     
-    if(any(duplicated(full_matrix$uuid))) {
-      stop('Cannot export data with duplicate row ids....')
+    sapply(by_event_type, function(bet) bet$Time %>% range)
+    sapply(by_event_type, names)
+    
+    for(ii in 2:length(by_event_type)) {
+      full_matrix = merge(full_matrix, by_event_type[[ii]], all=TRUE)
     }
     
-    rownames(full_matrix) = full_matrix$uuid
-    for(ii in 2:length(by_event_type)) {
-      bet = by_event_type[[ii]]
-      val = names(bet)[! names(bet) %in% names(full_matrix)]
-      full_matrix[[val]] = NA
-      column_index = ncol(full_matrix)
-      
-      bet = bet[bet$uuid %in% full_matrix$uuid,]
-      
-      full_matrix[bet$uuid, column_index] = bet[[val]]
-    }
-    full_matrix
+    return (full_matrix)
   }, 
   .globals = c('unit_name', 'unit_dims', 'baseline_method', 'power', 'event_of_interest',
                   'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list'),
   .gc = FALSE)
+  
   dipsaus::cat2('Line 977', level='INFO')
   res = do.call('rbind', res)
+  
   res$Project = project_name
   res$Subject = subject_code
   dipsaus::cat2('Line 981', level='INFO')
@@ -985,20 +977,32 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
     res$TrialIsOutlier[res$Trial %in% .trial_outlier_list] = TRUE
   }
   
-  # tack on the electrode info
-  vars_to_add = c('electrode', 'hemisphere', 'freesurferlabel', 'group')
-  v_index = sapply(vars_to_add, which.equal, tolower(names(subject$meta$electrode)))
-  
+  # tack on the electrode info, checking for ROI candidates along the way
+  cn <- tolower(colnames(subject$meta$electrode))
+  extra_rois <- cn[startsWith(cn, 'group')]
+  roi_vars <- c('hemisphere', 'freesurferlabel', extra_rois)
+  vars_to_add = c('electrode', 'label', roi_vars)
+  v_index <- sapply(vars_to_add, function(vn) {
+    which(vn == cn)
+  }) %>% unlist
   from_el = subject$meta$electrode[,v_index, drop=FALSE]
-  if(ncol(from_el) > 1) {
-    names(from_el)[-1] = paste0(RAVE_ROI_KEY, names(from_el)[-1])
+  
+  # label the ROI vars
+  for(vi in which(names(v_index) %in% roi_vars)) {
+      names(from_el)[vi] = paste0(RAVE_ROI_KEY, names(from_el)[vi])
   }
+  
   dipsaus::cat2('Line 996', level='INFO')
   res = merge(res, from_el)
+  
   dipsaus::cat2('Line 998', level='INFO')
   # also add in the block numbers per DABI request
   if(exists('epoch_data')) {
     res <- merge(res, epoch_data[,c('Block', 'Trial')], by='Trial')
+    
+    # let's tag Block as an ROI variable too. Don't mess up DABI folks, so keep Block as a separate var,
+    # but this expands the size of the data set, right. 1 million rows = 8MB, but should compress well
+    res[[paste0(RAVE_ROI_KEY, 'Block')]] = res$Block
   }
   dipsaus::cat2('Line 1003', level='INFO')
   
@@ -1022,9 +1026,22 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
     collapsed_trial = reshape2::dcast(res, Project+Subject+Electrode+Time~Condition, mean, value.var = paste0(unit_name, '_', 'Trial_Onset'))
     dirname_viewer = file.path(subject$dirs$subject_dir, '..', '_project_data', '3dviewer')
     dir.create(dirname_viewer, showWarnings = FALSE, recursive = TRUE)
-    data.table::fwrite(collapsed_trial,
-                       file.path(dirname_viewer, paste0(analysis_prefix, '-collapsed_trial-_epoch_trial_onset_', now, '.csv')),
-                       append = FALSE)
+    
+    # create average columns based on the condition groups
+    for(ii in seq_along(input$GROUPS)) {
+      g <- input$GROUPS[[ii]]
+      collapsed_trial[[g$group_name]] <- rowMeans(collapsed_trial[,colnames(collapsed_trial) %in% g$group_conditions])
+    }
+    
+    fst::write_fst(
+      collapsed_trial, 
+      path = file.path(dirname_viewer, paste0(analysis_prefix, '-collapsed_trial_epoch_trial_onset_', now, '.fst')),
+      compress = 99
+    )
+    
+    # data.table::fwrite(collapsed_trial,
+    #                    file.path(dirname_viewer, paste0(analysis_prefix, '-collapsed_trial-_epoch_trial_onset_', now, '.csv')),
+    #                    append = FALSE)
   }
   
   return(normalizePath(file.path(dirname, fname)))

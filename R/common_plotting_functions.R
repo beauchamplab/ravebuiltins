@@ -232,6 +232,19 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_
     invisible(plot_data)
 }
 
+event_label_decorator <- function(data, event_label, Xmap=force, Ymap=force, side=1, at=0, line=1.5, ...) {
+    eld <- function(..., Xmap=force, Ymap=force, new_lbl) {
+        if(!missing(new_lbl)) event_label = new_lbl
+        
+        mtext(event_label, side=side, at=Xmap(at), line=line)
+    }
+    
+    if(missing(data)) {
+        return(eld)
+    }
+    eld()
+}
+
 
 #
 # group_data is a list

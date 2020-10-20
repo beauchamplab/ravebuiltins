@@ -451,6 +451,7 @@ summary_statistics <- switch(
     }
   }
 )
+cat2t('done')
 
 local_data$summary_statistics = summary_statistics
 

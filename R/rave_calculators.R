@@ -363,3 +363,35 @@ get_favored_collapsers <- function(swap_var = 'collapse_using_median') {
 
 
 
+## 
+lagged_cor <- function(x, y, method='pearson', len=20) {
+  
+  stopifnot(length(x) == length(y))
+  
+  if (len > length(x))
+    len <- length(x)-3
+  
+  rng <- c(0, len)
+  cors <- sapply(seq(rng[1], rng[2], by=1), function(r) {
+    
+    yS <- y[(r+1):length(y)]
+    xS <- x[1:(length(x)-r)]
+    # cor.test(xS, yS, method=method)
+    cor(xS,yS, method=method)
+  })
+  
+  # best_lag <- which.max(abs(cors %>% sapply(getElement, 'estimate')))
+  # 
+  # ret <- list (
+  #   'lag'=best_lag-1,
+  #   'cor'=cors[[best_lag]]$estimate,
+  #   'method'=method,
+  #   'tested_range'=rng,
+  #   'p.value'=cors[[best_lag]]$p.value
+  # )
+  # 
+  # class(ret) <- c('lcor', class(ret))
+  
+  return(cors)
+}
+
