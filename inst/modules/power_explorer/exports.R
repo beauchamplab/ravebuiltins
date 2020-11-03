@@ -1030,7 +1030,7 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
     # create average columns based on the condition groups
     for(ii in seq_along(input$GROUPS)) {
       g <- input$GROUPS[[ii]]
-      collapsed_trial[[g$group_name]] <- rowMeans(collapsed_trial[,colnames(collapsed_trial) %in% g$group_conditions])
+      collapsed_trial[[g$group_name]] <- rowMeans(collapsed_trial[,colnames(collapsed_trial) %in% g$group_conditions, drop=FALSE])
     }
     
     fst::write_fst(
