@@ -952,8 +952,8 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
     
     full_matrix = by_event_type[[1]]
     
-    sapply(by_event_type, function(bet) bet$Time %>% range)
-    sapply(by_event_type, names)
+    # sapply(by_event_type, function(bet) bet$Time %>% range)
+    # sapply(by_event_type, names)
     
     for(ii in 2:length(by_event_type)) {
       full_matrix = merge(full_matrix, by_event_type[[ii]], all=TRUE)
