@@ -139,6 +139,7 @@ get_cex_for_multifigure <- function() {
   return (cex_multiplier)
 }
 
+
 plotting_to_file <- function() {
   i = get0(".Devices", envir = baseenv(),
            ifnotfound = list("-1"), inherits = FALSE)
@@ -340,6 +341,15 @@ rave_colors[tolower(names(rave_colors))] = rave_colors
 get_shifted_tensor <- function(raw_tensor, shift_amount, new_range, dimnames, varnames, shift_idx=3, shift_by=1, data_env = rave::getDefaultDataRepository()) {
   stopifnot(exists("module_tools", envir = data_env))
   mt = data_env$module_tools
+  
+  dipsaus::cat2('Shift by dim: ', paste0(dim(raw_tensor), collapse=':'))
+  
+  dipsaus::cat2('Shift amount length: ', length(shift_amount))
+  
+  if(length(shift_amount) != dim(raw_tensor)[1]) {
+    warning('THIS WILL NOT WORK')
+  }
+  
     
   shifted_array = dipsaus::shift_array(raw_tensor, shift_idx = 3, shift_by = 1, shift_amount = shift_amount)
   
@@ -398,7 +408,9 @@ determine_shift_amount <- function(available_shift, event_time, data_env = rave:
   new_range_ind = abs(round(available_shift*mt$get_sample_rate()))
   
   # we need to add one here to account for 0
-  new_0_ind = 1 + round(mt$get_sample_rate()*(event_time - min(mt$get_power()$dimnames$Time)))
+  # time_points = mt$get_power()$dimnames$Time
+  time_points = data_env$preload_info$time_points
+  new_0_ind = 1 + round(mt$get_sample_rate()*(event_time - min(time_points)))
   
   return(new_0_ind - new_range_ind[1])
 }
