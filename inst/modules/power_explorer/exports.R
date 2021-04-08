@@ -921,6 +921,13 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
       
       if(eot != epoch_event_types[1]) {
         epoch_info = get_events_data(epoch_event_types)
+        
+        # BUGFIX April 08, 2021
+        # we need to also edit the epoch information to handle the removal outliers
+        # the trial number variable was used to subset the tensor, so we'll use it here
+        # other approach would be to use the Trial dimname in the tensor?
+        epoch_info = subset(epoch_info, Trial %in% trial_number)
+        
         new_range = determine_available_shift(eot, range(power$dimnames$Time), epoch_information = epoch_info)
         
         shift_amount = determine_shift_amount(event_time = epoch_info[[eot]],

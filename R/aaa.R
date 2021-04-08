@@ -342,13 +342,13 @@ get_shifted_tensor <- function(raw_tensor, shift_amount, new_range, dimnames, va
   stopifnot(exists("module_tools", envir = data_env))
   mt = data_env$module_tools
   
-  dipsaus::cat2('Shift by dim: ', paste0(dim(raw_tensor), collapse=':'))
-  
-  dipsaus::cat2('Shift amount length: ', length(shift_amount))
-  
-  if(length(shift_amount) != dim(raw_tensor)[1]) {
-    warning('THIS WILL NOT WORK')
-  }
+  # dipsaus::cat2('Shift by dim: ', paste0(dim(raw_tensor), collapse=':'))
+  # 
+  # dipsaus::cat2('Shift amount length: ', length(shift_amount))
+  # 
+  # if(length(shift_amount) != dim(raw_tensor)[1]) {
+  #   warning('THIS WILL NOT WORK')
+  # }
   
     
   shifted_array = dipsaus::shift_array(raw_tensor, shift_idx = 3, shift_by = 1, shift_amount = shift_amount)
