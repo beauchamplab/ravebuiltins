@@ -6,26 +6,30 @@ require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
 
 mount_demo_subject()
-view_layout('power_explorer')
+view_layout('spike_explorer')
 # mount_demo_subject(subject_code = 'YCZ', 'Sentences', epoch='YCZ_gingko', electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
 
 if(FALSE) {
   attachDefaultDataRepository()
-  init_module('power_explorer', TRUE)
-  frequency_window = c(76,130)
+  init_module('spike_explorer', TRUE)
+  
+  FREQUENCY = c(76,130)
   # frequencies
   # GROUPS = list(list('group_name'='d', group_conditions=c('Dynamic')),
   #               list(group_name = 's', group_conditions=c('Static'))
   # )
   GROUPS = list(list(group_name='A-only', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
-                list(group_name='V-only', group_conditions=c()),
+                list(group_name='V-only', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v')),
                 list(group_name='AV', group_conditions=c('known_av', 'last_av', 'drive_av', 'meant_av')))
-  frequency_window = c(75,150)
+  FREQUENCY = c(75,150)
   electrode_text = '10-15'
   electrode_text = '1,5-6,8-9'
 }
 
+
+
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
+
 # event_of_interest = '2ndWord'
 cat2_timestamp <- function() {
   t0 <- proc.time()[3]
@@ -39,7 +43,7 @@ cat2_timestamp <- function() {
   })
 }
 
-if(sum(frequencies %within% frequency_window) < 1) {
+if(sum(frequencies %within% FREQUENCY) < 1) {
   stop('No frequencies available within specified range')
 }
 
@@ -65,7 +69,7 @@ assertthat::assert_that(length(GROUPS) > 0,
 # Clean group input data
 group_data = lapply(seq_along(GROUPS), function(idx) {
   g = GROUPS[[idx]]
-  
+
   Trial_num = epoch_data$Trial[epoch_data$Condition %in% unlist(g$group_conditions)]
   list(
     name = g$group_name,
@@ -121,10 +125,13 @@ jitter_seed <- cache(key = 'jitter_seed', val = sample(1:100, 1), name = 'jitter
 scatter_bar_data <- over_time_data <- by_electrode_heat_map_data <- 
   by_trial_heat_map_data <- heat_map_data <- group_data
 
+over_time_spike_data <- by_trial_spiking_data <- spike_correlation_by_frequency <- scatter_bar_data
+
 flat_data <- data.frame()
 
 # set transform method
 collapse_method = 'mean'
+
 
 contrast_conditions <- list()
 
@@ -136,7 +143,7 @@ for(ii in which(has_trials)) {
                               epoch_data$Trial %in% group_data[[ii]]$Trial_num)
   
   power_all = bl_power$subset(Trial = Trial %in% group_data[[ii]]$Trial_num)
-  
+
   events = get_events_data(epoch_event_types) %>%
     subset((.)$Trial %in% group_data[[ii]]$Trial_num)
   
@@ -162,14 +169,14 @@ for(ii in which(has_trials)) {
     }
     
     power_all_shifted = get_shifted_tensor(raw_tensor = power_all$get_data(), shift_amount = shift_amount, new_range = new_range,
-                                           dimnames = dimnames(power_all), varnames = names(power_all$dimnames))
+                       dimnames = dimnames(power_all), varnames = names(power_all$dimnames))
     
     # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
     cat2t('updating events file')
     events[epoch_event_types[-1]] <- events[epoch_event_types[-1]] - events[[event_of_interest]]
     cat2t('done with shifting')
   }
-  
+    
   # handle outliers
   if(length(trial_outliers_list) == 0) {
     power_all_clean <- power_all
@@ -179,7 +186,7 @@ for(ii in which(has_trials)) {
     power_all_clean <- power_all$subset(Trial = !(Trial %in% trial_outliers_list))
     power_all_shifted_clean <- power_all_shifted$subset(Trial = !(Trial %in% trial_outliers_list))
   }
-  
+    
   N = dim(power_all_shifted)[1L]
   Nclean <- dim(power_all_shifted_clean)[1L]
   
@@ -198,7 +205,7 @@ for(ii in which(has_trials)) {
       conditions = group_data[[ii]]$conditions,
       baseline_window = baseline_window,
       analysis_window = analysis_window,
-      frequency_window = frequency_window,
+      frequency_window = FREQUENCY,
       electrodes = requested_electrodes,
       events = events,
       trial_alignment = event_of_interest,
@@ -216,7 +223,7 @@ for(ii in which(has_trials)) {
     for(k in names(vals)) {
       # check for attribute labels
       if (k %in% c('xlab', 'ylab', 'zlab')) {
-        attr(ll$data, k) = vals[[k]]
+          attr(ll$data, k) = vals[[k]]
       }
       # all other values just add into the data list
       else {
@@ -239,8 +246,8 @@ for(ii in which(has_trials)) {
     N = Nclean
   )
   
-  power_all_shifted_clean_freq_subset = power_all_shifted_clean$subset(Frequency = Frequency %within% frequency_window)
-  power_all_shifted_freq_subset = power_all_shifted$subset(Frequency = Frequency %within% frequency_window)
+  power_all_shifted_clean_freq_subset = power_all_shifted_clean$subset(Frequency = Frequency %within% FREQUENCY)
+  power_all_shifted_freq_subset = power_all_shifted$subset(Frequency = Frequency %within% FREQUENCY)
   
   # 2. power @ trial over time
   cat2t('Building by_trial heatmap data')
@@ -250,7 +257,7 @@ for(ii in which(has_trials)) {
     y = seq_along(power_all_shifted_freq_subset$dimnames$Trial),
     xlab='Time (s)', ylab='Trial', zlab='auto'
   )
-  
+
   # 2.5 by electrode over time
   cat2t('Building by_electrode_heat_map_data')
   by_electrode_heat_map_data[[ii]] <- wrap_data(
@@ -296,10 +303,10 @@ for(ii in which(has_trials)) {
   # needs to be done here.
   .xp <- barplot(which(has_trials),plot=FALSE)
   .r <- if(sum(has_trials)>1) {
-    mean(unique(diff(.xp)))*0.25  
-  } else {
-    0.75*(1/3)
-  }
+       mean(unique(diff(.xp)))*0.25  
+     } else {
+      0.75*(1/3)
+     }
   
   xpi <- which(ii == which(has_trials))
   scatter_bar_data[[ii]]$xp <- .xp[xpi]
@@ -310,13 +317,8 @@ for(ii in which(has_trials)) {
   scatter_bar_data[[ii]]$mse <- .fast_mse(scatter_bar_data[[ii]]$data[scatter_bar_data[[ii]]$is_clean])
   
   # for the analysis, we use the clean data
-  nm <- group_data[[ii]]$name
-  if(nm == '') {
-    nm = 'RAVE_GROUP_' %&% LETTERS[ii]
-  }
   flat_data %<>% rbind(
     data.frame('group'= ii,
-               'group_name' = nm,
                orig_trial_number = group_data[[ii]]$Trial_num[scatter_bar_data[[ii]]$is_clean],
                'y' = with(scatter_bar_data[[ii]], data[is_clean])
     )
@@ -351,6 +353,42 @@ for(ii in which(has_trials)) {
     )
     
   }
+  
+  cat2t('Generating spike data')
+  spike_mat <- generate_spike_matrix(trials = by_trial_heat_map_data[[ii]]$trials,
+                                       times = by_trial_heat_map_data[[ii]]$x,
+                                       seed=1000*ii + 143)
+  by_trial_spiking_data[[ii]] <- by_trial_heat_map_data[[ii]]
+  by_trial_spiking_data[[ii]]$data = spike_mat
+  
+  cat2t('Building over_time_spike_data')
+  over_time_spike_data[[ii]] <- wrap_data(t(
+    apply(spike_mat, 1, .fast_mse)),
+    xlab='Time (s)', ylab='Spike Density',
+    N=dim(power_all_shifted_clean_freq_subset)[4L],
+    x=power_all_shifted_clean_freq_subset$dimnames$Time
+  )
+  
+  # set NA (divide by zero) error bars to 0  
+  over_time_spike_data[[ii]]$data[is.na(over_time_spike_data[[ii]]$data[,2]),2] <- 0
+  
+  # we want to make a special range for the line plot data that takes into account mean +/- SE
+  over_time_spike_data[[ii]]$range <- .fast_range(plus_minus(over_time_spike_data[[ii]]$data))
+  
+  spike_correlation_by_frequency[[ii]] <- heat_map_data[[ii]]
+  
+  
+  len = min(50, length(over_time_spike_data[[ii]]$dimnames$Time)/2)
+  
+  lag_cors <- apply(heat_map_data[[ii]]$data, 2, lagged_cor, x=over_time_spike_data[[ii]]$data[,1], len=len)
+  
+  lc2 <- apply(heat_map_data[[ii]]$data, 2, lagged_cor, y=over_time_spike_data[[ii]]$data[,1], len=len)
+
+  spike_correlation_by_frequency[[ii]]$data <- rbind(lc2[len:2], lag_cors)
+  spike_correlation_by_frequency[[ii]]$x <- -len:(len+1) * .01#seq_len(dim(lag_cors)[1L])
+  attr(spike_correlation_by_frequency[[ii]]$data, 'xlab') = 'iEEG Lag (s)'
+  attr(spike_correlation_by_frequency[[ii]]$data, 'ylab') = 'Frequency'
+  attr(spike_correlation_by_frequency[[ii]]$data, 'zlab') = 'Correlation'
 }
 
 flat_data$group_i = flat_data$group
@@ -358,11 +396,8 @@ flat_data$group %<>% factor
 
 
 overall_stats <- do.call(rbind, contrast_conditions)
-
 overall_stats$Group %<>% factor(levels = names(contrast_conditions))
 overall_stats$Electrode %<>% factor
-
-
 combine_emmeans_results <- function(r) {
   # as.data.frame(r$emmeans)
   # as.data.frame(r$contrasts)
@@ -387,15 +422,14 @@ combine_emmeans_results <- function(r) {
     rbind(tbl, contr %>% set_colnames(colnames(tbl)))
   }
 }
-eat <- electrode_analysis_type
+
 if(nlevels(overall_stats$Electrode) == 1) {
-  dipsaus::cat2('Forcing etype to collapse electrode because n=1')
-  eat = 'Collapse electrode'
+  windowed_analysis_type = 'Collapse electrode'
 }
-cat2t('running elec stats as: ' %&% eat)
+cat2t('running as: ' %&% windowed_analysis_type)
 
 summary_statistics <- switch(
-  eat,
+  windowed_analysis_type,
   'Random intercept' = {
     
     if(nlevels(overall_stats$Group) > 1) {
@@ -424,7 +458,7 @@ summary_statistics <- switch(
     } else {
       r <- as.data.frame(emmeans::emmeans(
         lmerTest::lmer(y ~ Electrode + (1|TrialNumber), data=overall_stats)
-        , specs = pairwise ~ Electrode, options=list(infer=c(F,T)))$emmeans
+      , specs = pairwise ~ Electrode, options=list(infer=c(F,T)))$emmeans
       )
       names(r)[1:2] = c('label', 'estimate')
       r$label = 'E' %&% r$label
@@ -499,17 +533,17 @@ get_stats_per_electrode <- function(ttypes){
     # assign('trial_numbers', trial_numbers, envir = global_env())
     
     group = flat_data$group_i
-    gnames = flat_data$group_name #GROUPS[unique(flat_data$group_i)] %>% sapply('[[', 'group_name')
-    # if(any(gnames == '')) {
-    #   gnames[gnames == ''] = paste0('rave_group_', LETTERS[which(gnames=='')])
-    # }
-    # group_f = gnames[group]
-    df_shell = data.frame(group=factor(gnames), flat_data$orig_trial_number)
-    
+    gnames = GROUPS[unique(flat_data$group_i)] %>% sapply('[[', 'group_name')
+    if(any(gnames == '')) {
+      gnames[gnames == ''] = paste0('rave_group_', LETTERS[which(gnames=='')])
+    }
+    group_f = gnames[group]
+    df_shell = data.frame(group_f, flat_data$orig_trial_number)
+    df_shell$group_f %<>% factor(levels=gnames)
     # we are doing this here instead of when lmmeans is called because that is called inside the lapply_async
     # the critical thing is the call to factory above that ensure the levels are ordered based on how they are entered
     # into the condtion groups.
-    lbls = build_group_contrast_labels(levels(df_shell$group))
+    lbls = build_group_contrast_labels(gnames)
   }
   
   # Do not baseline all elecs simultaneously, otherwise memory will explode
@@ -527,10 +561,11 @@ get_stats_per_electrode <- function(ttypes){
   }
   
   res = #lapply(electrodes, function(e, ...){
+    # e = electrodes[14]
     rave::lapply_async(electrodes, function(e){
       # Subset on electrode is memory optimized, and is fast
       el = power$subset(Electrode = Electrode == e,
-                        Frequency = Frequency %within% frequency_window,
+                        Frequency = Frequency %within% FREQUENCY,
                         Trial=Trial %in% trial_numbers
       )
       # because of possible time re-alignment, we can't just take the analysis window :(, slow but true!
@@ -554,6 +589,7 @@ get_stats_per_electrode <- function(ttypes){
       
       bl.analysis <- bl$subset(Time=Time %within% analysis_window)
       
+      
       trial_means = rowMeans(bl.analysis$get_data())
       names(trial_means) = as.character(bl.analysis$dimnames$Trial)
       
@@ -566,19 +602,26 @@ get_stats_per_electrode <- function(ttypes){
       if(has_data > 1) {
         df2 = df_shell
         df2$y = trial_means[as.character(df_shell$flat_data.orig_trial_number)]
-        # df2$group_f %<>% factor(levels = gnames)
-        
-        .lsm <- emmeans::emmeans(lm(y ~ group, data=df2), pairwise ~ group)
-        lmat = matrix(c(t(summary(.lsm$emmeans, infer = T)[c('emmean', 't.ratio', 'p.value')])))
+        df2$group_f %<>% factor(levels = gnames)
+         .lsm <- lsmeans::lsmeans(lm(y ~ group_f, data=df2), pairwise ~ group_f)
+        lmat = matrix(c(t(summary(.lsm$lsmeans, infer = T)[c('lsmean', 't.ratio', 'p.value')])))
         cntr = summary(.lsm, adjust='none')$contrasts
         cmat = as.matrix(c(t(as.matrix(cntr[,c('estimate','t.ratio', 'p.value')]))))
         
         res = rbind(res, lmat, cmat)
       }
+      
+      # here we want to add in the correlation with the spiking electode (if one exists... how do we enforce this?)
+      s = generate_spike_matrix(epoch_data$Condition[epoch_data$Trial %in% trial_numbers], times = el$dimnames$Time)
+      SPIKE_analysis_window = c(0,0.3)
+      s = colMeans(s[el$dimnames$Time %within% SPIKE_analysis_window,])
+      .cor = cor.test(s, trial_means) %$% c(estimate, statistic, p.value)
+      res %<>% rbind(matrix(.cor, dimnames = list(c('spike_cor', 't(spike_cor)', 'p(spike_cor)'))))
+      
       return(res)
     } ,
     .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e', 'gnames', 'has_data', 'shift_amount', 'new_range',
-                 'trial_numbers', 'frequency_window', 'analysis_window', 'baseline_window', '.fast_mse', 'df_shell'),
+                 'trial_numbers', 'FREQUENCY', 'analysis_window', 'baseline_window', '.fast_mse', 'df_shell'),
     .gc = FALSE)
   
   cat2t('Finished elec calc')
@@ -589,21 +632,22 @@ get_stats_per_electrode <- function(ttypes){
   colnames(combined_res) <- electrodes
   
   # do we need to adjust the p-values? yes, just do this always
-  adjusted_p = p.adjust(combined_res[3,], method=get_p.adjust_method(p_filter))
+  adjusted_p = p.adjust(combined_res['p',], method=get_p.adjust_method(p_filter))
   # print("pval adjustment:")
   # print(m_sd(adjusted_p-combined_res[3,]))
   
-  if(nrow(combined_res) > 3) {
+  if(has_data > 1) {
     stat_lbls = c('m_', 't_', 'p_')
-    tmp = combined_res[4:nrow(combined_res),]
+    tmp = combined_res[7:nrow(combined_res),]
     # add the names for these folks
-    rownames(tmp) = c(outer(stat_lbls, levels(df_shell$group), paste0), outer(stat_lbls, lbls, paste0))
+    rownames(tmp) = c(outer(stat_lbls, gnames, paste0), outer(stat_lbls, lbls, paste0))
     
-    combined_res = rbind(combined_res[1:3,], adjusted_p, tmp)
+    combined_res = rbind(combined_res[1:6,], adjusted_p, tmp)
   } else {
     combined_res %<>% rbind(adjusted_p)
   }
-  rownames(combined_res)[4] = p_filter
+  row_adjp = which(rownames(combined_res) == 'adjusted_p')
+  rownames(combined_res)[row_adjp] = p_filter
   
   cat2t('Stats are labelled')
   
@@ -611,21 +655,11 @@ get_stats_per_electrode <- function(ttypes){
 }
 
 cat2t('start calc result')
-
-if(any(duplicated(sapply(GROUPS, `[[`, 'group_name')))) {
-  if(shiny_is_running()) {
-    shiny::showNotification('Duplicate group names are not allowed', type = 'error')
-    shiny::req(FALSE)
-  } else {
-    stop('Duplicate group names are not allowed')
-  }
-}
-
 # assign("GROUPS", GROUPS, envir = globalenv())
 omnibus_results <- cache(
-  key = list(subject$id, baseline_window, frequency_window, all_trial_types, GROUPS, global_baseline,
-             analysis_window, unit_of_analysis, preload_info$epoch_name, event_of_interest,
-             preload_info$reference_name, trial_outliers_list),
+  key = list(subject$id, baseline_window, FREQUENCY, all_trial_types, GROUPS, global_baseline,
+                   analysis_window, unit_of_analysis, preload_info$epoch_name, event_of_interest,
+                   preload_info$reference_name, trial_outliers_list),
   val = get_stats_per_electrode(ttypes = all_trial_types),
   name = 'omnibus_results'
 )
@@ -668,6 +702,7 @@ omnibus_results %<>% rbind(
   matrix(as.integer(electrodes %in% requested_electrodes), nrow=1, dimnames = list('Selected_Electrodes', electrodes))
 )
 
+
 local_data$omnibus_results = omnibus_results
 
 ### we need to store the plot options 
@@ -701,54 +736,41 @@ if(FALSE) {
 # Debug
 rm(list = ls(all.names=T)); rstudioapi::restartSession()
 require(ravebuiltins)
-.__DEBUG__ = 1
 ravebuiltins:::dev_ravebuiltins(T)
 mount_demo_subject(force_reload_subject = T)
 view_layout('power_explorer')
 
 reload_module_package()
-
-module = rave::get_module(module='power_explorer', package = 'ravebuiltins', local=TRUE)
+module = rave::get_module(module='spike_explorer', package = 'ravebuiltins', local=TRUE)
 
 # eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
 # attachDefaultDataRepository() 
 result = module(electrode_text = '14', percentile_range = TRUE, 
-                GROUPS = list(
-                  list(group_name='AUD', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a')),
-                  list(group_name='AV', group_conditions=c('known_av', 'last_av', 'drive_av', 'meant_av')),
-                  list(group_name='VIS', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))
-                ),
-                background_plot_color_hint='white',
-                baseline_window = c(-1,-.4),
-                heatmap_color_palette = 'BlueWhiteRed',
-                max_column_heatmap = 2,
+                # GROUPS = list(
+                  # list(group_name='A',group_conditions=c('Dynamic')), 
+                #   # putting in an empty group to test our coping mechanisms
+                  # list(group_name='YY', group_conditions=c('Static'))
+                # ),
+                #   list(group_name='ZZ', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
+                background_plot_color_hint='white', baseline_window = c(-1,-.4),
+                heatmap_color_palette = 'BlackWhiteRed',
                 # plot_time_range = c(-1.5,3),
                 unit_of_analysis = 'decibel',
-                
-                frequency_window = c(70,150), show_outliers_on_plots = TRUE,
-                max_zlim=99
+                FREQUENCY = c(70,150), show_outliers_on_plots = TRUE, max_zlim=99
                 # ,                event_of_interest = '1stWord'
-)
+                )
 results = result$results
-
 by_trial_heat_map_plot(results)
 
-par('din')
-
-par('mar')
-
-by_electrode_heat_map_plot(results)
-assess_normality_plot(results)
-
-# results$get_variables(level = 3)
+results$get_variables(level = 3)
 
 across_electrode_statistics_plot(results)
-
-assess_stability_over_time_plot(results)
+result$heat_map_plot()
+heat_map_plot(results)
+windowed_comparison_plot(results)
+dev.off()
 over_time_plot(results)
 by_electrode_heat_map_plot(results)
-
-results$get_value('flat_data')
 
 mount_demo_subject()
 

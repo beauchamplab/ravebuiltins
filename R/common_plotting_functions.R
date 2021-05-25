@@ -22,9 +22,16 @@
 #' @seealso draw_img
 draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_scale=FALSE,
                                 show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
-                                PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), plot_time_range=NULL, ...) {
+                                PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), plot_time_range=NULL, 
+                                special_case_first_plot = FALSE, max_columns=2, decorate_all_plots=FALSE, center_multipanel_title=FALSE,
+                                ...) {
     k <- sum(hmaps %>% get_list_elements('has_trials'))
-    orig.pars <- layout_heat_maps(k, layout_color_bar = show_color_bar)
+    
+    # need to determine the max columns
+    
+    orig.pars <- layout_heat_maps(k, max_col = max_columns, 
+                                  layout_color_bar = show_color_bar)
+    
     # I'm getting error about pin here... let's just rely on the graphics device being reset?
     # on.exit({
         # par(orig.pars)
@@ -41,9 +48,24 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
         # trying to be smart about the size of the margin to accomodate the angular text. R doesn't auto adjust :(
         max_char_count = max(sapply(hmaps, function(h) ifelse(h$has_trials, max(nchar(h$conditions)), 1)))
         
+        print('draw_many_heat_maps should be using strwidth')
         par(mar = c(par('mar')[1],
                     5.1 + max(0,(max_char_count - 5)*0.95),
                     2, 2))
+    } else {
+        # axis=2 is being cutoff on multi-panel plots
+        if(any(par('mfrow')>1)) {
+            # print('setting mar')
+            par(mar= .1 + c(4, 4.5, 2, 0))
+            if(!decorate_all_plots) {
+                # create an outer margin for title information
+                # that applies to all plots
+                par('oma' = c(0,0,2,0))
+            }
+            # c(par('mar')[1], par('mar')[2]*1.3, 2, 2))
+        } else {
+            par(mar=c(par('mar')[1], par('mar')[2], 2, 2))
+        }
     }
 
     # actual data range, as opposed to the max zlim which controls the plottable range
@@ -74,8 +96,10 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
         ''
     }
     
-    lapply(hmaps, function(map){
-        # map = hmaps[[1]]
+    # for loop here b/c we may need to special case the drawing of particular heatmaps
+    for(mi in seq_along(hmaps)) {
+        map = hmaps[[mi]]
+        
         if(map$has_trials){
             # check the plottable range, to make sure we're only plotting what the user has requested
             plot_time_range %?<-% range(map$x)
@@ -96,8 +120,46 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             }
             
             # we are linearizing the x and y spaces so that we can use the fast raster... is this worth it?
+            # The plotting is noticeably faster, but we need to pass along this (un)transform everywhere
             x <- seq_along(map$x)
             y <- seq_along(map$y)
+            
+            
+            # if we aren't decorating all the plots the same, then we need to augment the xlab/ylab appropriately
+            # as well as setup the plot margins, as well as strip out all plot titles except ConditionGroup
+            mot = NULL
+            if(!decorate_all_plots && length(hmaps)>1) {
+                mot = list(allow_sid = FALSE, allow_enum = FALSE, allow_freq = FALSE, allow_sample_size = FALSE)
+                
+                my_r = floor((mi -1) / par('mfrow')[2])+1
+                my_c = 1 + (mi - 1) %% par('mfrow')[2]
+                
+                
+                # the color bar counts as a plot, so we account for it here
+                ncol_wo_cbar <- par('mfrow')[2]
+                if(show_color_bar) {
+                    if(my_c == par('mfrow')[2]) {
+                        my_c = 1
+                        my_r = my_r + 1
+                    }
+                    ncol_wo_cbar = ncol_wo_cbar - 1
+                }
+                
+                
+                # drop xlab if there is a plot "beneath" this plot
+                if(mi + ncol_wo_cbar <= k) {
+                    attr(map$data, 'xlab') <- ' '
+                }
+                
+                # drop the ylab if we aren't on the left-edge
+                if (my_c != 1){
+                    attr(map$data, 'ylab') <- ' '
+                } else {
+                    # if we are in column one, we need bigger left margin, but compensate by shrinking the right margin
+                    # so that the plotting area is the same
+                }
+            }
+            
             
             # because image plot centers the data on the y-variable, it can introduce 0s which fail when log='y'
             # so we shift y by a small amount so that the minimum is > 0
@@ -105,7 +167,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             if(log_scale == 'y') {
                 dy <- (y[2]-y[1])/2 + min(y)
                 #FIXME I think this may be making the edge boxes too small cf. the else block where we pad 0.5
-                rutabaga::plot_clean(x,y+dy, xlab=xlab, ylab=ylab, cex.lab=rave_cex.axis*get_cex_for_multifigure(), log='y')
+                rutabaga::plot_clean(x,y+dy, xlab='', ylab='', cex.lab=rave_cex.axis*get_cex_for_multifigure(), log='y')
             } else {
                 pad = c(-0.5, 0.5)
                 rutabaga::plot_clean(xlim=range(x) + pad,
@@ -113,7 +175,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             }
             
             if(is.function(PANEL.FIRST)) {
-                PANEL.FIRST(map)
+                    PANEL.FIRST(map)
             }
             
             # make sure the decorators are aware that we are linearizing the y scale here
@@ -130,12 +192,13 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
 
             if(is.function(PANEL.LAST)) {
                 #PANEL.LAST needs to know about the coordinate transform we made
-                PANEL.LAST(map,
-                           Xmap=function(x) ..get_nearest_i(x, map$x),
-                           Ymap=function(y) ..get_nearest_i(y, map$y))
+                    PANEL.LAST(map,
+                               Xmap=function(x) ..get_nearest_i(x, map$x),
+                               Ymap=function(y) ..get_nearest_i(y, map$y),
+                               more_title_options = mot)
             }
         }
-    })
+    }
     
     if(show_color_bar){
         .mar <- c(par('mar')[1], 3.5, 2, 1)
@@ -161,6 +224,29 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
         if(is.function(PANEL.COLOR_BAR)) {
             PANEL.COLOR_BAR(hmaps)
         }
+    }
+    
+    # last thing we do is render a main title on the plot if needed
+    if(!decorate_all_plots && any(
+        par('mfrow')[1] > 1, par('mfrow')[2] > 2)
+       ) {
+        # get the original title string
+        
+        
+        if(center_multipanel_title) {
+            xpos <- ifelse(show_color_bar, 0.475, 0.5)
+            adj <- 0.5
+        } else {
+            xpos = 0
+            adj <- 0
+        }
+        
+        mtext(text = paste(hmaps[[1]]$subject_code,
+                        "El", dipsaus::deparse_svec(hmaps[[1]]$electrodes),
+                        "Freq",  paste0(hmaps[[1]]$frequency_window, collapse=':')
+                    ),
+              line=0, at = xpos, adj=adj,
+              outer=TRUE, font = 1, cex=rave_cex.main*0.8)
     }
     
     invisible(hmaps)
@@ -400,13 +486,21 @@ draw.box <- function(x0,y0,x1,y1, ...) {
 # the coordinate system of the plot
 spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Ymap=force, btype='line', atype='box', 
                                           title_options=list(allow_freq=FALSE), ...) {
+    to <- force(title_options)
     
-    shd <- function(plot_data, Xmap=Xmap, Ymap=Ymap) {
+    # the idea of more title options is that the caller might "know better" than the creator about
+    # 'which' plot is being decorated and can selective (dis/en)able certain text
+    shd <- function(plot_data, Xmap=Xmap, Ymap=Ymap, more_title_options, ...) {
         .args = list('plot_data' = plot_data, 'plot_title_options' = plot_options$plot_title_options)
         
         if(length(title_options) > 0) {
             .args[names(title_options)] = title_options
         }
+        
+        if(!missing(more_title_options) && is.list(more_title_options)) {
+            .args[names(more_title_options)] <- more_title_options
+        }
+        
         if(!is.null(title_options)) {
             do.call(title_decorator, args=.args)
         }
@@ -560,24 +654,35 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
 # for compatibility
 # draw_img <- make_image
 
-# setup so that heatmaps look nice and you have enough space for the color bar
-# ratio: heatmap to color bar width ratio
-# k is the number of heatmaps, excluding the color bar
-layout_heat_maps <- function(k, ratio=4, layout_color_bar=TRUE) {
+#' @title layout_heat_map
+#' @description Create a layout so that heatmaps look nice and you have enough space for the color bar
+#' @param k: the number of heatmaps, excluding the color bar
+#' @param max_col: maximum number of columns before creating multiple rows
+#' @param ratio: heatmap to color bar width ratio (Default 4:1)
+#' @param layout_color_bar: whether space should be made for the color bar (Default TRUE)
+#' @details The width chosen (3.5) for the color bar relies on `lcm`. If the function detects the user
+#'   is writing to a file (@seealso plotting_to_file), the width is 3.0
+layout_heat_maps <- function(k, max_col, ratio=4, layout_color_bar=TRUE) {
     opars <- par(no.readonly = TRUE)
     
-    cbar_wid = 3.5
-    if('pdf' %in% names(dev.cur())) {
-        cbar_wid = 3
-        # cat2t('setting skinny cbar')
+    cbar_wid <- 3.5
+    if(plotting_to_file()) {
+        cbar_wid <- 3
     }
     
+    nr <- ceiling(k / max_col)
+    max_col = min(k, max_col)
+    m <- 1:k
+    mat <- matrix(c(m, rep.int(0, nr*max_col - k)), byrow = T,
+                 nrow=nr, ncol = max_col)
+    widths <- rep(ratio, max_col)
     if(layout_color_bar) {
-        layout(matrix(1:(k+1), nrow=1), widths=c(rep(ratio, k), lcm(cbar_wid)) )
-    } else {
-        layout(matrix(1:k, nrow=1), widths=rep(ratio, k))
+        mat <- cbind(mat, k+1)
+        widths <- c(widths, lcm(cbar_wid))
     }
-    par(mar=c(par('mar')[1], par('mar')[2], 2, 2))
+        
+    layout(mat, widths=widths)
+    
     invisible(opars)
 }
 
@@ -622,16 +727,22 @@ str_rng <- function(rng) {
 
 
 rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change', ylab.line=1.5,
-                           mar=c(5.1, 5.1, 2, 2), horizontal=FALSE, ...) {
+                           mar=c(5.1, 5.1, 2, 2), adjust_for_nrow=TRUE, horizontal=FALSE, ...) {
     rave_context()
 
     clrs %?<-% get_currently_active_heatmap()
     cbar <- matrix(seq(-zlim, zlim, length=length(clrs))) %>% t
     
     if(horizontal) cbar %<>% t
+
+    ylim = 0:1
+    if(adjust_for_nrow && (par('mfrow')[1] > 1)) {
+        nr = par('mfrow')[1]
+        ylim = 1/nr * c(-1,1) + ylim
+    }
     
     par(mar=mar)
-    image(cbar, useRaster = FALSE,
+    image(cbar, useRaster = FALSE, ylim=ylim,
           col=clrs, axes=F, ylab='', main='',
           col.lab = get_foreground_color())
     
@@ -656,7 +767,15 @@ rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change', 
     ra.args[c('at', 'labels', 'tcl')] = list(0.5, 0, 0.3)
     do.call(rave_axis, ra.args)
     
-    box()
+    # this won't work if we're tweaking ylim based on nrow
+    # the source for box is compiled, but this seems to work. The key is the xpd=T to make sure
+    # we don't get clipping
+    if(!horizontal) {
+        rect(par('usr')[1], 0, par('usr')[2], 1,
+             lwd=1, xpd=T)
+    } else {
+        box()
+    }
 
     invisible(zlim)
 }
@@ -811,7 +930,6 @@ by_trial_analysis_window_decorator <- function(map, event_name, show_label=TRUE,
         
         if(show_0) {
             abline(v=Xmap(0), lty=2, col=rave_colors$TRIAL_TYPE_SEPARATOR)
-            
         }
         
     }
@@ -853,8 +971,6 @@ heatmap_outlier_highlighter_decorator <- function(map, Xmap=force, Ymap=force, .
     })
     invisible(map)
 }
-
-
 
 window_highlighter <- function(ylim, draw_labels=TRUE, window, window_name) {
     do_wh <- function(ylim, draw_labels) {
@@ -902,8 +1018,8 @@ create_multi_window_shader <- function(TIMES, clrs) {
                 )
             }
         }
-        vertical_borders(BASELINE, ylim,
-                         'baseline', rave_colors$BASELINE_WINDOW)
+        vertical_borders(baseline_window, ylim,
+                         'baseline', rave_colors$baseline_window)
         abline(h=0, col='gray70')
     })
 }
@@ -956,6 +1072,16 @@ get_foreground_color <- function() {
            'black'
     ) 
 }
+
+
+get_middleground_color <- function(k=0.5) {
+    
+    bg = par('bg')
+    fg = get_foreground_color()
+    
+    rgb(colorRamp(c(bg, fg), space='Lab')(k), maxColorValue = 255)
+}
+
 
 invert_palette <- function(pal) {
     inv = c(255, 255, 255, 255) - col2rgb(pal, alpha=TRUE)
@@ -1030,7 +1156,7 @@ shiny_is_running <- function() {
 # be put in the title?
 title_decorator <- function(plot_data, plot_title_options,
                             allow_sid=TRUE, allow_enum=TRUE, allow_freq=TRUE,
-                            allow_cond=TRUE, allow_sample_size=TRUE, ...) {
+                            allow_cond=TRUE, allow_sample_size=TRUE, ..., plot=TRUE) {
     title_string = ''
     
     # if(missing(plot_title_options)) {
@@ -1043,7 +1169,7 @@ title_decorator <- function(plot_data, plot_title_options,
         plot_data = plot_data[[1]]
     }
     
-        # wraps do_on_inclusion to make ths following lines easier to understand
+    # wraps do_on_inclusion to make the following lines easier to understand
     add_if_selected <- function(id, expr) {
         do_on_inclusion(id, expr, plot_title_options)
     }
@@ -1083,11 +1209,11 @@ title_decorator <- function(plot_data, plot_title_options,
     
     # rave_title is an "additive" instead of replacement call, so rendering an empty string won't hurt anything,
     # but let's save a few needless function calls
-    if(nchar(title_string) > 0) {
+    if(nchar(title_string) > 0 && plot) {
         rave_title(title_string)
     }
     
-    invisible()
+    invisible(title_string)
 }
 
 set_font_scaling <- function(plot_options, FONT_SCALING = c('shiny', 'Rutabaga', 'R')) {
@@ -1280,8 +1406,6 @@ color_bar_title_decorator <- function(m, cex = rave_cex.lab * 0.8) {
                cex = cex)
 }
 
-
-
 format_unit_of_analysis_name <- function(unit_of_analysis) {
     str_replace_all(unit_of_analysis, c(' '='_', '%'='Pct', '-'='_'))
 }
@@ -1328,8 +1452,6 @@ get_unit_of_analysis <- function(requested_unit, names=FALSE) {
     
     return(ll[[requested_unit]])
 }
-
-
 
 window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
                              line.col, shade.col='gray60', label_placement_offset=0.9,
@@ -1480,17 +1602,17 @@ tf_hm_decorator <- function(hmap, results, ...)
 
         if(draw_time_baseline) {
             # These variables are in ...
-            xy <- cbind(TIME_RANGE, FREQUENCY)
+            xy <- cbind(analysis_window, frequency_window)
 
             #TODO refactor with rutabaga::do_poly
             polygon(c(xy[,1], rev(xy[,1])) , rep(xy[,2], each=2), lty=2, lwd=3, border=label.col)
 
             #draw baseline region
-            abline(v=BASELINE, lty=3, lwd=2, col=label.col)
+            abline(v=baseline_window, lty=3, lwd=2, col=label.col)
 
             # label baseline region
-            text(median(BASELINE), quantile(y, .7), 'baseline', col=label.col, cex=rave_cex.lab*get_cex_for_multifigure(), pos=3)
-            arrows(BASELINE[1], quantile(y, .7), BASELINE[2], col=label.col, length=.1, code=3)
+            text(median(baseline_window), quantile(y, .7), 'baseline', col=label.col, cex=rave_cex.lab*get_cex_for_multifigure(), pos=3)
+            arrows(baseline_window[1], quantile(y, .7), baseline_window[2], col=label.col, length=.1, code=3)
         }
     }
 

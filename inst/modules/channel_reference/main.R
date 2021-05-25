@@ -31,7 +31,7 @@ mount_demo_subject(force_reload_subject = T)
 # module_id = 'phase_explorer'
 module = ravebuiltins:::debug_module('phase_explorer')
 
-result = module(ANALYSIS_WINDOW = 0)
+result = module(analysis_window = 0)
 result$phase_histogram()
 result$itpc_plot()
 result$itpc_time_plot()

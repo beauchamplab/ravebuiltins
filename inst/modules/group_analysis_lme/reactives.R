@@ -4,7 +4,6 @@ session = getDefaultReactiveDomain()
 
 brain_proxy =  threeBrain::brain_proxy('lme_3dviewer_widget', session = session)
 
-
 cat2_timestamp <- function() {
     t0 <- proc.time()[3]
     last_time = t0
@@ -19,6 +18,7 @@ cat2_timestamp <- function() {
 group_analysis_cat2t <- cat2_timestamp()
 
 model_params <- dipsaus::fastmap2()
+model_params$roi_variable <- ""
     
 local_data %?<-% reactiveValues(
     # Full data has two parts: local_data$analysis_data_raw, and local_data$additional_data
@@ -59,6 +59,79 @@ local_filters = reactiveValues(
 )
 
 
+observeEvent(input$effect_overview_plot_click, {
+    y <- input$effect_overview_plot_click$y
+    
+    # dipsaus::cat2('Clicked at: ', y, level = 'INFO')
+    # print(str(input$effect_overview_plot_click))
+
+    if(!is.null(y)) {
+        rod = shiny::isolate({
+            local_data$results_overview_data
+        })
+        rn = rownames(rod)[1 + (nrow(rod) - ceiling(y-0.49))]
+        print('Selected: |' %&% rn %&% '|')
+        
+        # see if they selected an ROI
+        ber = local_data$by_electrode_results
+        if(stringr::str_trim(rn, side = 'right') %in% unique(ber$ROI)) {
+            print('ROI detected')
+            selected = which(ber$ROI == stringr::str_trim(rn, side = 'right'))
+        } else {
+            tokens <- stringr::str_split(rn, ' ', n=2)[[1]]
+            sbj = str_remove_all(tokens[1], ' ')
+            el = as.numeric(stringr::str_remove_all(tokens[2], ' '))
+            selected = which(ber$Subject == sbj & ber$Electrode == el)
+        }
+        
+        dtp = DT::dataTableProxy('show_by_electrode_results', deferUntilFlush = FALSE)
+        DT::selectRows(dtp, NULL)
+        # set the local copy to NULL, as the call to select will trigger an update
+        local_data$show_by_electrode_results_rows_selected = NULL
+        DT::selectRows(dtp, selected)
+    }    
+})
+
+
+# double-click means add to the current selection
+observeEvent(input$effect_overview_plot_dblclick, {
+ 
+    y <- input$effect_overview_plot_dblclick$y
+    
+    # dipsaus::cat2('Clicked at: ', y, level = 'INFO')
+    # print(str(input$effect_overview_plot_click))
+    
+    if(!is.null(y)) {
+        rod = shiny::isolate({
+            local_data$results_overview_data
+        })
+        rn = rownames(rod)[1 + (nrow(rod) - ceiling(y-0.49))]
+        print('Selected: |' %&% rn %&% '|')
+        
+        # see if they selected an ROI
+        ber = local_data$by_electrode_results
+        if(stringr::str_trim(rn, side = 'right') %in% unique(ber$ROI)) {
+            print('ROI detected')
+            selected = which(ber$ROI == stringr::str_trim(rn, side = 'right'))
+        } else {
+            tokens <- stringr::str_split(rn, ' ', n=2)[[1]]
+            sbj = str_remove_all(tokens[1], ' ')
+            el = as.numeric(stringr::str_remove_all(tokens[2], ' '))
+            selected = which(ber$Subject == sbj & ber$Electrode == el)
+        }
+        
+        dtp = DT::dataTableProxy('show_by_electrode_results', deferUntilFlush = FALSE)
+        DT::selectRows(dtp, NULL)
+        selected = unique(c(local_data$show_by_electrode_results_rows_selected, selected))
+        
+        # set the local copy to NULL, as the call to select will trigger an update
+        local_data$show_by_electrode_results_rows_selected = NULL
+        DT::selectRows(dtp, selected)
+    }    
+})
+
+
+
 observeEvent(input$omnibus_plots_legend_location, {
     local_data$omnibus_plots_legend_location = input$omnibus_plots_legend_location
 })
@@ -96,7 +169,7 @@ observe({
     if(length(confs)){
         confs = confs[[1]]
         groups = confs$GROUPS
-        analysis_window = sort(c(confs$ANALYSIS_WINDOW, time_range)[1:2])
+        analysis_window = sort(c(confs$analysis_window, time_range)[1:2])
     }
     
     # store this in local_data so that we have everything in one place
@@ -236,6 +309,12 @@ build_lme_formula_string = function(..., exclude = NULL){
     dv = local_data$var_dependent
     iv = local_data$var_fixed_effects
     re = local_data$var_random_effects
+    if(length(iv) < 1) {
+        if(model_params$roi_variable %in% ._ROI_TYPES[1:3]) {
+            shiny::showNotification('ROI type: ' %&% model_params$roi_variable %&% " not suported when there no fixed effects. Maybe you wanted ROI=Filter Only?")
+            shiny::validate(shiny::need(FALSE, message='Improper ROI | fixed effect specification'))
+        }
+    }
     
     # fixed effects are easy, except we need to make sure TimeWindow comes after ConditionGroup. This
     # is quickly done by just sorting
@@ -337,6 +416,8 @@ build_roi_levels <- function() {
     mrv = input$model_roi_variable
     adf = local_data$analysis_data_filtered
     
+    lvls = ""
+    
     if(nchar(mrv) > 0) {
         lvls = levels(factor(adf[[RAVE_ROI_KEY %&% mrv]]))
         
@@ -356,6 +437,7 @@ observeEvent(input$model_roi_variable, {
     if(length(local_data$analysis_data_filtered)<1) return()
     
     mrv = input$model_roi_variable
+    lvls = ""
     if(nchar(input$model_roi_variable) > 0) {
         lvls = build_roi_levels() #levels(factor(local_data$ analysis_data_filtered[[RAVE_ROI_KEY %&% mrv]]))
         updateSelectInput(session, 'filter_by_roi', choices = lvls, selected=lvls)
@@ -432,11 +514,11 @@ observeEvent(input$run_analysis, {
         # cond_group = list(list('group_conditions' = 'Dynamic'), list('group_conditions' = 'Static'))
         # cond_group = list(list('group_conditions' = c('Dynamic', 'Static')))
         
-        cond_group = list(
-        list(group_name = 'A-only', group_conditions = c('drive_a','last_a', 'meant_a', 'known_a')),
-        list(group_name = 'V-only', group_conditions = c('drive_v','last_v', 'meant_v', 'known_v')),
-        list(group_name = 'AV', group_conditions = c('drive_av','last_av', 'meant_av', 'known_av'))
-        )
+        # cond_group = list(
+        #     list(group_name = 'A-only', group_conditions = c('drive_a','last_a', 'meant_a', 'known_a')),
+        #     list(group_name = 'V-only', group_conditions = c('drive_v','last_v', 'meant_v', 'known_v')),
+        #     list(group_name = 'AV', group_conditions = c('drive_av','last_av', 'meant_av', 'known_av'))
+        # )
     }
     
     cond_group <- dipsaus::drop_nulls(lapply(input$cond_group, function(g){
@@ -463,7 +545,6 @@ observeEvent(input$run_analysis, {
     
     # create a joint variable representing the Group as a factor
     showNotification(p('Fitting mixed effect model. Please wait...'), duration = NULL, type = 'default', id = ns('noti'))
-    
     
     # ldf = ..local_data$analysis_data_filtered
     ldf <- local_data$analysis_data_filtered
@@ -493,6 +574,10 @@ observeEvent(input$run_analysis, {
     
     dipsaus::cat2(paste('assigning ', local_data$var_dependent, ' to y'), level='INFO')
     local_data$var_dependent_label = pretty_string(local_data$var_dependent)
+    
+    model_params$var_dependent = local_data$var_dependent
+    model_params$var_dependent_label = pretty_string(local_data$var_dependent)
+    
     subset_data$y = subset_data[[local_data$var_dependent]]
     
     # creating ROI variable
@@ -515,6 +600,8 @@ observeEvent(input$run_analysis, {
             }
             #TODO should look into sample size issues here
             subset_data <- subset_data[subset_data[[roi]] %in% lvls,]
+            
+            subset_data[[roi]] %<>% factor
         }
     }
     
@@ -561,6 +648,7 @@ observeEvent(input$run_analysis, {
     re = paste0(unique(c('Subject', 'Electrode', local_data$var_random_effects)), collapse='+')
     collapse_formula = as.formula(sprintf('y ~ %s', re %?&% fe %?&% roi))
     
+    local_data$subset_data = subset_data
     collapsed_data <- aggregate(collapse_formula, data=subset_data, FUN=mean)
     
     # we need to factor time window to make sure the comparisons have the appropriate order (and baseline)
@@ -633,7 +721,8 @@ observeEvent(input$run_analysis, {
     
     local_data$by_electrode_results = by_el_results
     
-    fo <-  str_replace_all(input$model_formula, local_data$var_dependent, 'y')
+    # input <- list(model_formula = "Power ~ 1 + (1|Subject)")
+    fo <-  stringr::str_replace_all(input$model_formula, local_data$var_dependent, 'y')
     # fo <- "y ~ ConditionGroup*ROI + (1|Subject/Electrode)"
     
     # fo <- str_replace_all('Pct_Change_Power_1stWord ~ TimeWindow + (1|Subject/Electrode)', 'Pct_Change_Power_1stWord', 'y')

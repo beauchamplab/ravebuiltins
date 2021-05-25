@@ -9,8 +9,8 @@ erp_over_time_plot <- function(results, ...) {
     set_palette_helper(results)
 
     .time <- results$get_value('group_data')[[which.min(results$get_value('has_trials'))]]$all_data$dimnames$Time
-    .windows <- list(results$get_value('ANALYSIS_WINDOW'),
-                     results$get_value('BASELINE_WINDOW'))
+    .windows <- list(results$get_value('analysis_window'),
+                     results$get_value('baseline_window'))
     .wnames <- c('analysis', 'baseline')
 
     time_series_plot(plot_data = results$get_value('line_plot_data'),
@@ -34,8 +34,8 @@ by_trial_erp_map <- function(results, ...){
 
     time_points <- results$get_value('voltage_sub')$dimnames$Time
 
-    .baseline <- results$get_value('BASELINE_WINDOW')
-    .analysis <- results$get_value('ANALYSIS_WINDOW')
+    .baseline <- results$get_value('baseline_window')
+    .analysis <- results$get_value('analysis_window')
 
     .max_zlim <- results$get_value('max_zlim')
 
@@ -56,7 +56,7 @@ by_condition_welch <- function(results, ...) {
     
     set_palette_helper(results)
 
-    .analysis <- results$get_value('ANALYSIS_WINDOW')
+    .analysis <- results$get_value('analysis_window')
     .frequencies <- results$get_value('frequencies')
     .sample_rate <- results$get_value('ERP_SAMPLE_RATE')
     .group_data <- results$get_value('group_data')

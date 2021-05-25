@@ -12,8 +12,8 @@ mount_demo_subject()
 
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
-  'inst/modules/power_explorer/exports.R',
-  'inst/modules/power_explorer/event_handlers.R', 
+  'inst/modules/spike_explorer/exports.R',
+  'inst/modules/spike_explorer/event_handlers.R', 
   asis = TRUE
 )
 
@@ -46,7 +46,7 @@ define_initialization({
   }
   epoch_event_types <- c("Trial Onset", epoch_event_types)
   
-  # here we're limiting the met a data to the electrodes that are currently loaded
+  # here we're limiting the meta data to the electrodes that are currently loaded
   # we can't export unloaded electrodes
   electrodes_csv = module_tools$get_meta('electrodes') %>% subset((.)$Electrode %in% electrodes)
   
@@ -75,12 +75,6 @@ define_initialization({
         outlier_list = epoch_data$Trial[outlier_data$PowerOutlier]
     }
   }
-  
-  ### For markdown export, we need to look up the available templates
-  markdown_templates <- list()
-  pth <- file.path(module_tools$get_subject_dirs()[['data_dir']], '..', 'others', 'ravebuiltins', 'markdown')
-  markdown_templates[['pptx']] <- list.files(pth, pattern='^\\w.+-template\\.pptx$')
-  markdown_templates[['pptx.pretty']] <- pretty_template_names(markdown_templates[['pptx']])
   
 })
 
@@ -126,11 +120,11 @@ define_input(
 
 define_input_condition_groups(inputId = 'GROUPS')
 
-define_input(selectInput('electrode_analysis_type', label = 'How should Electrode be treated?',
+define_input(selectInput('windowed_analysis_type', label = 'How should Electrode be treated?',
                          selected = 'Random intercept',
                          choices=c('Random intercept', 'Contrasts per electrode','Collapse electrode','Fixed effect')))
 
-define_input_frequency(inputId = 'frequency_window', initial_value = c(70,150))
+define_input_frequency(inputId = 'FREQUENCY', initial_value = c(70,150))
 define_input_time(inputId = 'analysis_window', label='Analysis time (relative to analysis event)', initial_value = c(0,1))
 define_input_time(inputId = 'plot_time_range', label='Plot Time Range (relative to analysis event)')
 define_input_time(inputId = 'baseline_window', label='Baseline time (relative to trial onset)', initial_value = c(-1,0))
@@ -179,9 +173,9 @@ define_input(
   definition = actionButton('clear_outliers', 'Clear Outliers', icon = icon('trash'))
 )
 
-define_input(
-  customizedUI('sheth_special')
-)
+# define_input(
+#   customizedUI('sheth_special')
+# )
 
 define_input(
   customizedUI('custom_plot_download')
@@ -207,12 +201,6 @@ define_input(
 
 define_input(
   definition = checkboxInput('show_heatmap_range', 'Show data range on heat maps', value=TRUE))
-
-define_input(
-  definition = numericInput('max_column_heatmap', 'Maximum heatmaps per row', value = 3, min=1, step=1)
-)
-
-
 
 define_input(
   definition = checkboxInput('synch_3d_viewer_bg',
@@ -241,43 +229,26 @@ define_input(
 )
 
 define_input(
-  definition = selectInput(inputId = 'plots_to_export', label='Plots to include', multiple=TRUE,
+  definition = selectInput(inputId = 'plots_to_export', label='Plots to download', multiple=TRUE,
                            choices = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average', 'Over Time by Electrode'),
                            selected = c('Spectrogram', 'By Trial Power', 'Over Time Plot', 'Windowed Average', 'Over Time by Electrode'))
   )
 
-# define_input(
-#   definition = selectInput(inputId = 'export_what',
-#                            label='Which electrodes should be included?', multiple=FALSE,
-#                            choices = c('All Loaded', 'Current Selection')))
-
-
-# define_input(
-#   definition = selectInput(inputId = 'movie_export_trials',
-#                            label='How should power over time be exported?', multiple=FALSE,
-#                            choices = c('Per trial type', 'Averaged over trials within a condition'),
-#                            selected = c('Per trial type'))
-# )
-
 define_input(
-  definition = checkboxInput('draw_decorator_labels', "Label plot decorations", value=TRUE)
-)
-
-define_input(
-  definition = checkboxInput('redundant_labels', "Redundant labels", value=FALSE)
-)
+  definition = selectInput(inputId = 'export_what',
+                           label='Which electrodes should be included?', multiple=FALSE,
+                           choices = c('All Loaded', 'Current Selection')))
 
 
 define_input(
-  definition = checkboxInput('center_axis_labels', "Center Axis Labels", value=TRUE)
+  definition = selectInput(inputId = 'movie_export_trials',
+                           label='How should power over time be exported?', multiple=FALSE,
+                           choices = c('Per trial type', 'Averaged over trials within a condition'),
+                           selected = c('Per trial type'))
 )
-
 
 define_input(
-  definition = checkboxInput('center_multipanel_title', "Center titles", value=FALSE)
-)
-
-
+  definition = checkboxInput('draw_decorator_labels', "Label Plot Decorations", value=TRUE))
 
 
 #
@@ -494,28 +465,10 @@ define_input(
                            choices = c('white', 'black', 'gray'), selected = 'white')
 )
 
-
-## plot exporter
-define_input(
-  definition = checkboxInput('keep_markdown', label='Keep raw figure files', value = FALSE)
-)
-
-define_input(
-  definition = checkboxInput('include_data',
-                             label='CSV with results', value=TRUE)
-)
-
-define_input(
-  definition = selectInput(inputId = 'select_markdown_template', label='PowerPoint Template', multiple=FALSE, choices=c('none'), selected='none'),
-                           init_args = c('choices', 'selected'),
-                           init_expr = {
-                             choices = c('none', markdown_templates$pptx.pretty)
-                             selected = ifelse("RAVE white bg 16:9" %in% markdown_templates$pptx.pretty, "RAVE white bg 16:9", "none")
-                           })
 define_input(
   definition = customizedUI('download_all_graphs')
 )
-####
+
 }
 
 define_input(
@@ -558,12 +511,9 @@ define_input(customizedUI('do_calculate_btn_float'))
 #
 # determine which variables only need to be set, not triggering rendering nor executing
 manual_inputs <- c(
-  'synch_3d_viewer_bg', 'viewer_color_palette', 'graph_export', 'trial_type_filter', 'synch_with_trial_selector', 'download_electrodes_csv', 
-   'plots_to_export',
-  'plots_to_export', 'select_markdown_template', 'keep_markdown', 'include_data',
-  # 'export_what', 'export_data',  'movie_export_trials', 
+  'synch_3d_viewer_bg', 'viewer_color_palette', 'graph_export', 'trial_type_filter', 'synch_with_trial_selector', 'download_electrodes_csv', 'movie_export_trials', 'plots_to_export',
   'btn_save_analysis_settings', 'btn_load_analysis_settings', 'include_outliers_in_export',
-  'analysis_prefix', 'current_active_set', 'export_also_download', 'export_time_window', 'sheth_special',
+  'export_what', 'analysis_prefix', 'export_data', 'current_active_set', 'export_also_download', 'export_time_window', 'sheth_special',
   'synch_export_analysis_with_3dviewer', 'floating_recalculate'
 )
 
@@ -571,7 +521,6 @@ manual_inputs <- c(
 # deterime which varibles only need to trigger a render, not an exectute
 render_inputs <- c(
   'which_result_to_show_on_electrodes',
-  'redundant_labels',  'center_axis_labels', 'center_multipanel_title',
   'draw_decorator_labels', 'plot_title_options', 'show_outliers_on_plots', 'background_plot_color_hint',
   'invert_colors_in_palette', 'reverse_colors_in_palette', 'color_palette', 'heatmap_color_palette', 'heatmap_number_color_values',
   'max_zlim', 'invert_colors_in_heatmap_palette', 'reverse_colors_in_heatmap_palette', 'percentile_range',
@@ -579,7 +528,7 @@ render_inputs <- c(
   't_filter', 'p_filter', 'mean_filter', 'show_result_densities',
   't_operator', 'p_operator', 'mean_operator', 
   't_operand', 'p_operand', 'mean_operand', 'analysis_filter_elec_2', 'analysis_filter_elec',
-  'analysis_filter_variable', 'analysis_filter_variable_2', 'show_heatmap_range', 'max_column_heatmap'
+  'analysis_filter_variable', 'analysis_filter_variable_2', 'show_heatmap_range'
 )
 
 
@@ -598,7 +547,7 @@ input_layout = list(
     'download_electrodes_csv',
   'do_calculate_btn_float'),
   'Configure analysis' = list(
-    'frequency_window',
+    'FREQUENCY',
      c('unit_of_analysis'),
     'baseline_window',
     'global_baseline',
@@ -608,7 +557,7 @@ input_layout = list(
     'do_calculate_btn', 'auto_calculate', 'do_quick_calculate_btn'
   ),
   '[-]Create condition contrasts' = list(
-    'electrode_analysis_type',
+    'windowed_analysis_type',
     'GROUPS',
     'analysis_settings'
   ),
@@ -637,31 +586,28 @@ input_layout = list(
   ),
   '[-]Configure plots' = list(
     c('plot_title_options'),
-      'draw_decorator_labels',
-    c('redundant_labels', 'center_axis_labels', 'center_multipanel_title'),
-    
+    'draw_decorator_labels',
     c('color_palette',
     'reverse_colors_in_palette', 'invert_colors_in_palette'),
     c('heatmap_color_palette', 'heatmap_number_color_values',
       'reverse_colors_in_heatmap_palette', 'invert_colors_in_heatmap_palette'),
       c('max_zlim','percentile_range'),
         # 'heatmap_truncate_less_than',
-        c('show_heatmap_range','max_column_heatmap'),
+        'show_heatmap_range',
     c('viewer_color_palette'),
     c('background_plot_color_hint', 'synch_3d_viewer_bg')
     #FIXME collapse_using_median should be in Analysis Settings???
     # c('log_scale', , 'collapse_using_median')
   ),
   #[#aaaaaa]
-  '[-]Download plots as PowerPoint' = list(
-    # c('plots_to_export'),  c('export_what'),    c('movie_export_trials'), 'export_plots_and_data'
-    'plots_to_export', 'select_markdown_template',
-    c('keep_markdown', 'include_data'),
+  '[-]Download plots + underlying data' = list(
+    c('plots_to_export'),
+    c('export_what'),
+    c('movie_export_trials'),
+    # 'export_plots_and_data'#
     c('download_all_graphs')
   ),'[-]Download hi-res single figure' = list(
     'custom_plot_download'
-  ), '[-]Download stat heatmaps' = list(
-    'sheth_special'
   )
 )
 
@@ -670,40 +616,72 @@ input_layout = list(
 # Define Outputs
 define_output(
   definition = plotOutput(outputId = 'heat_map_plot'),
-  title = 'Activity over time by frequency',
-  width = 12,
-  order = 1
+  title = 'iEEG activity over time by frequency',
+  width = 6,
+  order = 2
+)
+define_output(
+  definition = plotOutput(outputId = 'heat_map_spike_correlation_plot'),
+  title = 'Spiking/iEEG correlation by frequency',
+  width = 6,
+  order = 2.1
 )
 
 define_output(
   definition = plotOutput('by_trial_heat_map_plot'),
-                          # click = clickOpts(shiny::NS('power_explorer')('by_trial_heat_map_click'), clip = FALSE)),
-  title = 'Activity over time by trial',
-  width = 12,
-  order = 2
+  title = 'iEEG activity over time by trial',
+  width = 6,
+  order = 1
+)
+define_output(
+  definition = plotOutput('by_trial_heat_map_spike_plot'),
+  title = 'Spike activity over time by trial',
+  width = 6,
+  order = 1.1
 )
 
-define_output(
-  definition = plotOutput('by_electrode_heat_map_plot'),
-  title = 'Activity over time by electrode',
-  width = 12,
-  order = -1
-)
+# define_output(
+#   definition = plotOutput('by_electrode_heat_map_plot'),
+#   title = 'iEEG activity over time by electrode',
+#   width = 6,
+#   order = -1
+# )
+# define_output(
+#   definition = plotOutput('by_electrode_heat_map_spike_plot'),
+#   title = 'Spiking activity over time by electrode',
+#   width = 6,
+#   order = -1  + .1
+# )
 
 define_output(
   definition = plotOutput('over_time_plot'),
-  title = 'Activity over time by condition',
-  width = 7,
+  title = 'iEEG activity over time by condition',
+  width = 6,
   order = 3
 )
 
 define_output(
+  definition = plotOutput('over_time_spike_plot'),
+  title = 'Spiking activity over time by condition',
+  width = 6,
+  order = 3.1
+)
+
+define_output(
   definition = plotOutput('windowed_comparison_plot',
-                          click = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_click'), clip = T),
-                          dblclick = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_dbl_click'), clip = T)),
-  title = 'Windowed Avg',
-  width = 3,
+                          click = clickOpts(shiny::NS('spike_explorer')('windowed_by_trial_click'), clip = T),
+                          dblclick = clickOpts(shiny::NS('spike_explorer')('windowed_by_trial_dbl_click'), clip = T)),
+  title = 'iEEG activity windowed average',
+  width = 5,
   order = 4
+)
+define_output(
+  definition = plotOutput('windowed_comparison_spike_plot',
+                          click = clickOpts(shiny::NS('spike_explorer')('windowed_by_trial_spikes_click'), clip = T),
+                          dblclick = clickOpts(shiny::NS('spike_explorer')('windowed_by_trial_spikes_dbl_click'), clip = T)),
+  title = 'Spiking activity windowed average',
+  width = 5,
+  order = 4.01
 )
 
 define_output(
@@ -716,18 +694,10 @@ define_output(
   definition = plotOutput('across_electrode_statistics_plot'),
   title = 'Per electrode statistical tests',
   width = 12,
-  order = -1#,
-  # alt_text = 'This does...'
+  order = -1
 )
 
 
-# define_output(
-#   definition = customizedUI('viewer_3d'),
-#   title = '3D Viewer',
-#   width = 12,
-#   order = 5
-# )
-# 
 define_output_3d_viewer(
   outputId = 'power_3d',
   message = 'Click here to reload viewer',
@@ -738,30 +708,18 @@ define_output_3d_viewer(
 
 define_output(
   definition = customizedUI('compare_condition_results', style='min-height:200px'),
-  title = 'Comparing Conditions',
-  width = 12,
+  title = 'Compare iEEG activity between conditions',
+  width = 6,
   order = 200
 )
 
+
 define_output(
-  outputId = 'assess_normality',
-  definition = plotOutput('assess_normality_plot'),
-  title = 'Assess normality of responses',
-  width = 5,
+  definition = customizedUI('compare_condition_results_spike', style='min-height:200px'),
+  title = 'Compare spiking activity between conditions',
+  width = 6,
   order = 201
 )
-
-
-define_output(
-  outputId = 'assess_stability_over_time',
-  definition = plotOutput('assess_stability_over_time_plot'),
-  title = 'Assess temporal stability of responses',
-  width = 7,
-  order = 202
-)
-
-
-
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 

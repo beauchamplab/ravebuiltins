@@ -102,7 +102,7 @@ define_input(definition = checkboxInput('omnibus_plots_roi_as_lattice',
 
 
 
-define_input(definition = selectInput('omnibus_plots_color_palette', label="Subject color palette",
+define_input(definition = selectInput('omnibus_plots_color_palette', label="ConditionGroup color palette",
                                       choices = get_palette(get_palette_names = TRUE),
                                       selected = 'Beautiful Field'))
 
@@ -145,7 +145,7 @@ define_input(
 define_input(
   selectInput('how_to_model_roi', 'ROI analysis type',
               choices = c('Stratify (Random+Fixed)',  'All possible ITX (Random+Fixed)',  'Random effect only', 'Average electrodes w/n ROI', 'Filter Only'),
-              selected = 'Stratify (Random+Fixed)', multiple = FALSE)
+              selected = 'Filter Only', multiple = FALSE)
 )
 
 define_input(
@@ -261,14 +261,79 @@ define_input(
 )
 
 
-
-
 define_input(definition = checkboxInput('multi_window_is_active', 'Active', value=FALSE))
 
+
+#Download per electrode stats
+define_input(
+  definition = selectInput('pes_scaling_type', label = 'Data scaling', 
+                           choices = c('No scaling',
+                                       'z per ROI (across condition and electrode)',
+                                       'z per electrode (across condition)',
+                                       'z per condition (across electrode)'),
+                           selected = 'No scaling')
+)
+
+define_input(
+  definition = selectInput('pes_separate_colorbar', label = 'Color bar scaling (means and contrasts are always separate)', 
+                           choices = c('Global',
+                                       'Per ROI',
+                                       'Per electrode',
+                                       'Per condition'),
+                           selected = 'Global')
+)
+
+
+define_input(
+  definition = selectInput('pes_means_heatmap_palette', label = 'Means palette', 
+                           choices = get_heatmap_palette(get_palette_names = TRUE),
+                           selected = 'BlueWhiteRed')
+)
+define_input(
+  definition = selectInput('pes_contrasts_heatmap_palette', label = 'Contrasts palette', 
+                           choices = get_heatmap_palette(get_palette_names = TRUE),
+                           selected = 'PurpleWhiteGreen')
+)
+
+
+define_input(
+  definition = checkboxInput('pes_group_by_roi', label = 'Group electrodes by ROI', value = TRUE)
+)
+
+define_input(
+  definition = selectInput('pes_sort_by_metric', label = 'How should electrodes be sorted?',
+                           choices = c('Clustering', 'Lexical', 'Anatomical'), selected='Lexical')
+)
+
+define_input(
+  definition = numericInput('pes_max_for_means', 'Plot max for condition means (0: data range)',
+                            min=0, max=1e3, step = 1, value = 99)
+)
+
+define_input(
+  definition = checkboxInput('pes_max_for_means_is_percentile', 'Max is %',
+                             value = TRUE))
+
+define_input(
+  definition = numericInput('pes_max_for_contrasts', 'Plot max for condition contrasts (0: data range)',
+                            min=0, max=1e3, step = 1, value = 99)
+)
+define_input(
+  definition = checkboxInput('pes_max_for_contrasts_is_percentile', 'Max is %',
+                             value = TRUE))
+
+define_input(definition = customizedUI('download_pes'))
+
+
 manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'analysis_window', 'single_analysis_window',
-                  'post_hoc_plot_xlim', 'post_hoc_plot_ylim', 'multi_window_is_active', 'model_dependent', 'model_fixed_effects', 'model_random_effects', 'model_splinetime',
+                  'post_hoc_plot_xlim', 'post_hoc_plot_ylim', 'multi_window_is_active', 'model_dependent',
+                  'model_fixed_effects', 'model_random_effects', 'model_splinetime',
                   'model_formula', 'model_embedsubject', 'run_analysis','download_all_results',
-                  'model_roi_variable', 'filter_by_roi', 'how_to_model_roi', 'roi_ignore_hemisphere', 'roi_ignore_gyrus_sulcus')
+                  'model_roi_variable', 'filter_by_roi', 'how_to_model_roi', 'roi_ignore_hemisphere', 'roi_ignore_gyrus_sulcus',
+                  
+                  'pes_scaling_type', 'pes_group_by_roi', 'pes_sort_by_metric', 'pes_separate_colorbar',
+                  'pes_max_for_means', 'pes_max_for_means_is_percentile',
+                  'pes_max_for_contrasts', 'pes_max_for_contrasts_is_percentile', 'pes_contrasts_heatmap_palette', 'pes_means_heatmap_palette')
 
 input_layout = list(
     'Data import' = list(
@@ -323,6 +388,18 @@ input_layout = list(
         'post_hoc_plot_vertical_reference_line_custom', 'post_hoc_plot_horizontal_reference_line_custom'),
       c('post_hoc_plot_regression_line', 'post_hoc_plot_equality_line'),
         'post_hoc_plot_show_stats', 'post_hoc_plot_legend_location'
+    ),
+    '[-]Download per-electrode statistics' = list(
+      c('pes_sort_by_metric'),
+        'pes_group_by_roi', 
+      'pes_scaling_type',
+      c('pes_max_for_means', 'pes_max_for_means_is_percentile'),
+      c('pes_max_for_contrasts', 'pes_max_for_contrasts_is_percentile'),
+      'pes_separate_colorbar',
+      c('pes_means_heatmap_palette', 'pes_contrasts_heatmap_palette'),
+      
+      c('download_pes')
+      
     ),
     '[-]Export hi-res plot' = list(
       c('custom_plot_download')
@@ -387,15 +464,22 @@ define_output(
 )
 
 define_output(
-  definition = plotOutput('electrode_inspector_time_series', height='500px'),
-  title = 'Subset time series',
-  width = 8, order=50
+  customizedUI('effect_overview_plot_ui'),
+  title = 'Results overview heatmap',
+  width=12,
+  order=-1e5
 )
 
 define_output(
-  definition = plotOutput('electrode_inspector_barplot', height='500px'),
-  title = 'Subset barplot',
-  width = 4, order=51
+  definition = plotOutput('electrode_inspector_time_series', height='500px'),
+  title = 'Subset time series',
+  width = 6, order=51
+)
+
+define_output(
+  definition = plotOutput('electrode_inspector_trial_heat_map_plot', height='500px'),
+  title = 'Subset by-trial plot',
+  width = 6, order=50
 )
 
 define_output(

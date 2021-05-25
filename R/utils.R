@@ -179,7 +179,16 @@ htmltable_mat <- function(mat, ...) {
 }
 
 #'@export
-ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never')) {
+ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never'), ..., new_timeout=60*10) {
+  old_to <- options('timeout')
+  
+  on.exit({
+    options(timeout=old_to)
+  }, add=TRUE)
+  
+  
+  options(timeout = new_timeout)
+  
   upgrade = match.arg(upgrade)
 
   checks <- list(
@@ -188,7 +197,7 @@ ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never
     'Demo Subject Raw Data' = 
       dir.exists(sprintf('%s/DemoSubject/', rave::rave_options('raw_data_dir'))),
     'Demo Group Data' = 
-      file.exists(sprintf('%s/demo/_project_data/power_explorer/exports/KC_all-20200605-121949.fst',
+      file.exists(sprintf('%s/demo/_project_data/power_explorer/exports/YAB_demo_export-20210525-072121.fst',
                           rave::rave_options('data_dir')))
   )
   

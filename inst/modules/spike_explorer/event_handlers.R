@@ -176,7 +176,7 @@ observeEvent(input$analysis_settings_load, {
     # Update analysis parameters
     updateSliderInput(session, 'analysis_window', value = conf$analysis_window)
     updateSliderInput(session, 'baseline_window', value = conf$baseline_window)
-    updateSliderInput(session, 'frequency_window', value = conf$frequency_window)
+    updateSliderInput(session, 'FREQUENCY', value = conf$FREQUENCY)
     updateSelectizeInput(session, 'unit_of_analysis', selected = conf$unit_of_analysis)
 })
 
@@ -411,15 +411,14 @@ observeEvent(input$reset_electrode_selectors, {
 
 observeEvent(input$select_good_electrodes, {
     if (!is.null(input$current_active_set)) {
+        updateTextInput(session, 'electrode_text',
+                        value = input$current_active_set)
+        
         local_data$current_active_set = dipsaus::parse_svec(input$current_active_set)
         
-        updateTextInput(session, 'electrode_text',
-                        value = local_data$current_active_set)
-        
-        
-        # if (!auto_recalculate()) {
-        #     trigger_recalculate()
-        # }
+        if (!auto_recalculate()) {
+            trigger_recalculate()
+        }
     }
 })
         
