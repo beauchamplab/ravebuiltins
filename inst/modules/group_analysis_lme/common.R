@@ -192,7 +192,7 @@ multiple_comparisons <- function() {
     local_data$compare_conditions= lmer_compare
     if(is.null(lmer_compare)) {
         lmer_compare = matrix(" ", nrow = 1, ncol = 6)
-        htmltable_mat(m)
+        # htmltable_mat(m)
     }
     compare_conditions <- htmltable_mat(lmer_compare)
     
