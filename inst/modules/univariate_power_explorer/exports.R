@@ -8,7 +8,7 @@ power_3d_fun = function(brain){
   brain$load_surfaces(subject = subject, surfaces = c('pial', 'white', 'smoothwm'))
   
   dat = rave::cache(key = list(
-    list(BASELINE_WINDOW, preload_info)
+    list(baseline_window, preload_info)
   ), val = get_summary())
   
   
@@ -70,15 +70,15 @@ get_summary <- function() {
 
   all_trials <- unlist(tnum_by_condition)
    # .bl_power <- cache(
-     # key = list(subject$id, preload_info$electrodes, BASELINE_WINDOW, preload_info),
-     # val = baseline(power, BASELINE_WINDOW[1],  BASELINE_WINDOW[2], hybrid = FALSE, mem_optimize = FALSE)
+     # key = list(subject$id, preload_info$electrodes, baseline_window, preload_info),
+     # val = baseline(power, baseline_window[1],  baseline_window[2], hybrid = FALSE, mem_optimize = FALSE)
   # )
 
-  .bl_power <- baseline(power, BASELINE_WINDOW[1],  BASELINE_WINDOW[2], hybrid = FALSE, mem_optimize = FALSE)
+  .bl_power <- baseline(power, baseline_window[1],  baseline_window[2], hybrid = FALSE, mem_optimize = FALSE)
 
   # subset out the trials, frequencies, and time rane
   .power <- .bl_power$subset(Frequency = Frequency %within% FREQUENCY,
-                             Time = Time %within% ANALYSIS_WINDOW,
+                             Time = Time %within% analysis_window,
                              Trial = Trial %in% all_trials, data_only = FALSE)
 
   stimulus <- epoch_data$Condition[as.numeric(.power$dimnames$Trial)]

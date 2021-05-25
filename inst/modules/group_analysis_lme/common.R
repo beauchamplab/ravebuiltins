@@ -39,7 +39,7 @@ text_to_range = function(str) {
     return (r)
 }
 
-# concatenate ["+" s2] onto s1, only if s2 is non blank
+# concatenate ["+" s2] onto s1, only if s2 has 1 or more characters
 `%?&%` <- function(s1,s2) {
     if(!isTRUE(nchar(s2)>0)) {
         return(s1)
@@ -51,6 +51,13 @@ pretty_string <- function(s) {
     stringr::str_replace_all(s,c(
         'Pct' = '%',
         '_' = ' '
+    ))
+}
+
+ugly_string <- function(s)  {
+    stringr::str_replace_all(s,c(
+        '%' = 'Pct',
+        ' ' = '_'
     ))
 }
 
@@ -83,6 +90,10 @@ multiple_comparisons <- function() {
         look_for_vars = attr(terms(lmer_results), 'term.labels')
         main_effects_only = look_for_vars[!grepl(':', look_for_vars, fixed = TRUE)]
         
+        
+        emm.opts <- list(infer=c(F,T), adjust='fdr')
+        
+        res = NULL
         if('ROI' %in% main_effects_only) {
             if(model_params$how_to_model_roi == 'Stratify (Random+Fixed)') {
                 wo_roi <- main_effects_only[-which('ROI' == main_effects_only)]
@@ -131,15 +142,23 @@ multiple_comparisons <- function() {
                 # , method = 'fdr')
             } else if(model_params$how_to_model_roi == 'All possible ITX (Random+Fixed)') {
                 .fo <- as.formula('pairwise ~ ' %&% paste0(main_effects_only, collapse='*'))
-                res = emmeans::emmeans(lmer_results,
-                                       specs = .fo, options=list(infer=c(F,T), adjust='fdr'),
+                res = emmeans::emmeans(lmer_results, specs = .fo,
+                                       options=emm.opts,
                                        adjust='fdr', lmer.df='satterthwaite')
             }
-        } else {
+        } else if (length(main_effects_only)){
             res = emmeans::emmeans(lmer_results,
                                    specs = as.formula(paste0('pairwise ~ ', paste0(main_effects_only, collapse='*'))),
-                                   options=list(infer=c(F,T), adjust='fdr'), adjust='fdr', lmer.df='satterthwaite')
+                                   options=emm.opts,
+                                   adjust='fdr', lmer.df='satterthwaite')
+        } else {
+            res = list('emmeans' = emmeans::emmeans(lmer_results, specs = ~ 1,
+                                   options=emm.opts,
+                                   adjust='fdr', lmer.df='satterthwaite')
+            )
         }
+        
+        
         
         lmer_cond <- fix_rownames(
             do_if(inherits(res$emmeans, 'emmGrid'), summary(res$emmeans), res$emmeans)
@@ -154,11 +173,13 @@ multiple_comparisons <- function() {
         lmer_cond$t.ratio %<>% round_test_statistic
         lmer_cond$p.value %<>% round_pval
         
-        lmer_compare$estimate %<>% round(3)
-        lmer_compare$SE %<>% round(2)
-        lmer_compare$df %<>% round_df
-        lmer_compare$t.ratio %<>% round_test_statistic
-        lmer_compare$p.value %<>% round_pval
+        if(!is.null(lmer_compare)) {
+            lmer_compare$estimate %<>% round(3)
+            lmer_compare$SE %<>% round(2)
+            lmer_compare$df %<>% round_df
+            lmer_compare$t.ratio %<>% round_test_statistic
+            lmer_compare$p.value %<>% round_pval
+        }
         
     } else {
         
@@ -169,13 +190,17 @@ multiple_comparisons <- function() {
     test_conditions <- htmltable_mat(lmer_cond)
     
     local_data$compare_conditions= lmer_compare
+    if(is.null(lmer_compare)) {
+        lmer_compare = matrix(" ", nrow = 1, ncol = 6)
+        htmltable_mat(m)
+    }
     compare_conditions <- htmltable_mat(lmer_compare)
     
     htmltools::p(
         h4('Compare condition means against 0'),
         test_conditions$table,
         hr(),
-        h4('All pairwise comparisons'),
+        h4('All pairwise comparisons (if applicable)'),
         compare_conditions$table
     )
 }
@@ -365,7 +390,6 @@ remove_term <- function(x, value) {
 }
 
 analyze_single_electrode <- function(bed) {
-    
     # note that for single electrode analyses, between-electrode variables (e.g., freesurferlabel) 
     # don't make sense
     fes <- local_data$var_fixed_effects
@@ -397,6 +421,8 @@ analyze_single_electrode <- function(bed) {
         bed.omni = c(t(omni.mat)) %>% set_names(
             build_stat_names(rownames(omni.mat), c('F', 'p'))
         )
+        
+        bed.omni <-  c('m(Intercept)' = as.numeric(.lm$coefficients[1]), bed.omni)
     }
     
     # main effects
