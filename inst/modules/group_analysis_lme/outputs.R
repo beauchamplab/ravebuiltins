@@ -582,6 +582,7 @@ output$effect_overview_plot <- shiny::renderPlot({
   
   roi_var_name = ifelse(model_params$roi_variable == "", "", " + ROI")
   
+  #TODO this is really slow... figure a way to make it faster
   df <- aggregate(as.formula(sprintf("%s ~ Subject + Electrode + Condition %s", model_params$var_dependent, roi_var_name)),
                   data = sub_d, FUN=mean)
   df$SubjEl <- mapply(paste0, df$Subject, df$Electrode)
@@ -612,7 +613,10 @@ output$effect_overview_plot <- shiny::renderPlot({
   full_mat = full_mat[order(full_mat$ROI, full_mat$Subject, as.numeric(full_mat$Electrode)), ]
   
   ##TODO need to take into account ConditionGroup in the order of the columns
-  combined <- full_mat[,!sapply(full_mat, is.character)]
+  
+  combined <- full_mat[,!sapply(full_mat, function(fm){
+    is.character(fm) | is.factor(fm)
+  })]
   
   # need to add the pad into the matrix?
   .ROIS = as.character(unique(full_mat$ROI))
@@ -664,19 +668,20 @@ output$effect_overview_plot <- shiny::renderPlot({
   # }
   
     
-    if(length(contrasts_only) > 0) {
-      jn_wo_contrasts <- just_numeric[,-contrasts_only]
-      jn_only_contrasts <- just_numeric[,contrasts_only]
-    } else {
-      jn_only_contrasts = matrix(0)
-      jn_wo_contrasts = just_numeric
-    }
-    
+  if(length(contrasts_only) > 0) {
+    jn_wo_contrasts <- just_numeric[,-contrasts_only]
+    jn_only_contrasts <- just_numeric[,contrasts_only]
+  } else {
+    jn_only_contrasts = matrix(0)
+    jn_wo_contrasts = just_numeric
+  }
+  
     #TODO read in from input 
-    means_zlim <- round(quantile(abs(jn_wo_contrasts), .95, na.rm = TRUE),-1)
+    means_zlim <- ceiling(quantile(abs(jn_wo_contrasts[-roi_rows,]), .95, na.rm = TRUE))
     contrasts_zlim <- ifelse(is.null(jn_only_contrasts),
                              0,
-                             round(quantile(abs(jn_only_contrasts), .95, na.rm=TRUE)))
+                             ceiling(round(quantile(abs(jn_only_contrasts), .95, na.rm=TRUE)))
+    )
     
     cond_to_group <- aggregate(Condition ~ ConditionGroup, function(x) list(unique(x)), data=local_data$subset_data)
     cond_cols <- which(colnames(just_numeric) %in% unique(local_data$subset_data$Condition))
