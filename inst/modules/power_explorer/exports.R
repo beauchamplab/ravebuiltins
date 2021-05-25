@@ -115,8 +115,7 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
 
 ## modified from downloadButton
 fix_font_color_button <- function (outputId, label = "Download", class = NULL, ...)  {
-  # aTag <- 
-    tags$a(id = outputId,
+  aTag <- tags$a(id = outputId,
                  class = paste("btn shiny-download-link", 
                                               class), href = "", target = "_blank", download = NA, 
                  icon("download"), label, ...)
@@ -125,7 +124,7 @@ fix_font_color_button <- function (outputId, label = "Download", class = NULL, .
 download_all_graphs = function(){
   tagList(
     fix_font_color_button(ns('btn_graph_download'),
-                          'Download', icon=shiny::icon('download'),
+                          'Download graphs and their data', icon=shiny::icon('download'),
                           class = 'btn-primary text-white')
   )
 }
@@ -349,7 +348,6 @@ observeEvent(input$sheth_special_width, {
 
 
 build_sheth_matrices <- function() {
-  
   unit_dims = c(1,2,4)
   if(isTRUE(global_baseline)) {
     unit_dims = c(2,4)
@@ -386,20 +384,20 @@ build_sheth_matrices <- function() {
     shift_amount = determine_shift_amount(event_time = ev[[event_of_interest]], available_shift=new_range)
   }
   
-  res = lapply(electrodes, function(e, ...){
-    # rave::lapply_async(electrodes, function(e){
+  res = #lapply(electrodes, function(e, ...){
+    rave::lapply_async(electrodes, function(e){
       # e = electrodes[1]
       
       if(is.null(shift_amount)) {
         el = power$subset(Electrode = Electrode == e,
                           Frequency = Frequency %within% 0:151,
-                          Time = (Time %within% analysis_window) | (Time %within% baseline_window)
+                          Time = (Time %within% ANALYSIS_WINDOW) | (Time %within% BASELINE_WINDOW)
         )
         if(prod(dim(el)) < 1) return (NULL)
         
         bl = dipsaus::baseline_array(
           x = el$get_data(),
-          baseline_indexpoints = which(el$dimnames$Time %within% baseline_window),
+          baseline_indexpoints = which(el$dimnames$Time %within% BASELINE_WINDOW),
           along_dim = 3L, method = baseline_method, unit_dims = unit_dims)
         bl = ECoGTensor$new(bl, dim = dim(el), dimnames = dimnames(el),
                             varnames = el$varnames, hybrid = FALSE)
@@ -407,18 +405,18 @@ build_sheth_matrices <- function() {
         el = power$subset(Electrode = Electrode == e,
                           Frequency = Frequency %within% 0:151)
         # can't do this because of the shift
-        # ,Time = (Time %within% analysis_window) | (Time %within% baseline_window))
+        # ,Time = (Time %within% ANALYSIS_WINDOW) | (Time %within% BASELINE_WINDOW))
         if(prod(dim(el)) < 1) return (NULL)
         
         bl = dipsaus::baseline_array(
           x = el$get_data(),
-          baseline_indexpoints = which(el$dimnames$Time %within% baseline_window),
+          baseline_indexpoints = which(el$dimnames$Time %within% BASELINE_WINDOW),
           along_dim = 3L, method = baseline_method, unit_dims = unit_dims)
         bl = get_shifted_tensor(bl, shift_amount, new_range = new_range,
                                 dimnames = dimnames(el), varnames = el$varnames)
       }
       
-      bl.analysis <- bl$subset(Time=Time %within% analysis_window)$get_data()
+      bl.analysis <- bl$subset(Time=Time %within% ANALYSIS_WINDOW)$get_data()
       
       t2p <- function(t,df) {
         2*pt(abs(t), df=df, lower.tail = F)
@@ -427,9 +425,6 @@ build_sheth_matrices <- function() {
       result_by_band = lapply(berger_bands, function(band) {
         # band = berger_bands[[1]]
         trial_means = rowMeans(bl.analysis[,el$dimnames$Frequency %within% band,,1,drop=FALSE])
-        if(any(is.nan(trial_means))) {
-          return (NULL)
-        }
         # trial_means = rowMeans(bl.analysis$subset(get_data())
         
         mse = .fast_mse(trial_means)
@@ -471,14 +466,14 @@ build_sheth_matrices <- function() {
       return(result_by_band)
     } ,
     .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e', 'gnames', 'berger_bands', 'epoch_data_Condition',
-                 'frequency_window', 'analysis_window', 'baseline_window', 'shift_amount',
+                 'FREQUENCY', 'ANALYSIS_WINDOW', 'BASELINE_WINDOW', 'shift_amount',
                  '.fast_mse', 'df_shell', 'show_contrasts'),
     .gc = FALSE)
   
   by_band <- sapply(names(berger_bands), function(band) {
     .band = lapply(res, '[[', band)
     
-    if(is.null(.band[[1]])) {
+    if(is.null(.band)) {
       return (NULL)
     }
     mean = list(
@@ -514,6 +509,7 @@ output$btn_sheth_special <- downloadHandler(
            format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.pdf')
   }, 
   content = function(conn) {
+    
     progress = rave::progress("Making Sheth's special", max = 4)
     
     on.exit({progress$close()}, add=TRUE)
@@ -637,26 +633,35 @@ output$btn_graph_download <- downloadHandler(
   },
   content = function(conn) {
     tmp_dir = tempdir()
-    subdir = paste0('RAVE_', format(Sys.time(), "%d-%b-%Y_%H_%M_%S"))
-    markdown_dir = file.path(tmp_dir, subdir)
-    if(dir.exists(markdown_dir)) {
-      unlink(markdown_dir, recursive = TRUE)
-    }
-    dir.create(markdown_dir)
     
+    # map the human names to the function names
+    function_map <- list('Spectrogram' = 'heat_map_plot',
+                         'By Trial Power' = 'by_trial_heat_map_plot',
+                         'Over Time Plot' = 'over_time_plot', 
+                         'Windowed Average' = 'windowed_comparison_plot',
+                         'Over Time by Electrode' = 'by_electrode_heat_map_plot',
+                         'Results by Electrode' = 'across_electrode_statistics_plot')
+    
+    to_export <- function_map[plots_to_export]
     prefix <- sprintf('%s_%s_%s_', subject$subject_code, subject$project_name, format(Sys.time(), "%b_%d_%Y_%H_%M_%S"))
     
-    write_out_graphs(outdir=markdown_dir, prefix=prefix)
+    fnames <- function_map[plots_to_export]
     
+    tmp_files <- prefix %&% str_replace_all(names(fnames), ' ', '_') %&% '.pdf'
+    
+    print('writing out graphs')
+    write_out_graphs(conns=file.path(tmp_dir, tmp_files), plot_functions=fnames,
+                     dir=tmp_dir, prefix=prefix)    
     wd = getwd()
     on.exit({setwd(wd)}, add = TRUE)
     
     setwd(tmp_dir)
-    zip(conn, files = subdir, flags='-r2X')
+    print('making zip file')
+    zip(conn, files = list.files(pattern = prefix %&% '+.+(pdf|json)'), flags='-r2X')
   }
 )
 
-write_out_graphs <- function(outdir, prefix, ...) {
+write_out_graphs <- function(conns=NA, plot_functions, dir, prefix, ...) {
   args = isolate(reactiveValuesToList(input))
   
   assign('..args', args, envir = globalenv())
@@ -664,9 +669,12 @@ write_out_graphs <- function(outdir, prefix, ...) {
   # attachDefaultDataRepository()
   electrodes_loaded = preload_info$electrodes
   # check to see if we should loop over all electrodes or just the currently selected electrode(s)
+  if(export_what == 'Current Selection') {
+    electrodes_loaded <- requested_electrodes
+  }
   
-  progress = rave::progress('Rendering graphs to powerpoint...',
-                            max = 3)
+  progress = rave::progress('Rendering graphs...',
+                            max = length(electrodes_loaded) + 2)
   
   on.exit({progress$close()}, add=TRUE)
   progress$inc('Initializing')
@@ -674,57 +682,100 @@ write_out_graphs <- function(outdir, prefix, ...) {
   rave::rave_context('rave_running_local')
   module = rave::get_module('ravebuiltins', 'power_explorer', local = TRUE)
   formal_names = names(formals(module))
+  if(F) {
+    args = sapply(formal_names, function(fn) {
+      results$get_value(fn)
+    })
+  }
   args = args[formal_names]
   names(args) = formal_names
   
-  result = do.call(module, args)
-  results = result$results
-  
-  # get the RMarkdown files
-  # attachDefaultDataRepository()
-  rave_root = dirname(module_tools$get_subject_dirs()$data_dir)
-  mrkdwn = file.path(rave_root, 'others', 'ravebuiltins', 'markdown')
-  pptx = file.path(mrkdwn, 'powerexplorer-pptx.Rmd')
-  if(!file.exists(pptx)) {
-    shiny::showNotification("No markdown template files available", type='error', id='PWR-XPL_NO_MARKDOWN')
-    shiny::req(FALSE)
-  }
-  
-  template = 'reference'
-  requested_style = args$select_markdown_template
-  if(requested_style != 'none') {
-    tmpl = file.path(mrkdwn, markdown_templates$pptx[[which(requested_style == markdown_templates$pptx.pretty)]])
-    if(file.exists(tmpl)) {
-      template = tmpl
-    } else {
-      shiny::showNotification("Couldn't find requested style template. Using plain style", type='warning', id='PWR-XPL_NO_STYLE')
+  # so we want to open all the PDFs initially
+  # based on the number of groups we should scale the plots
+  ngroups = 0
+  for(ii in seq_along(args$GROUPS)) {
+    if(length(args$GROUPS[[ii]]$group_conditions)>1) {
+      ngroups = ngroups+1
     }
   }
-  rmarkdown::render(pptx, output_dir = outdir,
-                    output_file = paste0(prefix, 'RAVE_AUTO_GEN.pptx'),
-                    output_format = rmarkdown::powerpoint_presentation(reference_doc=template,
-                                                                       keep_md=isTRUE(args$keep_markdown)))
+  # having issues here with the size of the plots being too large for the font sizes
+  # we can't (easily) change the cex being used by the plots. So maybe we can 
+  # just change the size of the output PDF. people can then resize but keep the relative sizes correct
+  # FIXME the sizes of these outputs aren't very pretty. we should probably just hard code a list for common sizes, say
+  # ngroup <= 4... then apply a scale factor after that? We also need to take care of the font cex... could maybe set some hint
+  # such that the rave_cex is set to pdf mode... We should be able to query the current graphics device to see if it is a window or 
+  # a pdf?
   
-  # save out settings file
-  # print("trying to save settings: " %&% paste0(prefix, 'RAVE_GUI_settings.yaml'))
-  yaml::write_yaml(x = args, fileEncoding = 'utf-8',
-                   file = file.path(outdir, paste0(prefix, 'RAVE_GUI_settings.yaml'))
-  )
+  # yes!
+  # > dev.cur()
+  # pdf 
+  # 4 
+  fin = mapply(function(conn, pf) {
+    w_scale = h_scale = 1
+    if(pf == 'windowed_comparison_plot') {
+      w_scale = ngroups / 2.25
+    }
+    
+    if(pf %in% c('by_trial_heat_map_plot', 'heat_map_plot')) {
+      w_scale = ngroups*1.25
+      h_scale = ngroups*1.05
+    }
+    
+    .w <- round(9.75*w_scale,1)
+    .h <- round(6.03*h_scale,1)
+    
+    pdf(conn, width = .w, height = .h, useDingbats = FALSE)
+  }, conns, plot_functions)
   
-  if(args$include_data) {
-    data <- as.data.frame(results$get_value('omnibus_results'))
-    data$row_label <- rownames(data)
-    data <- data[,c(ncol(data), 1:(ncol(data)-1))]
-    
-    outfile = file.path(outdir, paste0(subject$subject_code, '_by_electrode.csv'))
-    
-    # print('writing out data: ' %&% outfile)
-    data.table::fwrite(data, file = outfile)
-    
-    summ_stat <- as.data.frame(results$get_value('summary_statistics'))
-    outfile = file.path(outdir, paste0(subject$subject_code, '_comparing_conditions.csv'))
-    data.table::fwrite(summ_stat, file = outfile)
+  #there are more graphics devices existing than those that we just created, so
+  #we need to be a little more careful about how we cycle through them, see 
+  # names(dev.list()) == 'pdf' below
+  
+  find_open_pdfs <- function() {
+    dev.list()[names(dev.list()) == 'pdf']
   }
+  
+  on.exit({
+    sapply(find_open_pdfs(), dev.off)
+  }, add = TRUE)
+  
+  plot_for_el <- function(etext, write_out_data=FALSE) {
+    if(length(etext) > 1) {
+      etext %<>% deparse_svec
+    }
+    # if(shiny_is_running()) {
+    progress$inc(sprintf('Rendering graphs for %s', etext))
+    # }
+    
+    args[['ELECTRODE_TEXT']] = etext
+    result = do.call(module, args)
+    .results = result$results
+    
+    fff = function(x) {
+      paste(names(x), x, sep=':')
+    }
+    
+    mapply(function(graf, dev_num) {
+      cat2(paste('plotting:', graf), level = 'INFO')
+      cat2(paste('plotting:', fff(dev.set(dev_num))), level = 'INFO')
+      #get the function named by graf
+      get(graf, envir = asNamespace('ravebuiltins'))(.results)
+      
+      # match.fun(graf)(.results)
+      if(write_out_data) {
+        fname <- file.path(dir, paste0(prefix, graf, '.json'))
+        data_var = stringr::str_replace(graf, '_plot', '_data')
+        cat(jsonlite::serializeJSON(result$results$get_value(data_var, 'NODATA')),
+            file=fname)
+      }
+    }, plot_functions, find_open_pdfs())
+  }
+  
+  # first write into the graphs the aggregate functions
+  plot_for_el(electrodes_loaded, write_out_data = TRUE)
+  
+  # now for the individual electrodes
+  lapply(electrodes_loaded, plot_for_el)
   
   if(shiny_is_running()) {
     showNotification(p('Exports finished!'))
@@ -812,10 +863,10 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   time_points = preload_info$time_points
   # time_points = time_points[time_points %within% input$export_time_window]
   freq_range = preload_info$frequencies
-  freq_range = freq_range[freq_range %within% input$frequency_window]
+  freq_range = freq_range[freq_range %within% input$FREQUENCY]
   
   # get baseline
-  baseline_range = input$baseline_window
+  baseline_range = input$BASELINE_WINDOW
   dipsaus::cat2('Line 872', level='INFO')
   # Do some checks
   

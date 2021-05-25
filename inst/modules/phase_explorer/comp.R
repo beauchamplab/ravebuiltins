@@ -58,7 +58,7 @@ define_input(
 define_input_condition_groups(inputId = 'GROUPS')
 define_input_single_electrode(inputId = 'ELECTRODE')
 define_input_frequency(inputId = 'FREQUENCY', is_range = FALSE)
-define_input_time(inputId = 'analysis_window', label='Analysis Time', initial_value = 0, is_range = FALSE)
+define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis Time', initial_value = 0, is_range = FALSE)
 
 define_input(
     definition = numericInput('max_zlim', 'Maximum Plot Value', value = 0, min = 0, step = 1)
@@ -93,7 +93,7 @@ input_layout = list(
     ),
     'Analysis Settings' = list(
         'FREQUENCY',
-        'analysis_window'
+        'ANALYSIS_WINDOW'
     ),
     '[-]Plotting' = list(
         # c('log_scale', 'sort_trials_by_type', 'collapse_using_median'),

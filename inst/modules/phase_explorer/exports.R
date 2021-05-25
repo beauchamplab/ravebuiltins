@@ -3,7 +3,7 @@ phase_3d_fun = function(brain){
   
   dat = NULL
   # rave::cache(key = list(
-  #   list(baseline_window, preload_info)
+  #   list(BASELINE_WINDOW, preload_info)
   # ), val = get_summary())
   # # for each electrode, we want to test the different conditions
   # .FUN <- if(length(levels(dat$condition)) > 1) {

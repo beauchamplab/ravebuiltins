@@ -51,8 +51,8 @@ define_input(
 # define_input_multiple_electrodes(inputId = 'ELECTRODE_TEXT')
 define_input_single_electrode(inputId = 'ELECTRODE')
 define_input_frequency(inputId = 'FREQUENCY')
-define_input_time(inputId = 'analysis_window', label='Analysis', initial_value = c(0,1))
-define_input_time(inputId = 'baseline_window', label='Baseline', initial_value = c(-1,0))
+define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis', initial_value = c(0,1))
+define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline', initial_value = c(-1,0))
 define_input_condition_groups(inputId = 'GROUPS')
 
 define_input(
@@ -193,8 +193,8 @@ input_layout = list(
   ),
   'Analysis Settings' = list(
     'FREQUENCY',
-    'baseline_window',
-    'analysis_window'
+    'BASELINE_WINDOW',
+    'ANALYSIS_WINDOW'
   ),
   '[-]Plot Options' = list(
     c('PLOT_TITLE'),

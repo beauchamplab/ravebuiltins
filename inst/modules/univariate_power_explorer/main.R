@@ -43,10 +43,10 @@ any_trials <- any(has_trials)
 
 # Subset data
 bl_power <- cache(
-  key = list(subject$id, ELECTRODE, baseline_window, preload_info$time_points, combine_method,
+  key = list(subject$id, ELECTRODE, BASELINE_WINDOW, preload_info$time_points, combine_method,
              any_trials, preload_info$epoch_name, preload_info$reference_name),
   val = baseline(power$subset(Electrode = Electrode == ELECTRODE), 
-                 from=baseline_window[1], to= baseline_window[2],
+                 from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
                  hybrid = FALSE, mem_optimize = FALSE)
 )
 
@@ -64,7 +64,7 @@ flat_data <- data.frame()
 #relies on .transform as defined above
 if(combine_method != 'none') {
   transformed_power <- cache(
-    key = list(combine_method, subject$id, ELECTRODE, baseline_window, preload_info$time_points,
+    key = list(combine_method, subject$id, ELECTRODE, BASELINE_WINDOW, preload_info$time_points,
                any_trials, preload_info$epoch_name, preload_info$reference_name),
     
     val = {
@@ -175,14 +175,14 @@ for(ii in which(has_trials)){
   if(show_outliers_on_plots) {
     scatter_bar_data[[ii]] = append(scatter_bar_data[[ii]], wrap_data(
       rowMeans(.power_freq$subset(
-        Time = (Time %within% analysis_window),
+        Time = (Time %within% ANALYSIS_WINDOW),
         data_only = TRUE
       ))
     ))
   } else {
     scatter_bar_data[[ii]] = append(scatter_bar_data[[ii]], wrap_data(
       rowMeans(.power_freq_clean$subset(
-        Time = (Time %within% analysis_window),
+        Time = (Time %within% ANALYSIS_WINDOW),
         data_only = TRUE
       ))
     ))
@@ -220,7 +220,7 @@ for(ii in which(has_trials)){
                                   'y' = scatter_bar_data[[ii]] %$% {data[is_clean]}))
 }
 
-# .power_freq[,, preload_info$time_points %within% analysis_window, ]$data
+# .power_freq[,, preload_info$time_points %within% ANALYSIS_WINDOW, ]$data
 
 # for baseline you want to have only the baseline times
 flat_data$group %<>% factor

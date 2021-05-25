@@ -17,10 +17,6 @@ draw_many_heat_maps(
   PANEL.COLOR_BAR = NULL,
   axes = c(TRUE, TRUE),
   plot_time_range = NULL,
-  special_case_first_plot = FALSE,
-  max_columns = 2,
-  decorate_all_plots = FALSE,
-  center_multipanel_title = FALSE,
   ...
 )
 }

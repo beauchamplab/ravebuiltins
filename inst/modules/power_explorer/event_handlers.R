@@ -130,8 +130,8 @@ observeEvent(input$event_of_interest, {
     updateSliderInput(session = session, inputId = 'plot_time_range',
                       value = current_window, min=max_range[1], max = max_range[2])
 
-    updateSliderInput(session = session, inputId = 'analysis_window',
-                      value = clip_x(input$analysis_window, max_range), min=max_range[1], max = max_range[2])
+    updateSliderInput(session = session, inputId = 'ANALYSIS_WINDOW',
+                      value = clip_x(input$ANALYSIS_WINDOW, max_range), min=max_range[1], max = max_range[2])
 })
 
 # observeEvent(input$btn_do_save_analysis, {
@@ -174,9 +174,9 @@ observeEvent(input$analysis_settings_load, {
     dipsaus::updateCompoundInput2(session, 'GROUPS', value = conf$GROUPS, ncomp = length(conf$GROUPS))
     
     # Update analysis parameters
-    updateSliderInput(session, 'analysis_window', value = conf$analysis_window)
-    updateSliderInput(session, 'baseline_window', value = conf$baseline_window)
-    updateSliderInput(session, 'frequency_window', value = conf$frequency_window)
+    updateSliderInput(session, 'ANALYSIS_WINDOW', value = conf$ANALYSIS_WINDOW)
+    updateSliderInput(session, 'BASELINE_WINDOW', value = conf$BASELINE_WINDOW)
+    updateSliderInput(session, 'FREQUENCY', value = conf$FREQUENCY)
     updateSelectizeInput(session, 'unit_of_analysis', selected = conf$unit_of_analysis)
 })
 
@@ -193,7 +193,7 @@ observeEvent(input$power_3d_widget_mouse_dblclicked, {
     if(isTRUE(.data$is_electrode)) {
         e <- .data$electrode_number
         if(e %in% preload_info$electrodes){
-            updateTextInput(session, 'electrode_text', value = e)
+            updateTextInput(session, 'ELECTRODE_TEXT', value = e)
             showNotification(p('Switched to electrode ', e), type = 'message', id = ns('power_3d_widget__mouse'))
             if(shiny_is_running()) {
                 trigger_recalculate()
@@ -210,7 +210,7 @@ observeEvent(input$power_3d_widget_mouse_dblclicked, {
     #     e = stringr::str_match(object$name, '^Electrode ([0-9]+)')[2]
     #     e = as.character(e)
     #     if(e %in% preload_info$electrodes){
-    #         updateTextInput(session, 'electrode_text', value = e)
+    #         updateTextInput(session, 'ELECTRODE_TEXT', value = e)
     #         showNotification(p('Switched to electrode ', e), type = 'message', id = ns('power_3d_widget__mouse'))
     #     }else{
     #         showNotification(p('Electrode ', e, ' is not loaded.'), type = 'warning', id = ns('power_3d_widget__mouse'))
@@ -240,11 +240,11 @@ observeEvent(input$synch_with_trial_selector, {
 ### this ensures we don't get infinite callbacks from/to the category/numeric electrode selector
 sync_shiny_inputs(
     input = input, session = session, inputIds = c(
-        'electrode_text', 'electrode_category_selector_choices'
+        'ELECTRODE_TEXT', 'electrode_category_selector_choices'
     ), uniform = list(
-        # electrode_text to electrodes
-        function(electrode_text){
-            return(parse_svec(electrode_text, sort = TRUE))
+        # ELECTRODE_TEXT to electrodes
+        function(ELECTRODE_TEXT){
+            return(parse_svec(ELECTRODE_TEXT, sort = TRUE))
         },
         # electrode_category_selector_choices to electrodes
         function(electrode_category_selector_choices){
@@ -253,7 +253,7 @@ sync_shiny_inputs(
             electrodes_csv %?<-% NULL
             if(!is.data.frame(electrodes_csv)) { return(NULL) }
             
-            # current_els <- parse_svec(input$electrode_text, sort = TRUE)
+            # current_els <- parse_svec(input$ELECTRODE_TEXT, sort = TRUE)
             
             all_vals <- electrodes_csv[[input$electrode_category_selector]]
             
@@ -272,9 +272,9 @@ sync_shiny_inputs(
             return(new_els)
         }
     ), updates = list(
-        # update electrode_text
+        # update ELECTRODE_TEXT
         function(els){
-            if(!is.null(els)) {updateTextInput(session, 'electrode_text', value = deparse_svec(els))}
+            if(!is.null(els)) {updateTextInput(session, 'ELECTRODE_TEXT', value = deparse_svec(els))}
         },
         # update electrode_category_selector_choices
         function(els){
@@ -283,13 +283,13 @@ sync_shiny_inputs(
     )
 )
 
-# observeEvent(input$electrode_text, {
+# observeEvent(input$ELECTRODE_TEXT, {
 #     # be careful here so we don't trigger loops!
 #     electrodes_csv %?<-% NULL
 #     if(is.data.frame(electrodes_csv)) {
 #         
 #         # check if the electrode text matches the current electrode values
-#         current_etext_els <- as.numeric(parse_svec(input$electrode_text)  ) %>% sort
+#         current_etext_els <- as.numeric(parse_svec(input$ELECTRODE_TEXT)  ) %>% sort
 #         all_vals <- electrodes_csv[[input$electrode_category_selector]]
 #         vals <- input$electrode_category_selector_choices
 #         current_category_els <- as.numeric(electrodes_csv$Electrode[vals == all_vals]) %>% sort
@@ -322,7 +322,7 @@ update_electrode_category_select <- function(els) {
     dipsaus::cat2('Col name: ', col_name, level='INFO')
     
     if(missing(els)) {
-        selected_electrode_numbers = as.numeric(parse_svec(input$electrode_text))
+        selected_electrode_numbers = as.numeric(parse_svec(input$ELECTRODE_TEXT))
     } else {
         dipsaus::cat2('updating from els: ', els, level='INFO', pal=list('INFO' = 'orangered'))
         selected_electrode_numbers = els
@@ -404,22 +404,21 @@ observeEvent(input$reset_electrode_selectors, {
         }else {
             updateSelectInput(session, electrode_category_selector, selected = 'Label')
         }
-        updateTextInput(session, 'electrode_text', value=electrodes_csv$Electrode[1])
+        updateTextInput(session, 'ELECTRODE_TEXT', value=electrodes_csv$Electrode[1])
     }
     
 }, ignoreInit=TRUE)
 
 observeEvent(input$select_good_electrodes, {
     if (!is.null(input$current_active_set)) {
+        updateTextInput(session, 'ELECTRODE_TEXT',
+                        value = input$current_active_set)
+        
         local_data$current_active_set = dipsaus::parse_svec(input$current_active_set)
         
-        updateTextInput(session, 'electrode_text',
-                        value = local_data$current_active_set)
-        
-        
-        # if (!auto_recalculate()) {
-        #     trigger_recalculate()
-        # }
+        if (!auto_recalculate()) {
+            trigger_recalculate()
+        }
     }
 })
         

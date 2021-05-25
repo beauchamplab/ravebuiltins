@@ -80,7 +80,7 @@ power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analys
   collapsed_data %?<-% local_data$collapsed_data
   agg_over_trial %?<-% local_data$agg_over_trial
   analysis_window %?<-% local_data$analysis_window_label
-  ylab %?<-% model_params$var_dependent_label
+  ylab %?<-% local_data$var_dependent_label
   
   agg_over_trial = agg_over_trial[order(agg_over_trial$Time),]
   
@@ -130,7 +130,7 @@ power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analys
       # e.g., sample size has already been calculated
       group$y[is.na(group$y[,2]),2] = 0
       
-      if(any(is.null(use_this_range))) {
+      if(is.null(use_this_range)) {
         .range = range(plus_minus(group$y))
       } else {
         .range = use_this_range
@@ -202,7 +202,7 @@ power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analys
               par(mar=c(0,2,2,0))
               plot_clean(0:1, pretty(common_range))
               rave_axis(2, at = axTicks(2), pos=1)
-              rave_axis_labels(ylab=model_params$var_dependent_label, line=0, cex.lab = 1)
+              rave_axis_labels(ylab=local_data$var_dependent_label, line=0, cex.lab = 1)
             }  else {
               par(mar=rep(0,4))
               plot_clean(0:1, pretty(common_range))
@@ -242,7 +242,6 @@ power_over_time <- function(lmer_results, collapsed_data, agg_over_trial, analys
 }
 
 electrode_inspector_time_series <- function() {
-  # local_data = ..local_data
   shiny::validate(shiny::need(!is.null(local_data$lmer_results), message = 'No model calculated'))
   shiny::validate(shiny::need(!is.null(local_data$show_by_electrode_results_rows_selected), message = 'No rows selected'))
   
@@ -259,10 +258,10 @@ electrode_inspector_time_series <- function() {
   otd = otd[ind,cnames]
   
   fe = paste(local_data$var_fixed_effects, collapse=' * ')
-  # group_analysis_cat2t('Got fixed effect')
+  group_analysis_cat2t('Got fixed effect')
   aot = otd %>% do_aggregate(as.formula('y ~ Time + Subject + Electrode' %?&% fe),
                              FUN=mean) %>% do_aggregate(as.formula('y ~ Time' %?&% fe), .fast_mse)
-  # group_analysis_cat2t('Agg OTD')
+  group_analysis_cat2t('Agg OTD')
   
   cd = local_data$collapsed_data
   ind = cd$Subject %in% attr(factor(selected$Subject), 'levels') & cd$Electrode %in% attr(factor(selected$Electrode), 'levels')
@@ -270,6 +269,7 @@ electrode_inspector_time_series <- function() {
   
   # power over time will get the rest of its parameters from local_data        
   power_over_time(collapsed_data = cd, agg_over_trial = aot)
+  
   rave_title(attr(selected, 'label'))
 }
 
@@ -283,10 +283,9 @@ get_selected_subjel <- function() {
     to_keep = local_data$by_electrode_results[rows,c('Subject', 'Electrode')]
     to_keep$Subject %<>% as.character
     
-    to_keep$SubjEl = mapply(paste0, to_keep$Subject, to_keep$Electrode)
-    
     attr(to_keep, 'label') = aggregate(Electrode ~ Subject, dipsaus::deparse_svec, data=to_keep) %>%
       apply(1, paste0, collapse=':') %>% paste0(collapse=', ')
+    # res$sbjel_id = paste(to_keep$Subject, to_keep$Electrode, sep='_')
     
     return (to_keep)
 }
@@ -392,424 +391,23 @@ windowed_activity <- function(lmer_results, collapsed_data) {
     abline(h=0, col=rave_colors$TRIAL_TYPE_SEPARATOR)
 }
 
-
-# electrode_inspector_barplot <- function() {
-#   shiny::validate(shiny::need(!is.null(local_data$lmer_results), message = 'No model calculated'))
-#   shiny::validate(shiny::need(!is.null(local_data$show_by_electrode_results_rows_selected), message = 'No rows selected'))
-#   # local_data = ..local_data
-#     selected = get_selected_subjel()
-#     cd = local_data$collapsed_data
-#     
-#     cd$subjel <- mapply(paste0, cd$Subject, as.numeric(cd$Electrode))
-#     selected$subjel <- mapply(paste0, selected$Subject, as.numeric(selected$Electrode))
-# 
-#     ind = cd$subjel %in% selected$subjel    
-# 
-#     cd = cd[ind,]
-#     
-#     windowed_activity(collapsed_data = cd)
-#     rave_title(attr(selected, 'label'))
-# }
-
-get_cbar_height <- function() {
-  PX_HEIGHT_COLOR_BAR <- 55
-  
-  return(PX_HEIGHT_COLOR_BAR)
-}
-
-electrode_inspector_trial_heat_map_plot <- function(...) {
-  # local_data = ..local_data
-  # model_params = ..model_params
-  # local_data$show_by_electrode_results_rows_selected = 1:4
+electrode_inspector_barplot <- function() {
   shiny::validate(shiny::need(!is.null(local_data$lmer_results), message = 'No model calculated'))
   shiny::validate(shiny::need(!is.null(local_data$show_by_electrode_results_rows_selected), message = 'No rows selected'))
+  
+    selected = get_selected_subjel()
+    cd = local_data$collapsed_data
+    ind = cd$Subject %in% attr(factor(selected$Subject), 'levels') &
+      cd$Electrode %in% attr(factor(selected$Electrode), 'levels')
     
-  #base decorator
-  po = build_plot_options(sort_trials_by_type='Condition')
-  decorator <- by_trial_heat_map_decorator(plot_options = po$as_list(),
-                                           title_options=list(allow_sid=TRUE, allow_enum=F, allow_cond=F, allow_freq=F))
-  
-  # add a decorator that can draw the trial labels
-  decorator %<>% add_decorator(trial_type_boundaries_hm_decorator)
-  
-  # the y variable is changing each time,
-  # so we provide a function that will be used to calculate the
-  # y variable on a per map basis
-  sel <- get_selected_subjel()
-  # do an initial subset because the SubjEl work later is time consuming
-  otd <- local_data$over_time_data %>%
-    subset((.)$Subject %in% unique(sel$Subject) &
-             (.)$Electrode %in% unique(sel$Electrode) &
-             !is.na((.)$y))
-  
-  ptr = input$omnibus_plots_time_range
-  ptr %?<-% range(otd$Time)
-  otd$subjel <- mapply(paste0, otd$Subject, otd$Electrode)
-  
-  # are there fixed effects?
-  if('ConditionGroup' %in% local_data$var_fixed_effects) {
-    .ord = names(sort(apply(table(local_data$subset_data$Condition, local_data$subset_data$ConditionGroup),
-                            1,
-                            function(i) which(i>0))))
+    cd = cd[ind,]
     
-    otd$Condition %<>% factor(levels=.ord)
-  } else {
-    otd$Condition %<>% factor(levels = sort(unique(otd$Condition)))
-  }
-
-  otd %<>% subset((.)$subjel %in% sel$SubjEl & (.)$Time %within% ptr)
-  
-  otd_agg <-  otd %>% do_aggregate(y ~ Trial+Condition, mean, na.rm=TRUE)
-  
-  cond_tbl <- table(otd_agg$Condition)
-  
-  collapsed =  otd %>%  do_aggregate(y ~ Trial+Condition + Time, mean, na.rm=TRUE) %>%
-    split((.)$Condition) %>% lapply(function(cnd) {
-      
-      rbind_list(lapply(split(cnd,cnd$Trial), `[[`, 'y'))
-      
-    }) %>% rbind_list
-  
-  attr(collapsed, 'ylab') = 'trials'
-  attr(collapsed, 'xlab') = 'Time (s)'
-  attr(collapsed, 'zlab') = model_params$var_dependent_label
-  attr(collapsed, 'dimnames') = list(NULL, NULL)
-  .t <- sort(unique(otd$Time))
-  
-  hmaps = list(
-    list(data=t(collapsed),
-         subject_code = attr(sel, 'label'),
-         has_trials=TRUE,
-         name ='nm',
-         range = range(collapsed),
-         x=.t[.t %within% ptr],
-         trial_alignment='Trial Onset',
-         Trial_num = otd_agg$Trial,
-         conditions = levels(otd$Condition),
-         trials = otd_agg$Condition,
-         y=seq_len(nrow(collapsed)),
-         analysis_window = local_data$analysis_window,
-         events = data.frame(Condition=as.character(otd_agg$Condition))
-    ))
-  
-  
-  hmaps[[1]] %<>% reorder_trials_by_event(event_name='Condition')
-  
-  decorator %<>% add_decorator(event_label_decorator(event_label = guess_analysis_event()))
-  
-  draw_many_heat_maps(hmaps = hmaps,
-                      max_zlim = 95,
-                      log_scale=FALSE,
-                      percentile_range=T,
-                      wide = TRUE,
-                      PANEL.LAST=decorator,
-                      PANEL.COLOR_BAR = color_bar_title_decorator,
-                      plot_time_range = ptr,
-                      # we always want the x axis, but we only want the y axis if we are NOT sorting by type
-                      axes=c(TRUE, F))
+    windowed_activity(collapsed_data = cd)
+    rave_title(attr(selected, 'label'))
 }
-
-guess_analysis_event <- function() {
-  res <- ''
-  if(!is.null(local_data$lmer_results)) {
-    nms <- paste0(ugly_string(get_unit_of_analysis(names=T)), '_')
-    repl = rep_len('', length(nms))
-    names(repl) = nms
-
-    res <- stringr::str_replace_all(model_params$var_dependent, pattern=repl)
-  }
-  return (res)
-}
-
-
-
-get_effect_overview_dimensions <- function() {
-  if(!exists('local_data')) {
-    return(0)
-  }
-  
-  nc <- length(unique(local_data$subset_data$Condition)) + 2 + sum(startsWith(colnames(local_data$by_electrode_results), 'm('))
-  nr <- nrow(local_data$by_electrode_results)
-  
-  if(isTRUE(input$pes_group_by_roi)) {
-    nr = nr + length(unique(local_data$subset_data$ROI))
-  }
-  
-  return(c(nr,nc))
-}
-
-estimate_height_of_eo_plot <- function() {
-  get_cbar_height() + 200+ 20*get_effect_overview_dimensions()[1]
-}
-
-
-effect_overview_plot_ui <- function() {
-  lmer_results = local_data$lmer_results
-  shiny::validate(shiny::need(!is.null(lmer_results), message = 'No model calculated'))
-
-
-  htmltools::div(
-    shiny::plotOutput(ns('effect_overview_plot'),
-                      click = clickOpts(shiny::NS('group_analysis_lme')('effect_overview_plot_click'), clip = FALSE),
-                      dblclick = clickOpts(shiny::NS('group_analysis_lme')('effect_overview_plot_dblclick'), clip = FALSE),
-                      height = paste0(estimate_height_of_eo_plot(), 'px'))
-  )
-}
-
-output$effect_overview_plot <- shiny::renderPlot({
-  # local_data = ..local_data
-  # input = list(omnibus_plots_color_palette = 'Beautiful Field')
-  # model_params = ..model_params
-  
-  ber <- local_data$by_electrode_results
-  
-  shiny::validate(shiny::need(!is.null(ber),
-                              message = 'No model calculated'))
-  
-  
-  set_palette_helper(plot_options = build_plot_options(color_palette=input$omnibus_plots_color_palette)$as_list())
-  
-  m = ber
-  m$SubjEl = mapply(m$Subject, m$Electrode, FUN=paste0)
-  m = m[,which(startsWith(colnames(m), 'm(') | colnames(m) %in% c('ROI', 'SubjEl'))]
-  
-  # Note: we'll need to separate the data into 2 pieces, the means and then the contrasts
-  
-  # we also need to get the condition means
-  sub_d <- local_data$subset_data
-  sub_d$Condition %<>% factor
-  
-  
-  roi_var_name = ifelse(model_params$roi_variable == "", "", " + ROI")
-  
-  #TODO this is really slow... figure a way to make it faster
-  df <- aggregate(as.formula(sprintf("%s ~ Subject + Electrode + Condition %s", model_params$var_dependent, roi_var_name)),
-                  data = sub_d, FUN=mean)
-  df$SubjEl <- mapply(paste0, df$Subject, df$Electrode)
-  # stopifnot(all(duplicated(table(df$Condition))[-1]))
-  
-  # df = df[,-which(colnames(df) %in% c('Subject', 'Electrode'))]
-  
-  if (!('ROI' %in% names(df))) {
-    df$ROI = "    "
-  }
-  
-  wide_df <- reshape(df, direction='wide',
-                     idvar = c('Subject', 'Electrode', 'SubjEl', 'ROI'),
-                     timevar = 'Condition')
-  colnames(wide_df) %<>% str_remove_all(paste0(model_params$var_dependent, '.'))
-  
-  full_mat = merge(data.frame(wide_df), data.frame(m, check.names = FALSE))
-  
-  e_width <- ceiling(max(log10(as.numeric(full_mat$Electrode))))
-  s_width <- max(nchar(full_mat$Subject))
-  
-  full_mat$SubjEl <- mapply(function(s,e) {
-    paste(formatC(s, width=s_width, flag='-'),
-          formatC(as.integer(e), width=e_width))
-  }, full_mat$Subject, full_mat$Electrode)
-  
-  # re-order the matrix so it's easier to parse
-  full_mat = full_mat[order(full_mat$ROI, full_mat$Subject, as.numeric(full_mat$Electrode)), ]
-  
-  ##TODO need to take into account ConditionGroup in the order of the columns
-  
-  combined <- full_mat[,!sapply(full_mat, function(fm){
-    is.character(fm) | is.factor(fm)
-  })]
-  
-  # need to add the pad into the matrix?
-  .ROIS = as.character(unique(full_mat$ROI))
-  nr = nrow(combined) + length(.ROIS)
-  just_numeric <- matrix(0, ncol=ncol(combined), nrow = nr,
-                         dimnames = list(paste(seq_len(nr))))
-  
-  
-  nchar_roi = max(nchar(.ROIS))
-  qq = 1; rr = 1
-  for(ii in 1:nrow(just_numeric)) {
-    if(ii == 1) {
-      rownames(just_numeric)[ii] = formatC(.ROIS[rr],
-                                           width = nchar_roi, flag = '-') %&% "  "
-    } else {
-      if(qq == 1) {
-        just_numeric[ii,] = unlist(combined[qq,])
-        rownames(just_numeric)[ii] = full_mat$SubjEl[qq]
-        qq = qq+1
-      } else {
-        if(isTRUE(full_mat$ROI[qq] == .ROIS[rr])) {
-          just_numeric[ii,] = unlist(combined[qq,])
-          rownames(just_numeric)[ii] = full_mat$SubjEl[qq]
-          qq = qq+1
-        } else {
-          rr = rr + 1
-          rownames(just_numeric)[ii] = formatC(.ROIS[rr], 
-                                               width = nchar_roi, flag = '-') %&% "  "
-        }
-      }
-    }
-  }
-  # conn='~/Desktop/per_electrode_overview.pdf'
-  colnames(just_numeric)= colnames(combined)
-  # clean up the column names
-  # colnames(just_numeric) = str_remove_all(colnames(just_numeric),
-  #                                         paste0(model_params$var_dependent, ".")
-  # )
-  .h <- nrow(just_numeric) - which(apply(abs(just_numeric), 1, sum)< 1e-16) + 1.5
-  contrasts_only = which(str_detect(colnames(just_numeric), ' - ') &
-                           str_detect(colnames(just_numeric), 'm\\('))
-  roi_rows = which(!(rownames(just_numeric) %in% full_mat$SubjEl))
-  # as_pdf(conn, w=10, h=13, {
-  
-  .h <- estimate_height_of_eo_plot()
-  # 
-  # if(scale_by_condition) {
-  #   just_numeric[-roi_rows,] = apply(just_numeric[-roi_rows,], 2, scale)
-  # }
-  
-    
-  if(length(contrasts_only) > 0) {
-    jn_wo_contrasts <- just_numeric[,-contrasts_only]
-    jn_only_contrasts <- just_numeric[,contrasts_only]
-  } else {
-    jn_only_contrasts = matrix(0)
-    jn_wo_contrasts = just_numeric
-  }
-  
-    #TODO read in from input 
-    means_zlim <- ceiling(quantile(abs(jn_wo_contrasts[-roi_rows,]), .95, na.rm = TRUE))
-    contrasts_zlim <- ifelse(is.null(jn_only_contrasts),
-                             0,
-                             ceiling(round(quantile(abs(jn_only_contrasts), .95, na.rm=TRUE)))
-    )
-    
-    cond_to_group <- aggregate(Condition ~ ConditionGroup, function(x) list(unique(x)), data=local_data$subset_data)
-    cond_cols <- which(colnames(just_numeric) %in% unique(local_data$subset_data$Condition))
-    cond_order <-  order(sapply(colnames(just_numeric)[cond_cols],
-                                function(nm) {
-                                  which(sapply(cond_to_group$Condition, `%in%`, x=nm))
-                                }
-    ))
-    
-    if(max(cond_order) < ncol(just_numeric)) {
-      cond_order = c(cond_order, seq(max(cond_order)+1,ncol(just_numeric), by=1))
-    }
-    
-
-    if(contrasts_zlim > 0) {
-      layout(matrix(c(3,3,3, 1, 0, 2), nrow=2, byrow = T),
-             widths = c(1,.5,1), heights = c(1, lcm(2)))
-      .ylab <- model_params$var_dependent_label %&% ' (Color bar for conditions)'
-    } else {
-      layout(matrix(c(2,2,2, 0,1,0), nrow=2, byrow = T),
-             widths = c(0.75, 1, 0.75), heights = c(1, lcm(2)))
-      .ylab <- model_params$var_dependent_label
-    }
-    # par(family='mono')
-    par(cex=0.5)
-    rave_color_bar(means_zlim, round(range(jn_wo_contrasts)),
-                   ylab=.ylab, horizontal = TRUE,
-                   mar=c(2,3,2,3))
-    
-    if(contrasts_zlim > 0) {
-      rave_color_bar(contrasts_zlim, round(range(jn_only_contrasts)),
-                     ylab='Color bar for contrasts',
-                     horizontal = TRUE, mar=c(2,3,2,3),
-                     clrs = expand_heatmap(get_heatmap_palette('PurpleWhiteGreen'), ncolors = 101))
-    }
-    
-    par(mai=c(.25, (7/72)*(max(nchar_roi, 10)),
-              (7/72) * max(nchar(colnames(just_numeric))),
-              0),
-        cex=0.75)
-    
-    make_image(t(just_numeric[,cond_order])[,nrow(just_numeric):1,drop=FALSE],
-               x=seq_len(ncol(just_numeric)),
-               y=seq_len(nrow(just_numeric)),
-               zlim=c(-1,1)*means_zlim, clip_to_zlim = TRUE,
-               add = F, useRaster = FALSE)
-    par(cex=1)
-    # rave_axis(3, seq_len(ncol(just_numeric)),
-    #           lwd=0, tcl=0, las=2,
-    #           labels = colnames(just_numeric[,cond_order]), cex.axis = 1,
-    #           col=sample(colors(T), size = ncol(just_numeric))
-    #           )
-    
-    if(contrasts_zlim>0) {
-      for(ii in 1:nrow(cond_to_group)) {
-        cnames = colnames(just_numeric)[cond_order]
-        ind = which(cnames == paste0('m(', as.character(cond_to_group$ConditionGroup[ii]), ')') | 
-                      cnames %in% as.character(cond_to_group$Condition[[ii]]))
-        mtext(cnames[ind], side = 3, at = ind, col=ii, las=2)
-        # mtext(cnames[ind], side = 3, at = ind, col=ii, las=2)
-      }
-      
-      ind = which(cnames == c('m(Intercept)') | stringr::str_detect(cnames, ' - '))
-      mtext(cnames[ind], side=3, at=ind, col='black', las=2)
-    } else {
-      mtext(colnames(just_numeric[,cond_order]),
-            side=3, at=seq_len(ncol(just_numeric)), las=2, col='black')
-    }
-    par(cex=0.75)
-    rave_axis(2, seq_len(nrow(just_numeric)),
-              lwd=0, tcl=0, las=1, labels = rev(rownames(just_numeric)), cex.axis = 1)
-    
-    # here we're overplotting the contrasts on a new scale and with a different color bar
-    .x = contrasts_only
-    if(length(.x)==1) {
-      .x = contrasts_only + c(-.5,.5)
-    }
-    if(length(contrasts_only) > 0) {
-      make_image(
-        t(just_numeric[,contrasts_only,drop=FALSE])[,nrow(just_numeric):1,drop=FALSE],
-        x=.x,
-        y=seq_len(nrow(just_numeric)), add = T, useRaster = F,
-        col=expand_heatmap(get_heatmap_palette('PurpleWhiteGreen'), ncolors = 101),
-        zlim = c(-1,1)*contrasts_zlim, clip_to_zlim = TRUE
-      )
-    }
-    
-    # fill in the ROI labels with white
-    sapply(nrow(just_numeric) - roi_rows, function(r) {
-      image(x=seq_len(ncol(just_numeric)),
-            y=0.5+c(r,r+1),
-            z=t(matrix(0, ncol=ncol(just_numeric), nrow=1)),
-            add=T, col='white')
-    }) %>% invisible
-    
-    # abline(h=.h[-1], lwd=1, lty=1, xpd=T, col='gray40')
-    
-    if(length(contrasts_only) > 0) {
-      abline(v = -0.5 + c(ncol(wide_df) - 3, contrasts_only[1]))
-    } else{
-      abline(v = -0.5 + ncol(just_numeric))
-    }
-    
-    # segments(x0=par('usr')[1], x1=par('usr')[2], y0=4+(-0.5+par('usr')[4]), xpd=TRUE, col='orange')
-    
-    # plot the NA fields
-    par(cex=1)
-    if(any(is.na(just_numeric))) {
-      na_mat <- which(is.na(just_numeric), arr.ind = TRUE, useNames = F)
-      na_mat[,1] = nrow(just_numeric) - na_mat[,1]
-      apply(na_mat, 1, function(row) {
-        text(row[2], row[1]+1, '.')
-      })
-    }
-    
-    shiny::isolate({
-      local_data$results_overview_data <- just_numeric
-    })
-})
 
 output$show_by_electrode_results <- DT::renderDataTable({
     by_electrode_results = local_data$by_electrode_results
-    
-    to_rem = which(names(by_electrode_results) %in% c('jitter(Subject)'))
-    if(any(to_rem)) {
-      by_electrode_results = by_electrode_results[,-to_rem]
-    }
-    
     DT::datatable(by_electrode_results, class = 'nowrap',
                   options = list(
                       scrollX = TRUE,
@@ -910,29 +508,6 @@ lmer_diagnosis = function(){
     # 4. Boxplot of residuals vs Electrodes
 }
 
-download_pes <- function() {
-  ber = local_data$by_electrode_results
-  
-  if(is.null(ber))  return(
-    tagList(tags$p('No results available for download...'))
-  )
-  
-  tagList(tags$p(' ', style='margin-top:20px'),
-          downloadLink(ns('btn_download_pes'),
-                       'Download per-electrode statistics'),
-          tags$p(' ', style='margin-top:20px'))
-}
-
-output$btn_download_pes <- downloadHandler(
-  filename=function(...) {
-    paste0('per_electrode_statistics_',
-           format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.pdf')
-  },
-  content = function(conn) {
-    as_pdf(conn, 7,5, {plot_clean(main='Not implemented')})
-  }
-)
-
 download_all_results <- function() {
     lmer_results = local_data$lmer_results
     
@@ -953,7 +528,6 @@ hide_everything_but_post_hoc_plot <- function() {
 }
 
 observeEvent(input$btn_hide_everything_but_post_hoc_plot, {
-  
     nms <- c("Data import", "Build condition groups", "Single time window analysis", 
       "Multiple time window analysis", "Build model", 'Model output', 'Activity over time',
       'Mean activity in analysis window', 'Univariate stat output',
@@ -1014,10 +588,6 @@ output$btn_download_all_results <- downloadHandler(
         zip(conn, fnames, flags='-r5X')
     }
 )
-
-
-
-
 
 output$download_3dv_colobar <- downloadHandler(
   filename = function(...) {
@@ -1081,8 +651,6 @@ output$download_3dv_colobar <- downloadHandler(
 
 # 3D viewer, takes 3 args
 lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, proxy, ...){
-    # local_data = ..local_data
-  
     # Check whether load is needed
     lmer_results = local_data$lmer_results
     shiny::validate(shiny::need(!is.null(lmer_results), message = 'Please run LMER model first'))
@@ -1100,10 +668,9 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, proxy, ...){
     # load brain
     brains = lapply(unique(by_electrode_results$Subject), function(sub){
         tryCatch({
-            rave::rave_brain2(sprintf('%s/%s', by_electrode_results$Project[1], sub), usetemplateifmissing = TRUE)
+            rave::rave_brain2(sprintf('%s/%s', by_electrode_results$Project[1], sub))
         }, error = function(e){ NULL })
     })
-    
     brains = dipsaus::drop_nulls(brains)
     brain = threeBrain::merge_brain(.list = brains, template_surface_types = c('pial', 'inf_200'))
     
@@ -1111,6 +678,7 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, proxy, ...){
     # nms <- sapply(names(by_electrode_results)[startsWith(names(by_electrode_results),
     #                                               c('m(', 't(', 'p('))
                                                   # ]
+  
     nms <- names(by_electrode_results)[grepl("^[m(|t(|p(|F(]", names(by_electrode_results))]
     val_ranges = sapply(nms, function(d) {
         if (startsWith(d, 'p('))
@@ -1138,7 +706,6 @@ lme_3dviewer_fun <- function(need_calc, side_width, daemon_env, proxy, ...){
     }
     
     brain$set_electrode_values(by_electrode_results)
-    
     re = brain$plot(side_width = side_width, val_ranges = val_ranges, palettes = pals,
                     side_display = FALSE, control_display=FALSE, timestamp=FALSE)
 }
@@ -1172,6 +739,7 @@ eval_in_dataframe <- function(df, var_string) {
     showNotification('Custom variable requested, but no text supplied...', type='error')
     return(NULL)
   }
+  
   expr = str2lang(var_string)
   
   vals=NULL
@@ -1196,7 +764,6 @@ post_hoc_plot <- function() {
   # for printing the tables, p-values are converted to string representations, so convert them 
   # back so they can be used in numeric representations
   ber[startsWith(names(ber), 'p(')] %<>% lapply(as.numeric)
-  # if either var is a character, factorize it
   
   pal = input$post_hoc_plot_highlight_subject_color_palette
   
@@ -1228,17 +795,9 @@ post_hoc_plot <- function() {
   }
   # choices=c('None', '0', 'Mean', '0%', '25%', '50%', '75%', '100%')))
   ..do_plot <- function(df) {
-    if(is.character(df[[xvar]])) {
-      df[[xvar]] %<>% factor
-      xlim = c(1,nlevels(df[[xvar]]))
-    }
     x = df[[xvar]] %>% as.numeric
-    if(is.character(df[[yvar]])) {
-      df[[yvar]] %<>% factor
-      ylim = c(1,nlevels(df[[yvar]]))
-    }
     y = df[[yvar]] %>% as.numeric
-
+    
     if(tolower(zvar) != 'none') {
       print('z var is: ' %&% zvar)
       z = df[[zvar]]
@@ -1249,8 +808,8 @@ post_hoc_plot <- function() {
     # We could consider giving a call to layout...
     
     # check if we need to set the plot bounds
-    xlim %?<-% text_to_range(input$post_hoc_plot_xlim)
-    ylim %?<-% text_to_range(input$post_hoc_plot_ylim)
+    xlim = text_to_range(input$post_hoc_plot_xlim)
+    ylim = text_to_range(input$post_hoc_plot_ylim)
     
     ###this is lame, but it's fixing a lame problem where the range is compressed too much
     if(nlevels(df$Subject) == 1) {
@@ -1340,36 +899,22 @@ post_hoc_plot <- function() {
     }
     
     ### check if xvar/yvar need to be special-cased
+    
     nsub = nlevels(df$Subject)
-    if(tolower(xvar) %in% tolower(c('ROI', 'Subject', 'jitter(Subject)'))) {
-      if(tolower(xvar) == 'roi') {
-        rave_axis(1, at=unique(as.integer(df$ROI)), labels=levels(df$ROI),
-                  lwd = ifelse(nlevels(df$ROI)>1, 1, 0), cex.axis = .5, las=2)
-        xvar = 'ROI'
-      } else {
-        rave_axis(1, at=unique(as.integer(df$Subject)), labels=levels(df$Subject),
-                  lwd = ifelse(nsub==1, 0, 1))
-        xvar = 'Subject'
-      }
-      
+    if(tolower(xvar) %in% tolower(c('Subject', 'jitter(Subject)'))) {
+      rave_axis(1, at=unique(as.integer(df$Subject)), labels=levels(df$Subject),
+                lwd = ifelse(nsub==1, 0, 1))
+      xvar = 'Subject'
     } else {
       rave_axis(1, at=axTicks(1))
       if(xvar == 'CUSTOM_X') {
         xvar = input$post_hoc_plot_xvar_custom
       }
     }
-    if(yvar %in% c('ROI', 'Subject', 'jitter(Subject)')) {
-      if(yvar == 'ROI') {
-        rave_axis(2, at=unique(as.integer(df$ROI)), labels=levels(df$ROI),
-                  lwd = ifelse(nlevels(df$ROI)>1, 1, 0),
-                  cex.axis = 1, las=1)
-        yvar = 'ROI'
-      } else {
-        
-        rave_axis(2, at=unique(as.integer(df$Subject)), labels=levels(df$Subject),
-                  lwd = ifelse(nsub==1, 0, 1))
-        yvar = 'Subject'
-      }
+    if(yvar %in% c('Subject', 'jitter(Subject)')) {
+      rave_axis(2, at=unique(as.integer(df$Subject)), labels=levels(df$Subject),
+                lwd = ifelse(nsub==1, 0, 1))
+      yvar = 'Subject'
     } else {
       if(yvar == 'CUSTOM_Y') {
         yvar = input$post_hoc_plot_yvar_custom

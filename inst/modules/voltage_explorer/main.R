@@ -53,14 +53,14 @@ if(F) {
     # Do % change (x-mean(b)) /mean(b) or pure subtractive baseline (x-mean(b))
     # if(do_baseline) {
     #   bl_power <- cache(
-    #     key = list(preload_info, requested_electrodes, baseline_window, 'voltage', BASELINE_TYPE, keepers),
+    #     key = list(preload_info, requested_electrodes, BASELINE_WINDOW, 'voltage', BASELINE_TYPE, keepers),
     #     val = baseline(voltage_sub, unit = match_baseline_unit(BASELINE_TYPE),
-    #                    baseline_window[1],  baseline_window[2], hybrid = FALSE, mem_optimize = FALSE)
+    #                    BASELINE_WINDOW[1],  BASELINE_WINDOW[2], hybrid = FALSE, mem_optimize = FALSE)
     #   )
     # }
 
-    analysis_voltage <- voltage_sub$subset(Time = Time %within% analysis_window)
-    baseline_voltage <- voltage_sub$subset(Time = Time %within% baseline_window)
+    analysis_voltage <- voltage_sub$subset(Time = Time %within% ANALYSIS_WINDOW)
+    baseline_voltage <- voltage_sub$subset(Time = Time %within% BASELINE_WINDOW)
 
     group_data = lapply(seq_along(GROUPS), function(idx){
         g = GROUPS[[idx]]
@@ -125,12 +125,6 @@ if(F) {
     
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
-rm(list = ls(all.names=T)); rstudioapi::restartSession()
-require(ravebuiltins)
-ravebuiltins:::dev_ravebuiltins(T)
-rave:::mount_demo_subject(force_reload_subject = T)
-view_layout('voltage_explorer')
-    
 # Debug
 require(ravebuiltins)
 dev_toolbox = dev_ravebuiltins(T)

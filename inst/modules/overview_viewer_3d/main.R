@@ -148,7 +148,7 @@ mount_demo_subject(force_reload_subject = T)
 # module_id = 'overview_viewer_3d'
 module = ravebuiltins:::debug_module('overview_viewer_3d')
 
-result = module(analysis_window = 0)
+result = module(ANALYSIS_WINDOW = 0)
 result$phase_histogram()
 result$itpc_plot()
 result$itpc_time_plot()

@@ -3,19 +3,19 @@
 # Initialize inputs
 # devtools::document()
 rm(list=ls(all.names = TRUE)); rstudioapi::restartSession()
-ravebuiltins::dev_ravebuiltins(T)
+ravebuiltins:::dev_ravebuiltins(T)
 # mount_demo_subject()
  mount_demo_subject(subject_code = 'YCZ', 'Sentences', epoch='YCZ_gingko',
-                electrodes=50, time_range=c(1.5, 4), force_reload_subject=TRUE)
+                electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
 # init_module(module_id = 'group_analysis_lme', debug = TRUE)
 .__DEBUG__ = 1
 if(exists('local_data')) rm(local_data)
-if(exists('model_params')) rm(model_params)
 view_layout('group_analysis_lme')
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 ######' @auto=TRUE
 
+# not really used
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
 # Debug

@@ -17,16 +17,6 @@ over_time_plot <- function(results, ...) {
     )
 }
 
-#' Draws an orange, dashed horizontal line at cut. Checks for not null and 
-#' length > 0
-#'
-#' @param cut the location(s) of the lines
-#'
-#' @return the value of cut (invisibly)
-#' @export
-#'
-#' @examples
-#' draw_cut_point(-log10(0.05))
 draw_cut_point <- function(cut=NULL) {
     if(!is_null(cut) & length(cut)>0) {
         abline(h=cut, lwd=1, col='orangered', lty=2)
@@ -324,48 +314,13 @@ heat_map_plot <- function(results, ...){
     set_palette_helper(results)
     set_heatmap_palette_helper(results)
     po <- results$get_value('ravebuiltins_power_explorer_plot_options')$as_list()
-    
-    # user-controlled heatmap nrow
-    ncol <- results$get_value('max_column_heatmap')
-    
-    
     draw_many_heat_maps(hmaps = results$get_value('heat_map_data'),
                         log_scale = results$get_value('log_scale'),
                         max_zlim = results$get_value('max_zlim', 0),
                         percentile_range=results$get_value('percentile_range'),
                         plot_time_range = results$get_value('plot_time_range'),
                         PANEL.LAST = spectrogram_heatmap_decorator(plot_options = po),
-                        max_columns = ncol,
-                        decorate_all_plots = results$get_value('redundant_labels', FALSE),
-                        center_multipanel_title = results$get_value('center_multipanel_title'),
-                        PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE),color_bar_title_decorator, 0)
-    )
-}
-
-
-heatmap_plot_helper <- function(results, hmap_varname, ...) {
-    rave_context()
-    has_data <- results$get_value('has_data', FALSE)
-    validate(need(has_data, message="No Condition Specified"))
-    
-    set_palette_helper(results)
-    set_heatmap_palette_helper(results)
-    
-    ncol <- results$get_value('max_column_heatmap')
-    
-    
-    by_electrode_heat_map_data <- results$get_value(hmap_varname)
-    
-    draw_many_heat_maps(by_electrode_heat_map_data,
-                        percentile_range=results$get_value('percentile_range'),
-                        max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
-                        plot_time_range = results$get_value('plot_time_range'),
-                        max_columns = ncol,
-                        decorate_all_plots = results$get_value('redundant_labels', FALSE),
-                        center_multipanel_title = results$get_value('center_multipanel_title'),
-                        PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE),
-                                                 color_bar_title_decorator, 0),
-                        ...
+                        PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator,0)
     )
 }
 
@@ -376,9 +331,6 @@ by_electrode_heat_map_plot <- function(results, ...) {
     
     set_palette_helper(results)
     set_heatmap_palette_helper(results)
-
-    ncol <- results$get_value('max_column_heatmap')
-    
     
     by_electrode_heat_map_data <- results$get_value('by_electrode_heat_map_data')
     po <- results$get_value('ravebuiltins_power_explorer_plot_options')$as_list()
@@ -387,11 +339,7 @@ by_electrode_heat_map_plot <- function(results, ...) {
                         max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
                         plot_time_range = results$get_value('plot_time_range'),
                         PANEL.LAST=by_electrode_heat_map_decorator(plot_options = po),
-                        max_columns = ncol,
-                        decorate_all_plots = results$get_value('redundant_labels', FALSE),
-                        center_multipanel_title = results$get_value('center_multipanel_title'),
-                        PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE),
-                                                 color_bar_title_decorator, 0)
+                        PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator, 0)
                         )
 }
 
@@ -476,10 +424,7 @@ by_trial_heat_map_plot <- function(results, ...) {
     # y variable on a per map basis
     need_wide = ('Condition' == sort_trials_by_type)
     
-    # user-controlled heatmap nrow
-    ncol <- results$get_value('max_column_heatmap')
-    
-    draw_many_heat_maps(hmaps = by_trial_heat_map_data,
+    draw_many_heat_maps(by_trial_heat_map_data,
                         max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
                         percentile_range=results$get_value('percentile_range'),
                         wide = need_wide,
@@ -487,164 +432,5 @@ by_trial_heat_map_plot <- function(results, ...) {
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator,0),
                         plot_time_range = results$get_value('plot_time_range'),
                         # we always want the x axis, but we only want the y axis if we are NOT sorting by type
-                        axes=c(TRUE, !need_wide),
-                        center_multipanel_title = results$get_value('center_multipanel_title'),
-                        decorate_all_plots = results$get_value('redundant_labels', FALSE),
-                        max_columns = ncol)
-}
-
-
-replace_middle <- function(x, rpl) {
-    x[c(-1, -length(x))] = rpl
-    
-    return(x)
-}
-
-assess_normality_plot <- function(results, ...) {
-    # rave_context()
-    has_data <- results$get_value('has_data', FALSE)
-    validate(need(has_data, message="No Condition Specified"))
-    
-    set_palette_helper(results)
-    
-    # layout(matrix(c(1,2,3,3), nrow=1), widths = rep(1,4))
-    par(mfrow=c(1,2), mar=c(5,6,4,1))
-    # layout(matrix(2,1), widths = lcm(20))
-    
-    sbd = results$get_value('scatter_bar_data')
-    
-    # only grab columsn with data
-    has_trials = which(sapply(sbd, `[[`, 'has_trials'))
-    
-    all_data = lapply(sbd[has_trials], `[[`, 'data')
-    names(all_data) = sapply(sbd[has_trials], `[[`, 'name')
-    
-    all_data_v = unlist(all_data)
-    
-    # overall normality uses all data, ignore the condition variable
-    d.omni = density(all_data_v)
-    # overlay m_sd of a normal distribution?
-    n.sim = 50
-    
-    msd = m_sd(all_data_v)
-    set.seed(results$get_value('jitter_seed'))
-    sims <- matrix(nrow=n.sim,rnorm(n.sim*length(all_data_v), msd[1], msd[2]))
-    many_dens <- apply(sims, 1, density, bw=d.omni$bw)
-    
-    xlim = c(d.omni$x,
-        plus_minus(msd[1], 3*msd[2])
-    )
-    
-    ylim = c(d.omni$y, sapply(many_dens, function(d) range(d$y)))
-    
-    plot_clean(xlim, ylim)
-    # title_decorator()
-    rave_title(paste('Omni Dist | E', 
-                     dipsaus::deparse_svec(sbd[[1]]$electrodes, max_lag=1))
-    )
-    rug(all_data_v)
-    do_density_axes <- function(ylab=TRUE) {
-        rave_axis(1, at=axTicks(1), mgpx=c(3,1,0))
-        
-        rave_axis(2, at=axTicks(2), labels = replace_middle(axTicks(2), ""))
-        if(ylab) {
-            rave_axis_labels(ylab='Density', xlab=attr(sbd[[1]]$data, 'ylab'))
-        }
-    }
-    sapply(many_dens, lines, col=get_middleground_color(0.2), lwd=0.5)
-    lines(d.omni$x, d.omni$y, lwd=2, col=get_foreground_color())
-    
-    ks <- ks.test(all_data_v, y='pnorm', mean = msd[1], sd=msd[2])
-    legend(x=max(axTicks(1)), y = par('usr')[4],
-           yjust=1, adj=c(0.5,1), xpd=TRUE, xjust=0.5,
-           bty='n', inset=c(0,0),
-           legend=paste0('K-S Test\np = ', format.pval(ks$p.value, digits = 2)),
-           cex = 0.9*rave_cex.lab)
-    do_density_axes()
-    
-    # get the colors for each group    
-    ci = has_trials
-    
-    # get the conditional distributions?
-    par(mar=c(5,3,4,4))
-    cond.dens = lapply(all_data, density)
-    plot_clean(sapply(cond.dens, `[[`, 'x'),  sapply(cond.dens, `[[`, 'y'))
-     mapply(function(dens, col, y){
-         lines(dens, col=col, lwd=2)
-         rug(y, col=col)
-    }, cond.dens, col=ci, all_data)
-    
-     do_density_axes(ylab=FALSE)
-    
-    ksp = sapply(all_data, function(x) {
-        format.pval(
-            ks.test(x, y='pnorm', mean=mean(x), sd=sd(x))$p.value,
-            digits = 2
-        )
-    })
-    
-    legend(x=max(axTicks(1)), y = par('usr')[4],
-           yjust=1, adj=c(0.5,1), xpd=TRUE, xjust=0.5,
-           bty='n', text.col = ci, cex = rave_cex.lab*0.9,
-           legend = mapply(function(a,b) paste0(a, ' p = ', b), names(all_data), ksp))
-    
-    rave_title('Conditional Distribution')
-}
-
-assess_stability_over_time_plot <- function(results, ...) {
-    has_data <- results$get_value('has_data', FALSE)
-    validate(need(has_data, message="No Condition Specified"))
-    
-    set_palette_helper(results)
-    
-    fd <- results$get_value('flat_data')
-    ed <- results$get_value('epoch_data')
-    
-    sbd <- results$get_value('scatter_bar_data')
-    
-    combined <- merge(ed, fd, by.x = 'Trial',
-                      by.y = 'orig_trial_number')
-    
-    combined = combined[order(combined$Trial),]
-    
-    # find the blocks
-    by_block <- split(combined, combined$Block)
-    plot_clean(combined$Trial, sapply(by_block, function(b) scale(b$y)))
-    
-    block_markers <- which(diff(combined$Time)<0)
-    marks <- colMeans(rbind(combined$Trial[block_markers], combined$Trial[block_markers+1]))
-    abline(v=marks, col=get_middleground_color(k=0.2), lty=2)
-    
-    midpoints <- c(0,marks) + diff(c(0, marks, max(combined$Trial)))/2
-    
-    #draw the spearman correlations
-    sprmn <- by_block %>% lapply(function(blk) {
-        sy = scale(blk$y)
-        lines(blk$Trial, sy, type='l')
-        points(blk$Trial, sy, pch=16, cex=1.5, col=blk$group_i)
-        cor.test(blk$Trial, blk$y, method='spearman')
-    })
-    mapply(function(x,rho) {
-        p = format.pval(rho$p.value, digits = 2)
-        rho = round(rho$estimate,2)
-        text(x, par('usr')[4], bquote(rho == .(rho)*','~ p == .(p)),
-             cex = rave_cex.axis, xpd=TRUE)
-    }, midpoints, sprmn)
-    
-    # block labels
-    rave_axis(1, at=midpoints, tcl=0, lwd=0, labels=paste('block', unique(combined$Block)), mgpx = c(3,1.5,0))
-    abline(h=0)
-    
-    rave_axis(1, at=c(min(combined$Trial), combined$Trial[block_markers+1], max(combined$Trial)),
-              mgpx=c(3,1,0))
-    
-    rave_axis(2, at=c(0, range(axTicks(2))))
-    
-    rave_axis_labels(ylab=paste0('z(', attr(sbd[[1]]$data, 'ylab'), ')'))
-    # rave_axis_labels(xlab='Trial #', line = 3)
-    
-    rave_title(paste('Mean Response By Trial Over Time | E', 
-                     dipsaus::deparse_svec(sbd[[1]]$electrodes, max_lag=1))
-    )
-    
+                        axes=c(TRUE, !need_wide))
 }

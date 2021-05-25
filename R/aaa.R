@@ -6,7 +6,6 @@
 #' @import shiny
 #' @import stringr
 #' @import emmeans
-#' 
 #' @importFrom magrittr %>%
 #' @importFrom lme4 VarCorr
 #' @importFrom lme4 formatVC
@@ -24,7 +23,6 @@
 #' @importFrom methods getMethod
 #' @import circular
 #' 
-#' @importFrom grDevices dev.cur
 #' @importFrom grDevices dev.off
 #' @importFrom grDevices pdf
 #' @importFrom grDevices palette
@@ -43,9 +41,6 @@
 #' @importFrom stats p.adjust
 #' @importFrom stats symnum
 #' @importFrom stats density
-#' @importFrom stats cor
-#' 
-#' @importFrom utils tail
 #' 
 #' @importFrom fst read_fst
 #' @importFrom fst write_fst
