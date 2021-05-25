@@ -51,10 +51,10 @@ NULL
 ..async_quo = NULL
 ..async_var = NULL
 .palettes = NULL
-BASELINE = NULL
-FREQUENCY = NULL
+baseline_window = NULL
+analysis_window = NULL
+frequency_window = NULL
 Frequency = NULL
-TIME_RANGE = NULL
 Time = NULL
 draw_time_baseline = NULL
 is_clean = NULL
@@ -66,10 +66,6 @@ y = NULL
 yax = NULL
 ylab = NULL
 data = NULL
-
-
-
-
 
 
 #' Function to load all dev funtions and wrap them within an environment
@@ -139,6 +135,9 @@ get_cex_for_multifigure <- function() {
   return (cex_multiplier)
 }
 
+pretty_template_names <- function(nms) {
+    gsub("by", ":", gsub("-template", "", gsub("_", " ", tools::file_path_sans_ext(nms))))
+}
 
 plotting_to_file <- function() {
   i = get0(".Devices", envir = baseenv(),
@@ -153,9 +152,9 @@ plotting_to_file <- function() {
   }
   
   i = i[[dev.cur()]]
-  
+
   return (
-    isTRUE('dipsaus_dev_name' %in% names(attributes(i)))
+    isTRUE('dipsaus_dev_name' %in% names(attributes(i)) || i %in% c('pdf', 'png', 'jpeg'))
   )
 }
 
@@ -174,6 +173,8 @@ rave_axis <- function(side, at, tcl=rave_axis_tcl, labels=at, las=1, cex.axis=ra
       cex.lab = 1
       mgpy = c(3,.5,0)
       mgpx = c(3,.4,0)
+      
+      print("detected plotting to file")
   }
   
   rutabaga::ruta_axis(
@@ -191,18 +192,13 @@ rave_axis <- function(side, at, tcl=rave_axis_tcl, labels=at, las=1, cex.axis=ra
   )
 }
 
-
-
+#' Function make a title for a plot, checks par('bg') to handle dark mode
+#' @seealso title
+#' @param cex the character expansion for the title (default is rave_cex.main)
+#' @param font the font type (default = 1, plain)
+#' @export
 rave_title <- function(main, cex=rave_cex.main, col, font=1) {
-  if(missing(col)) {
-    col = if(par('bg') == 'black') {
-      'white'
-    } else if (par('bg') == '#1E1E1E'){
-      'gray70'
-    } else {
-      'black'
-    }
-  }
+  col %?<-% get_foreground_color()
   
   if(plotting_to_file()) {
    cex = 1
@@ -333,7 +329,7 @@ get_color <- function(ii) {
   group_colors[(ii - 1) %% length(group_colors) + 1]
 }
 
-rave_colors <- list('BASELINE_WINDOW'='gray60', 'ANALYSIS_WINDOW' = 'salmon2', 'GROUP'=group_colors,
+rave_colors <- list('baseline_window'='gray60', 'analysis_window' = 'salmon2', 'GROUP'=group_colors,
                     'TRIAL_TYPE_SEPARATOR'='gray40', 'DARK_GRAY' = '#1E1E1E', 'BAR_PLOT_ALPHA' = 0.7)
 rave_colors[tolower(names(rave_colors))] = rave_colors
 
