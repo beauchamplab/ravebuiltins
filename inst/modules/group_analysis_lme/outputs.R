@@ -718,7 +718,7 @@ output$effect_overview_plot <- shiny::renderPlot({
                      clrs = expand_heatmap(get_heatmap_palette('PurpleWhiteGreen'), ncolors = 101))
     }
     
-    par(mai=c(.25, (10/72)*(max(nchar_roi, 8)),
+    par(mai=c(.25, (7/72)*(max(nchar_roi, 10)),
               (7/72) * max(nchar(colnames(just_numeric))),
               0),
         cex=0.75)
