@@ -189,7 +189,15 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             make_image(map$data, x=x, y=y, log=ifelse(log_scale, 'y', ''), zlim=c(-1,1)*max_zlim)
             
             xticks <- ..get_nearest(pretty(map$x), map$x)
-            yticks <- ..get_nearest(pretty(map$y), map$y)
+            
+            # this doesn't look great for unequally spaced items. better would be something
+            # like sorting the values and taking the values according to rank, r1, r25%, r50%, r75% rMax
+            if(diff(range(diff(sort(map$y)))) > 2) {
+                tck = map$y[c(1, round(length(map$y)*(1/3)), , round((2/3)*length(map$y)), 1.0*length(map$y))]
+                yticks <- ..get_nearest(tck, map$y)
+            } else {
+                yticks <- ..get_nearest(pretty(map$y), map$y)
+            }
 
             axes %<>% rep_len(2)
             if(axes[1])
