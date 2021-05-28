@@ -24,7 +24,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
                                 show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
                                 PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), plot_time_range=NULL, 
                                 special_case_first_plot = FALSE, max_columns=2, decorate_all_plots=FALSE, center_multipanel_title=FALSE,
-                                ...) {
+                                ignore_time_range=NULL, ...) {
     k <- sum(hmaps %>% get_list_elements('has_trials'))
     
     # need to determine the max columns
@@ -70,16 +70,25 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
 
     # actual data range, as opposed to the max zlim which controls the plottable range
     actual_lim = get_data_range(hmaps)
-
+    
     if(max_zlim <= 0) {
         max_zlim <- max(abs(actual_lim), na.rm=TRUE)
     } else if(percentile_range) {
         if(max_zlim >= 100) {
             max_zlim = (max_zlim / 100)*max(abs(actual_lim), na.rm=TRUE)
         } else {
-            max_zlim <- quantile(unlist(lapply(hmaps, getElement, 'data')),
-                                 probs = max_zlim / 100,
-                                 na.rm = TRUE)
+            if(!is.numeric(ignore_time_range)) {
+                max_zlim <- quantile(unlist(lapply(hmaps, getElement, 'data')),
+                                     probs = max_zlim / 100,
+                                     na.rm = TRUE)
+            } else {
+                ind <- !(hmaps[[1]]$x %within% ignore_time_range)
+                
+                max_zlim <- quantile(unlist(lapply(hmaps, function(h) h$data[ind,])),
+                                     probs = max_zlim / 100,
+                                     na.rm = TRUE)
+            }
+            
         }
         
         if(max_zlim > 100) {
@@ -124,16 +133,14 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             x <- seq_along(map$x)
             y <- seq_along(map$y)
             
-            
             # if we aren't decorating all the plots the same, then we need to augment the xlab/ylab appropriately
             # as well as setup the plot margins, as well as strip out all plot titles except ConditionGroup
-            mot = NULL
+            mto = NULL
             if(!decorate_all_plots && length(hmaps)>1) {
-                mot = list(allow_sid = FALSE, allow_enum = FALSE, allow_freq = FALSE, allow_sample_size = FALSE)
+                mto = list(allow_sid = FALSE, allow_enum = FALSE, allow_freq = FALSE, allow_sample_size = FALSE)
                 
                 my_r = floor((mi -1) / par('mfrow')[2])+1
                 my_c = 1 + (mi - 1) %% par('mfrow')[2]
-                
                 
                 # the color bar counts as a plot, so we account for it here
                 ncol_wo_cbar <- par('mfrow')[2]
@@ -195,7 +202,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
                     PANEL.LAST(map,
                                Xmap=function(x) ..get_nearest_i(x, map$x),
                                Ymap=function(y) ..get_nearest_i(y, map$y),
-                               more_title_options = mot)
+                               more_title_options = mto)
             }
         }
     }
@@ -314,7 +321,8 @@ time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_
     }
     
     # if someone wants to add "top-level" decorations, now is the time
-    if(is.function(PANEL.LAST)) PANEL.LAST(plot_data)
+    if(isTRUE(is.function(PANEL.LAST))) PANEL.LAST(plot_data)
+    
     invisible(plot_data)
 }
 
@@ -473,6 +481,21 @@ trial_scatter_plot_decortator <- function(plot_data, plot_title_options, ...) {
 }
 
 
+stimulation_window_decorator <- function(map, ..., Xmap=force) {
+    if(!'stimulation_window' %in% names(map)) {
+        map <- map[[1]]
+    }
+    
+    if(! 'stimulation_window' %in% names(map)) {
+        dipsaus::cat2('Asked to draw stim window, but none was provided...', level='WARNING')
+        return(invisible(FALSE))
+    }
+    
+    window_decorator(window = Xmap(map$stimulation_window),
+                     text = 'STIM\nARTF', text.col = get_middleground_color(k=.675),
+                     type = 'shaded', shade.col=paste0(get_background_color(), 'D8')
+    )
+}
 
 draw.box <- function(x0,y0,x1,y1, ...) {
     segments(x0, y0, x1=x1, ...)
@@ -944,6 +967,13 @@ by_trial_analysis_window_decorator <- function(map, event_name, show_label=TRUE,
 do_poly <- function(x, y, col, alpha=50/255, border=NA, ...) {
     if(alpha>1) alpha/255
     
+    
+    # check if the color already has a preferred alpha
+    if(stringr::str_detect(col, "#") && nchar(col) == 9) {
+        alpha = 1
+    }
+    
+    
     polygon(c(x,rev(x)), rep(y, each=2),
             col=adjustcolor(col, alpha), border=border, ...)
 }
@@ -1082,6 +1112,12 @@ get_middleground_color <- function(k=0.5) {
     rgb(colorRamp(c(bg, fg), space='Lab')(k), maxColorValue = 255)
 }
 
+
+
+# just to make it consistent naming with the others
+get_background_color <- function() {
+    col2hex(par('bg'))
+}
 
 invert_palette <- function(pal) {
     inv = c(255, 255, 255, 255) - col2rgb(pal, alpha=TRUE)
@@ -1455,7 +1491,7 @@ get_unit_of_analysis <- function(requested_unit, names=FALSE) {
 
 window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
                              line.col, shade.col='gray60', label_placement_offset=0.9,
-                             text=FALSE, text.col, lwd, lty) {
+                             text=FALSE, text.col, lwd, lty, text.adj, ...) {
     type <- match.arg(type)
     text.x = unlist(window)[1]
     text.y <- par('usr')[4] * label_placement_offset
@@ -1522,7 +1558,10 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
         if(plotting_to_file()) {
             cex = 1
         }
-        text(text.x, text.y, labels = text, pos=4, col=text.col,cex=cex)
+        if(missing(text.adj)) {
+            text.adj = c(0,0.5)
+        }
+        text(text.x, text.y, labels = text, adj=text.adj, col=text.col,cex=cex)
     }
 }
 

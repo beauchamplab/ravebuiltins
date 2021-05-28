@@ -21,6 +21,7 @@ draw_many_heat_maps(
   max_columns = 2,
   decorate_all_plots = FALSE,
   center_multipanel_title = FALSE,
+  ignore_time_range = NULL,
   ...
 )
 }

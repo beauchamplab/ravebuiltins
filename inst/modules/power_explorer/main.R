@@ -198,6 +198,8 @@ for(ii in which(has_trials)) {
       conditions = group_data[[ii]]$conditions,
       baseline_window = baseline_window,
       analysis_window = analysis_window,
+      stimulation_window = stimulation_window,
+      censor_stimulation_window = censor_stimulation_window,
       frequency_window = frequency_window,
       electrodes = requested_electrodes,
       events = events,
@@ -228,7 +230,7 @@ for(ii in which(has_trials)) {
   }
   
   # 1. power @ frequency over time
-  # this should definitely use the clean and shifted data
+  # this should use the clean and shifted data
   cat2t('Building spectrogam data')
   heat_map_data[[ii]] <- wrap_data(
     power_all_shifted_clean$collapse(keep = c(3,2), method = collapse_method),
@@ -238,6 +240,12 @@ for(ii in which(has_trials)) {
     # hmd is using the clean data
     N = Nclean
   )
+  
+  if(censor_stimulation_window) {
+    heat_map_data[[ii]]$range <- .fast_range(heat_map_data[[ii]]$data[
+      !(power_all_shifted_clean$dimnames$Time %within% stimulation_window),]
+    )
+  }
   
   power_all_shifted_clean_freq_subset = power_all_shifted_clean$subset(Frequency = Frequency %within% frequency_window)
   power_all_shifted_freq_subset = power_all_shifted$subset(Frequency = Frequency %within% frequency_window)
@@ -251,6 +259,12 @@ for(ii in which(has_trials)) {
     xlab='Time (s)', ylab='Trial', zlab='auto'
   )
   
+  if(censor_stimulation_window) {
+    by_trial_heat_map_data[[ii]]$range <- .fast_range(by_trial_heat_map_data[[ii]]$data[
+      !(power_all_shifted_freq_subset$dimnames$Time %within% stimulation_window),]
+    )
+  }
+  
   # 2.5 by electrode over time
   cat2t('Building by_electrode_heat_map_data')
   by_electrode_heat_map_data[[ii]] <- wrap_data(
@@ -259,6 +273,13 @@ for(ii in which(has_trials)) {
     y=power_all_shifted_clean_freq_subset$dimnames$Electrode,
     xlab='Time (s)', ylab='Electrode', zlab='auto'
   )
+  
+  if(censor_stimulation_window) {
+    by_electrode_heat_map_data[[ii]]$range <- .fast_range(by_electrode_heat_map_data[[ii]]$data[
+      !(power_all_shifted_clean_freq_subset$dimnames$Time %within% stimulation_window),]
+    )
+  }
+  
   
   # 3. Time only
   # coll freq and trial for line plot w/ ebar.
@@ -272,7 +293,14 @@ for(ii in which(has_trials)) {
   over_time_data[[ii]]$data[is.na(over_time_data[[ii]]$data[,2]),2] <- 0
   
   # we want to make a special range for the line plot data that takes into account mean +/- SE
-  over_time_data[[ii]]$range <- .fast_range(plus_minus(over_time_data[[ii]]$data))
+  
+  if(censor_stimulation_window) {
+    over_time_data[[ii]]$range <- .fast_range(plus_minus(over_time_data[[ii]]$data[
+      !(power_all_shifted_clean_freq_subset$dimnames$Time %within% stimulation_window),]
+    ))
+  } else {
+    over_time_data[[ii]]$range <- .fast_range(plus_minus(over_time_data[[ii]]$data))
+  }
   
   if(!all(is.finite(over_time_data[[ii]]$range))) {
     assign('otd_ii',over_time_data[[ii]], envir=globalenv())
@@ -286,10 +314,18 @@ for(ii in which(has_trials)) {
   # scatter bar data -- here we want all of the data because we are going to highlight (or not) the outliers -- same for by-trial heatmap
   # if(show_outliers_on_plots) {
   cat2t('Building scatter_bar_data')
-  scatter_bar_data[[ii]] <- wrap_data(
-    rowMeans(power_all_shifted_freq_subset$subset(Time = (Time %within% analysis_window), data_only = TRUE)),
-    xlab='Group', ylab='auto', x=power_all_shifted_freq_subset$dimnames$Time
-  )
+  
+  if(censor_stimulation_window) {
+    scatter_bar_data[[ii]] <- wrap_data(
+      rowMeans(power_all_shifted_freq_subset$subset(Time = (Time %within% analysis_window) & !(Time %within% stimulation_window), data_only = TRUE)),
+      xlab='Group', ylab='auto'
+    )
+  } else {
+    scatter_bar_data[[ii]] <- wrap_data(
+      rowMeans(power_all_shifted_freq_subset$subset(Time = (Time %within% analysis_window), data_only = TRUE)),
+      xlab='Group', ylab='auto'
+    )
+  }
   
   # Although this seems to be the wrong place to do this, not sure where else we can do it
   # to enable point identification later, we need to know the x-location of each point. So the jittering
@@ -329,7 +365,11 @@ for(ii in which(has_trials)) {
       nm = 'GROUP_' %&% ii
     }
     cat2t('Calc subset analyses')
-    m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% analysis_window)$collapse(keep=c(1,4))
+    if(censor_stimulation_window) {
+      m = power_all_shifted_clean_freq_subset$subset(Time = (Time %within% analysis_window) & !(Time %within% stimulation_window))$collapse(keep=c(1,4))
+    } else {
+      m = power_all_shifted_clean_freq_subset$subset(Time = Time %within% analysis_window)$collapse(keep=c(1,4))
+    }
     
     els = power_all_shifted_clean_freq_subset$dimnames$Electrode
     
@@ -552,7 +592,11 @@ get_stats_per_electrode <- function(ttypes){
                             varnames = el$varnames, hybrid = FALSE)
       }
       
-      bl.analysis <- bl$subset(Time=Time %within% analysis_window)
+      if(censor_stimulation_window) {
+        bl.analysis <- bl$subset(Time=(Time %within% analysis_window) & !(Time %within% stimulation_window))
+      } else {
+        bl.analysis <- bl$subset(Time=Time %within% analysis_window)
+      }
       
       trial_means = rowMeans(bl.analysis$get_data())
       names(trial_means) = as.character(bl.analysis$dimnames$Trial)
@@ -720,11 +764,14 @@ result = module(electrode_text = '14', percentile_range = TRUE,
                 ),
                 background_plot_color_hint='white',
                 baseline_window = c(-1,-.4),
+                analysis_window = c(0.5,1),
                 heatmap_color_palette = 'BlueWhiteRed',
                 max_column_heatmap = 2,
                 # plot_time_range = c(-1.5,3),
                 unit_of_analysis = 'decibel',
-                
+                show_stimulation_window = TRUE,
+                censor_stimulation_window = TRUE,
+                stimulation_window = c(0., 0.3),
                 frequency_window = c(70,150), show_outliers_on_plots = TRUE,
                 max_zlim=99
                 # ,                event_of_interest = '1stWord'
@@ -732,10 +779,6 @@ result = module(electrode_text = '14', percentile_range = TRUE,
 results = result$results
 
 by_trial_heat_map_plot(results)
-
-par('din')
-
-par('mar')
 
 by_electrode_heat_map_plot(results)
 assess_normality_plot(results)

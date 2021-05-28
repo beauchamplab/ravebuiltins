@@ -11,9 +11,15 @@ over_time_plot <- function(results, ...) {
     
     po = results$get_value('ravebuiltins_power_explorer_plot_options')$as_list()
     
+    decorator <- NULL
+    if(results$get_value('show_stimulation_window', FALSE)) {
+         decorator <- stimulation_window_decorator
+    }
+    
     time_series_plot(plot_data = results$get_value('over_time_data'),
                      plot_time_range = results$get_value('plot_time_range'),
-                     PANEL.FIRST = time_series_decorator(plot_options=po)
+                     PANEL.FIRST = time_series_decorator(plot_options=po),
+                     PANEL.LAST = decorator
     )
 }
 
@@ -328,20 +334,28 @@ heat_map_plot <- function(results, ...){
     # user-controlled heatmap nrow
     ncol <- results$get_value('max_column_heatmap')
     
+    decorator <- spectrogram_heatmap_decorator(plot_options = po)
+    if(results$get_value('show_stimulation_window', FALSE)) {
+        decorator %<>% add_decorator(stimulation_window_decorator)
+    }
+    ignore_time_range = NULL
+    if(results$get_value('censor_stimulation_window')) {
+        ignore_time_range <- results$get_value('stimulation_window')
+    }
     
     draw_many_heat_maps(hmaps = results$get_value('heat_map_data'),
                         log_scale = results$get_value('log_scale'),
                         max_zlim = results$get_value('max_zlim', 0),
                         percentile_range=results$get_value('percentile_range'),
                         plot_time_range = results$get_value('plot_time_range'),
-                        PANEL.LAST = spectrogram_heatmap_decorator(plot_options = po),
+                        ignore_time_range = ignore_time_range,
+                        PANEL.LAST = decorator,
                         max_columns = ncol,
                         decorate_all_plots = results$get_value('redundant_labels', FALSE),
                         center_multipanel_title = results$get_value('center_multipanel_title'),
-                        PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE),color_bar_title_decorator, 0)
+                        PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator, 0)
     )
 }
-
 
 heatmap_plot_helper <- function(results, hmap_varname, ...) {
     rave_context()
@@ -352,7 +366,6 @@ heatmap_plot_helper <- function(results, hmap_varname, ...) {
     set_heatmap_palette_helper(results)
     
     ncol <- results$get_value('max_column_heatmap')
-    
     
     by_electrode_heat_map_data <- results$get_value(hmap_varname)
     
@@ -380,14 +393,27 @@ by_electrode_heat_map_plot <- function(results, ...) {
     ncol <- results$get_value('max_column_heatmap')
     
     
-    by_electrode_heat_map_data <- results$get_value('by_electrode_heat_map_data')
+    behmd <- results$get_value('by_electrode_heat_map_data')
+    
     po <- results$get_value('ravebuiltins_power_explorer_plot_options')$as_list()
-    draw_many_heat_maps(by_electrode_heat_map_data,
+    decorator <- by_electrode_heat_map_decorator(plot_options = po)
+    
+    if(results$get_value('show_stimulation_window', FALSE)) {
+        decorator %<>% add_decorator(stimulation_window_decorator)
+    }
+    
+    ignore_time_range = NULL
+    if(results$get_value('censor_stimulation_window')) {
+        ignore_time_range <- results$get_value('stimulation_window')
+    }
+    
+    draw_many_heat_maps(behmd,
                         percentile_range=results$get_value('percentile_range'),
                         max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
                         plot_time_range = results$get_value('plot_time_range'),
-                        PANEL.LAST=by_electrode_heat_map_decorator(plot_options = po),
+                        PANEL.LAST=decorator,
                         max_columns = ncol,
+                        ignore_time_range = ignore_time_range,
                         decorate_all_plots = results$get_value('redundant_labels', FALSE),
                         center_multipanel_title = results$get_value('center_multipanel_title'),
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE),
@@ -442,6 +468,7 @@ by_trial_heat_map_plot <- function(results, ...) {
     set_heatmap_palette_helper(results)
     by_trial_heat_map_data <- results$get_value('by_trial_heat_map_data')
     
+    
     #base decorator
     po = results$get_value('ravebuiltins_power_explorer_plot_options')$as_list()
     decorator <- by_trial_heat_map_decorator(plot_options = po)
@@ -460,6 +487,15 @@ by_trial_heat_map_plot <- function(results, ...) {
             decorator %<>% add_decorator(by_trial_analysis_window_decorator(event_name= sort_trials_by_type,
                                                                             show_label = po$draw_decorator_labels))
         }
+    }
+    
+    if(results$get_value('show_stimulation_window', FALSE)) {
+        decorator %<>% add_decorator(stimulation_window_decorator)
+    }
+    
+    ignore_time_range = NULL
+    if(results$get_value('censor_stimulation_window')) {
+        ignore_time_range <- results$get_value('stimulation_window')
     }
     
     show_outliers <- results$get_value('show_outliers_on_plots', FALSE)
@@ -484,6 +520,7 @@ by_trial_heat_map_plot <- function(results, ...) {
                         percentile_range=results$get_value('percentile_range'),
                         wide = need_wide,
                         PANEL.LAST=decorator,
+                        ignore_time_range = ignore_time_range,
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator,0),
                         plot_time_range = results$get_value('plot_time_range'),
                         # we always want the x axis, but we only want the y axis if we are NOT sorting by type
@@ -492,7 +529,6 @@ by_trial_heat_map_plot <- function(results, ...) {
                         decorate_all_plots = results$get_value('redundant_labels', FALSE),
                         max_columns = ncol)
 }
-
 
 replace_middle <- function(x, rpl) {
     x[c(-1, -length(x))] = rpl

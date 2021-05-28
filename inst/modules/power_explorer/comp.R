@@ -494,6 +494,16 @@ define_input(
                            choices = c('white', 'black', 'gray'), selected = 'white')
 )
 
+### Stimulation options
+define_input_time(inputId = 'stimulation_window',
+                  label='Stimulation artifact window (relative to analysis event)',
+                  initial_value = c(0,.1))
+
+define_input(checkboxInput('censor_stimulation_window', 'Censor stimulation window during analysis', value=FALSE))
+# checkbox to enable exclusion of the stimulus window
+
+define_input(checkboxInput('show_stimulation_window',
+                           'Show stimulation window on plots', value=FALSE))
 
 ## plot exporter
 define_input(
@@ -534,7 +544,10 @@ define_input_auto_recalculate(
 )
 
 
-define_input(customizedUI('do_calculate_btn_float'))
+# define_input(customizedUI('do_calculate_btn_float'))
+
+
+
 
 # 
 #   inputId = '', label = 'Recalculate everything', 
@@ -563,7 +576,7 @@ manual_inputs <- c(
   'plots_to_export', 'select_markdown_template', 'keep_markdown', 'include_data',
   # 'export_what', 'export_data',  'movie_export_trials', 
   'btn_save_analysis_settings', 'btn_load_analysis_settings', 'include_outliers_in_export',
-  'analysis_prefix', 'current_active_set', 'export_also_download', 'export_time_window', 'sheth_special',
+  'analysis_prefix', 'current_active_set', 'export_also_download', 'sheth_special',
   'synch_export_analysis_with_3dviewer', 'floating_recalculate'
 )
 
@@ -579,7 +592,8 @@ render_inputs <- c(
   't_filter', 'p_filter', 'mean_filter', 'show_result_densities',
   't_operator', 'p_operator', 'mean_operator', 
   't_operand', 'p_operand', 'mean_operand', 'analysis_filter_elec_2', 'analysis_filter_elec',
-  'analysis_filter_variable', 'analysis_filter_variable_2', 'show_heatmap_range', 'max_column_heatmap'
+  'analysis_filter_variable', 'analysis_filter_variable_2', 'show_heatmap_range', 'max_column_heatmap',
+  'show_stimulation_window'
 )
 
 
@@ -617,6 +631,10 @@ input_layout = list(
     'trial_outliers_list',
     'clear_outliers', 'save_new_epoch_file'
   ),
+  '[-]Stimulation-related options' = list(
+    'stimulation_window', 'censor_stimulation_window',
+    'show_stimulation_window'
+  ),
   '[-]Find + Export active electrodes' = list(
     c('which_result_to_show_on_electrodes'), 
     c('synch_export_analysis_with_3dviewer', 'show_result_densities'),
@@ -628,7 +646,6 @@ input_layout = list(
     'current_active_set',
     'select_good_electrodes',
     'trial_type_filter', 'synch_with_trial_selector',
-    'export_time_window',
     'include_outliers_in_export',
     'analysis_prefix',
     # 'export_data'
