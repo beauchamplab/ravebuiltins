@@ -202,8 +202,8 @@ ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never
   )
   
   checks <- list(
-    'Demo Subject Data' = dir.exists(paths['dsd']),
-    'Demo Subject Raw Data' = dir.exists(paths['srd']),
+    'Demo Subject Data' = dir.exists(paths['dsd']) && dir.exists(paths['srd']),
+    # 'Demo Subject Raw Data' = dir.exists(paths['srd']),
     'Demo Group Data' = file.exists(paths['dgd']),
     'RMarkdown Templates' = file.exists(paths['rmrk'])
   )
@@ -222,11 +222,12 @@ ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never
   ### Demo subject data files
   if(needs[1]) {
     dipsaus::rs_exec({
-      res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectData.zip",
+      res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectFull.zip",
                           destfile = f <- tempfile(fileext = ".zip"))
       if(res==0) {
-        utils::unzip(
-          f, exdir = mk.path(rave::rave_options('data_dir'), 'demo', .Platform$file.sep)
+        utils::unzip(zipfile = f,
+                     overwrite = TRUE,
+                     exdir = paste0(mk.path(rave::rave_options('data_dir'), '..'), .Platform$file.sep)
         )
       } else {
         stop('Unable to download demo subject data')
@@ -234,23 +235,23 @@ ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never
     }, name = 'Demo Subject Data')
   }
   
-  ### Demo subject raw data files
-  if(needs[2]) {
-    dipsaus::rs_exec({
-      res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectRaw.zip",
-                          destfile = f <- tempfile(fileext = ".zip"))
-      if(res==0) {
-        utils::unzip(
-          f, exdir = mk.path(rave::rave_options('raw_data_dir'))
-        )
-      } else {
-        stop('Unable to download demo subject raw data')
-      }
-    }, name = 'Demo Subject Raw')
-  }
+  ### Demo subject raw data files -- this is now included in the demo subject data above
+  # if(needs[2]) {
+  #   dipsaus::rs_exec({
+  #     res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectRaw.zip",
+  #                         destfile = f <- tempfile(fileext = ".zip"))
+  #     if(res==0) {
+  #       utils::unzip(
+  #         f, exdir = mk.path(rave::rave_options('raw_data_dir'))
+  #       )
+  #     } else {
+  #       stop('Unable to download demo subject raw data')
+  #     }
+  #   }, name = 'Demo Subject Raw')
+  # }
   
   ## Demo group data files
-  if(needs[3]) {
+  if(needs[2]) {
     dipsaus::rs_exec({
       res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoGroupData.zip",
                           destfile = f <- tempfile(fileext = ".zip"))
@@ -265,7 +266,7 @@ ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never
   }
   
   
-  if(needs[4]) {
+  if(needs[3]) {
     dipsaus::rs_exec({
       res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/rmarkdown_templates.zip",
                                  destfile = f <- tempfile(fileext = ".zip"))
