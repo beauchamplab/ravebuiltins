@@ -42,6 +42,7 @@ Imports:
     DT,
     fst,
     rave,
+    raveio,
     rutabaga
 Suggests:
     devtools,

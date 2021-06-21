@@ -163,8 +163,8 @@ for(ii in which(has_trials)) {
     cat2t('dispaus::shift')
     
     if(length(shift_amount) != dim(power_all)[1L]) {
-      assign('shift_amt', shift_amount, envir = globalenv())
-      assign('event_mat', events, envir = globalenv())
+      # assign('shift_amt', shift_amount, envir = globalenv())
+      # assign('event_mat', events, envir = globalenv())
       stop('shift amount != # trials... stopping')
     }
     
@@ -282,7 +282,7 @@ for(ii in which(has_trials)) {
   over_time_data[[ii]]$range <- .fast_range(plus_minus(over_time_data[[ii]]$data))
   
   if(!all(is.finite(over_time_data[[ii]]$range))) {
-    assign('otd_ii',over_time_data[[ii]], envir=globalenv())
+    # assign('otd_ii',over_time_data[[ii]], envir=globalenv())
     if(any(is.nan(otd_ii$data[,1]))) {
       stop('Unable to plot data, data are NaN')
     } else {

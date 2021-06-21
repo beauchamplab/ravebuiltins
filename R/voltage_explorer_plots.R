@@ -122,7 +122,7 @@ by_condition_welch <- function(results, ...) {
     par(mfrow=c(.row, .col))
     # have a parameter that controls whether we log the data or not
     for(ii in seq_along(.pws)) {
-        plot_clean(.xlim, c(0,.ylim), log='', ylab='dB', asp=1)
+        plot_clean(.xlim, c(0,.ylim), log='', ylab='dB')
         legend('topright', bty='n', inset=c(0.1, 0.1),
                text.col = c(grDevices::palette()[ii], 'black'), c(.group_data[[ii]]$name, 'baseline'),
                cex = rave_cex.lab*get_cex_for_multifigure())

@@ -178,8 +178,25 @@ htmltable_mat <- function(mat, ...) {
   return(re)
 }
 
-#'@export
-ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never'), ..., new_timeout=60*10) {
+ravebuiltins_check_installation <- function(...) {
+  res <- ravebuiltins_finalize_installation(check_only = TRUE, upgrade = 'always')
+  
+  str <- FALSE
+  if(any(res)) {
+    msg = "Ravebuiltins is missing: " %&% paste(names(res), collapse=', ')
+    
+    attr(str, 'message') <- msg
+    
+  } else {
+    return (T)
+  }
+  
+  return(str)
+}
+
+
+ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never'), ...,
+                                               new_timeout=60*10, check_only=FALSE) {
   old_to <- options('timeout')
   
   on.exit({
@@ -219,64 +236,50 @@ ravebuiltins_finalize_installation <- function(upgrade=c('ask', 'always', 'never
     return (TRUE)
   }, checks, names(checks))
   
-  ### Demo subject data files
-  if(needs[1]) {
-    dipsaus::rs_exec({
-      res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectFull.zip",
-                          destfile = f <- tempfile(fileext = ".zip"))
-      if(res==0) {
-        utils::unzip(zipfile = f,
-                     overwrite = TRUE,
-                     exdir = paste0(mk.path(rave::rave_options('data_dir'), '..'), .Platform$file.sep)
-        )
-      } else {
-        stop('Unable to download demo subject data')
-      }
-    }, name = 'Demo Subject Data')
+  
+  
+  if(check_only) {
+    names(needs) <- names(checks)
+    return (needs)
   }
   
-  ### Demo subject raw data files -- this is now included in the demo subject data above
-  # if(needs[2]) {
-  #   dipsaus::rs_exec({
-  #     res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectRaw.zip",
-  #                         destfile = f <- tempfile(fileext = ".zip"))
-  #     if(res==0) {
-  #       utils::unzip(
-  #         f, exdir = mk.path(rave::rave_options('raw_data_dir'))
-  #       )
-  #     } else {
-  #       stop('Unable to download demo subject raw data')
-  #     }
-  #   }, name = 'Demo Subject Raw')
-  # }
+  warn_dl <- function(nm, url, to) {
+    dipsaus::cat2(level='WARNING',
+                  sprintf('Unable to download %s...\n\t\tTry to download them from here: %s \n \t\tand unzip into here %s\n',
+                    nm, url, to))
+  }
+  
+  ### Demo subject data files
+  if(needs[1]) {
+    dipsaus::cat2(level='DEFAULT', 'Downloading demo subject data...')
+    rave::download_subject_data("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectFull.zip",
+                                replace_if_exists = TRUE)
+  }
   
   ## Demo group data files
   if(needs[2]) {
-    dipsaus::rs_exec({
-      res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoGroupData.zip",
+      url_str = "https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoGroupData.zip"
+      res = utils::download.file(url_str,
                           destfile = f <- tempfile(fileext = ".zip"))
+      extract_to = mk.path(rave::rave_options('data_dir'), 'demo')
       if(res==0) {
-        utils::unzip(
-          f, exdir = mk.path(rave::rave_options('data_dir'), 'demo', .Platform$file.sep)
-        )
+        utils::unzip(overwrite = TRUE, f, exdir = extract_to)
       } else {
-        stop('Unable to download group data')
+        warn_dl('Demo Group Data', url_str, extract_to)
       }
-    }, name = 'Demo Group Data')
   }
   
   
   if(needs[3]) {
-    dipsaus::rs_exec({
-      res = utils::download.file("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/rmarkdown_templates.zip",
-                                 destfile = f <- tempfile(fileext = ".zip"))
-      if(res==0) {
-        extract_to = sprintf('%s/../others/', rave::rave_options('data_dir'))
-        dir.create(file.path(rave::rave_options('data_dir'), '..', 'others'), recursive=TRUE, showWarnings = FALSE)
-        utils::unzip(f, exdir = extract_to)
-      } else {
-        stop('Unable to download group data')
-      }
-    }, name = 'RMarkdown Templates')
+    rt_url = "https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/rmarkdown_templates.zip"
+    res = utils::download.file(rt_url,
+                               destfile = f <- tempfile(fileext = ".zip"))
+    if(res==0) {
+      extract_to = mk.path('~', 'rave_data', 'others')
+      raveio::dir_create2(extract_to)
+      utils::unzip(f, exdir = extract_to)
+    } else {
+      warn_dl("RMarkdown templates", rt_url, extract_to)
+    }
   }
 }

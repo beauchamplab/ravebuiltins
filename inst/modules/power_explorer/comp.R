@@ -78,7 +78,8 @@ define_initialization({
   
   ### For markdown export, we need to look up the available templates
   markdown_templates <- list()
-  pth <- file.path(module_tools$get_subject_dirs()[['data_dir']], '..', 'others', 'ravebuiltins', 'markdown')
+  # pth <- file.path(module_tools$get_subject_dirs()[['data_dir']], '..', 'others', 'ravebuiltins', 'markdown')
+  pth <- get_others_directory('ravebuiltins', 'markdown', mustWork = NA)
   markdown_templates[['pptx']] <- list.files(pth, pattern='^\\w.+-template\\.pptx$')
   markdown_templates[['pptx.pretty']] <- pretty_template_names(markdown_templates[['pptx']])
   

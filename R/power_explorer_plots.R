@@ -32,6 +32,7 @@ over_time_plot <- function(results, ...) {
 #' @export
 #'
 #' @examples
+#' plot(-log10(runif(100)), ylab='p value')
 #' draw_cut_point(-log10(0.05))
 draw_cut_point <- function(cut=NULL) {
     if(!is_null(cut) & length(cut)>0) {

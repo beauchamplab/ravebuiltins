@@ -44,7 +44,13 @@
 #' @importFrom stats symnum
 #' @importFrom stats density
 #' @importFrom stats cor
-#' 
+#' @importFrom grDevices colorRamp
+#' @importFrom stats cor.test
+#' @importFrom stats ks.test
+#' @importFrom stats rbinom
+#' @importFrom stats rnorm
+#' @importFrom stats runif
+#' @importFrom stats runmed
 #' @importFrom utils tail
 #' 
 #' @importFrom fst read_fst
@@ -138,6 +144,11 @@ get_cex_for_multifigure <- function() {
     }
   }
   return (cex_multiplier)
+}
+
+
+get_others_directory <- function(..., mustWork=FALSE) {
+  normalizePath(file.path('~', 'rave_data', 'others', ...), mustWork = mustWork)
 }
 
 pretty_template_names <- function(nms) {

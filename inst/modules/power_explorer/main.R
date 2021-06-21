@@ -156,8 +156,8 @@ for(ii in which(has_trials)) {
     cat2t('dispaus::shift')
     
     if(length(shift_amount) != dim(power_all)[1L]) {
-      assign('shift_amt', shift_amount, envir = globalenv())
-      assign('event_mat', events, envir = globalenv())
+      # assign('shift_amt', shift_amount, envir = globalenv())
+      # assign('event_mat', events, envir = globalenv())
       stop('shift amount != # trials... stopping')
     }
     
@@ -303,7 +303,7 @@ for(ii in which(has_trials)) {
   }
   
   if(!all(is.finite(over_time_data[[ii]]$range))) {
-    assign('otd_ii',over_time_data[[ii]], envir=globalenv())
+    # assign('otd_ii',over_time_data[[ii]], envir=globalenv())
     if(any(is.nan(otd_ii$data[,1]))) {
       stop('Unable to plot data, data are NaN')
     } else {
@@ -784,6 +784,9 @@ by_electrode_heat_map_plot(results)
 assess_normality_plot(results)
 
 # results$get_variables(level = 3)
+
+
+heat_map_plot(results)
 
 across_electrode_statistics_plot(results)
 

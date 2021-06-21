@@ -193,7 +193,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             # this doesn't look great for unequally spaced items. better would be something
             # like sorting the values and taking the values according to rank, r1, r25%, r50%, r75% rMax
             if(diff(range(diff(sort(map$y)))) > 2) {
-                tck = map$y[c(1, round(length(map$y)*(1/3)), , round((2/3)*length(map$y)), 1.0*length(map$y))]
+                tck = map$y[c(1, round(length(map$y)*(1/3)), round((2/3)*length(map$y)), 1.0*length(map$y))]
                 yticks <- ..get_nearest(tck, map$y)
             } else {
                 yticks <- ..get_nearest(pretty(map$y), map$y)
@@ -518,6 +518,9 @@ draw.box <- function(x0,y0,x1,y1, ...) {
 spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Ymap=force, btype='line', atype='box', 
                                           title_options=list(allow_freq=FALSE), ...) {
     to <- force(title_options)
+    if(missing(plot_options)) {
+        plot_options = build_plot_options()
+    }
     
     # the idea of more title options is that the caller might "know better" than the creator about
     # 'which' plot is being decorated and can selective (dis/en)able certain text
@@ -549,7 +552,7 @@ spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Y
         }
         
         # would be nice to have a TRIAL_ONSET or something here, rather than a string...
-        if(plot_data$trial_alignment != 'Trial Onset') {
+        if(!is.null(plot_data$trial_alignment) && plot_data$trial_alignment != 'Trial Onset') {
             btype = 'n'
         }
         
@@ -673,7 +676,7 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
     
     if(!('matrix' %in% class(mat))) {
         warning('mat is not a matrix... check it out: make_image_mat')
-        assign('make_image_mat', mat, globalenv())
+        # assign('make_image_mat', mat, globalenv())
     }
 
     image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
@@ -1151,7 +1154,9 @@ build_results_object <- function(l) {
 set_palette_helper <- function(results, plot_options, ...) {
     results %?<-% build_results_object(plot_options)
     
-    .bg <- results$get_value('background_plot_color_hint', 'white')
+    .bg <- results$get_value('background_plot_color_hint', ifNotFound = 'white')
+    .bg %?<-% 'white'
+    
     # session = shiny::getDefaultReactiveDomain()
     if(tolower(.bg) %in%  c('white')) {
         theme = set_rave_theme('light')
@@ -1348,6 +1353,11 @@ do_on_inclusion <- function(needle, expr, haystack) {
 # helper that calls out to sub-decorators based on user-selected options
 #
 time_series_decorator <- function(plot_data, plot_options, do_not_shade = c(), ...) {
+    
+    if(missing(plot_options)) {
+        plot_options <- build_plot_options()
+    }
+    
     .plot_options <- plot_options$plot_title_options 
     ddl = plot_options$draw_decorator_labels
     
@@ -1360,6 +1370,9 @@ time_series_decorator <- function(plot_data, plot_options, do_not_shade = c(), .
         axis_label_decorator(plot_data)
         
         windows = c('Analysis')
+        if(is.null(plot_data[[1]]$trial_alignment)) {
+            plot_data[[1]]$trial_alignment = 'Trial Onset'
+        }
         if(plot_data[[1]]$trial_alignment == 'Trial Onset') {
             windows %<>% c("Baseline")
         }

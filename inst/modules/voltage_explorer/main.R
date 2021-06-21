@@ -21,7 +21,10 @@ if(F) {
 
     # this will be NA if the only requested electrodes are not available
     # electrode <- requested_electrodes[1]
-    # assertthat::assert_that(length(requested_electrodes) >= 1 && all(not_NA(requested_electrodes)),msg = 'No electrode selected')
+    assertthat::assert_that(exists('ERP_SAMPLE_RATE') && length(ERP_SAMPLE_RATE) == 1 , msg = 'No electrode selected')
+
+
+  print(ERP_SAMPLE_RATE)
 
     # downsample as requested
     s = voltage$dimnames$Time[1]
@@ -88,6 +91,7 @@ if(F) {
     has_data <- any(has_trials)
     line_plot_data <- group_data
     # lpd <- line_plot_data[[1]]
+    dipsaus::cat2('make line_plot_data l:91')
     line_plot_data <- lapply(line_plot_data, function(lpd) {
       .d <- lpd$all_data$collapse(keep=1:2)
       lpd$x <- lpd$all_data$dimnames$Time
@@ -100,6 +104,7 @@ if(F) {
       return(lpd)
     })
 
+    dipsaus::cat2('make group data l:103')
     group_data %<>% lapply(function(d) {
       d$analysis_data <- d$analysis_data$collapse(keep=1:2)
       # d$analysis_data_mean <- rowMeans(d$analysis_data)
@@ -132,6 +137,16 @@ rave:::mount_demo_subject(force_reload_subject = T)
 view_layout('voltage_explorer')
     
 # Debug
+reload_module_package()
+
+module = rave::get_module(module='voltage_explorer', package = 'ravebuiltins', local=TRUE)
+res <- module()
+
+res$by_trial_erp_map()
+res$erp_over_time_plot()
+res$by_condition_welch()
+res$results$get_variables()
+
 require(ravebuiltins)
 dev_toolbox = dev_ravebuiltins(T)
 reload_this_package(expose = T, clear_env = F)

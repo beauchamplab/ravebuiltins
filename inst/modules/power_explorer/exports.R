@@ -216,7 +216,7 @@ custom_plot_download_renderers <- function(nm) {
     
     ll$has_data = length(ll$omnibus_results) > 1
     
-    assign('ll', ll, envir = globalenv())
+    # assign('ll', ll, envir = globalenv())
     across_electrode_statistics_plot(build_results_object(ll))
   }
   aotbe = function() {
@@ -659,7 +659,7 @@ output$btn_graph_download <- downloadHandler(
 write_out_graphs <- function(outdir, prefix, ...) {
   args = isolate(reactiveValuesToList(input))
   
-  assign('..args', args, envir = globalenv())
+  # assign('..args', args, envir = globalenv())
   # args = ..args
   # attachDefaultDataRepository()
   electrodes_loaded = preload_info$electrodes

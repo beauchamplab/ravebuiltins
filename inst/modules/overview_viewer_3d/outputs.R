@@ -250,7 +250,7 @@ output$detail_plot <- renderPlot({
     if( length(dtype) != 1 || !is.list(click_info) ){
         return()
     }
-    assign('click_info', click_info, envir = globalenv())
+    # assign('click_info', click_info, envir = globalenv())
     
     keyframes = click_info$object$keyframes
     plot_data = keyframes[[ dtype ]]

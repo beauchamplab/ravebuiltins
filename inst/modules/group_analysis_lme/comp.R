@@ -74,7 +74,7 @@ load_scripts(rlang::quo({
   observeEvent(input$lmer_yaml_load, {
     fdata = input$lmer_yaml_load
     if(!is.list(fdata) || !length(fdata$files)){ return() }
-    assign('fdata', fdata, envir = globalenv())
+    # assign('fdata', fdata, envir = globalenv())
     f_name = unlist(fdata$files); names(f_name) = NULL
     
     read_source = list(
