@@ -5,7 +5,7 @@
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
 
-mount_demo_subject()
+mount_demo_subject(electrodes = 14)
 view_layout('power_explorer')
 # mount_demo_subject(subject_code = 'YCZ', 'Sentences', epoch='YCZ_gingko', electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
 
@@ -567,7 +567,7 @@ get_stats_per_electrode <- function(ttypes){
   }
   
   res = #lapply(electrodes, function(e, ...){
-    rave::lapply_async(electrodes, function(e){
+    rave::lapply_async3(electrodes, function(e){
       # Subset on electrode is memory optimized, and is fast
       el = power$subset(Electrode = Electrode == e,
                         Frequency = Frequency %within% frequency_window,
@@ -622,8 +622,7 @@ get_stats_per_electrode <- function(ttypes){
       return(res)
     } ,
     .globals = c('baseline_array', 'baseline_method', 'unit_dims', 'electrodes', 'e', 'gnames', 'has_data', 'shift_amount', 'new_range',
-                 'trial_numbers', 'frequency_window', 'analysis_window', 'baseline_window', '.fast_mse', 'df_shell'),
-    .gc = FALSE)
+                 'trial_numbers', 'frequency_window', 'analysis_window', 'baseline_window', '.fast_mse', 'df_shell'))
   
   cat2t('Finished elec calc')
   
@@ -639,7 +638,7 @@ get_stats_per_electrode <- function(ttypes){
   
   if(nrow(combined_res) > 3) {
     stat_lbls = c('m_', 't_', 'p_')
-    tmp = combined_res[4:nrow(combined_res),]
+    tmp = combined_res[4:nrow(combined_res),,drop = FALSE]
     # add the names for these folks
     rownames(tmp) = c(outer(stat_lbls, levels(df_shell$group), paste0), outer(stat_lbls, lbls, paste0))
     
