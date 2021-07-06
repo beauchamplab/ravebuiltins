@@ -642,7 +642,7 @@ get_stats_per_electrode <- function(ttypes){
     # add the names for these folks
     rownames(tmp) = c(outer(stat_lbls, levels(df_shell$group), paste0), outer(stat_lbls, lbls, paste0))
     
-    combined_res = rbind(combined_res[1:3,], adjusted_p, tmp)
+    combined_res = rbind(combined_res[1:3,,drop=FALSE], adjusted_p, tmp)
   } else {
     combined_res %<>% rbind(adjusted_p)
   }
