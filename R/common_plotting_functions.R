@@ -177,6 +177,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
                 rutabaga::plot_clean(x,y+dy, xlab='', ylab='', cex.lab=rave_cex.axis*get_cex_for_multifigure(), log='y')
             } else {
                 pad = c(-0.5, 0.5)
+                # dipsaus::cat2("rutabaga::plot_clean")
                 rutabaga::plot_clean(xlim=range(x) + pad,
                            ylim=range(y) + pad)
             }
@@ -186,8 +187,8 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             }
             
             # make sure the decorators are aware that we are linearizing the y scale here
+            # dipsaus::cat2("make_image")
             make_image(map$data, x=x, y=y, log=ifelse(log_scale, 'y', ''), zlim=c(-1,1)*max_zlim)
-            
             xticks <- ..get_nearest(pretty(map$x), map$x)
             
             # this doesn't look great for unequally spaced items. better would be something
@@ -206,6 +207,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
                 rave_axis(2, at=yticks, labels=map$y[yticks], tcl=0, lwd=0)
 
             if(is.function(PANEL.LAST)) {
+                # dipsaus::cat2("PANEL.LAST")
                 #PANEL.LAST needs to know about the coordinate transform we made
                     PANEL.LAST(map,
                                Xmap=function(x) ..get_nearest_i(x, map$x),
@@ -257,8 +259,8 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
         }
         
         mtext(text = paste(hmaps[[1]]$subject_code,
-                        "El", dipsaus::deparse_svec(hmaps[[1]]$electrodes),
-                        "Freq",  paste0(hmaps[[1]]$frequency_window, collapse=':')
+                        "E", dipsaus::deparse_svec(hmaps[[1]]$electrodes), ", ",
+                        paste0(hmaps[[1]]$frequency_window, collapse=':'), 'Hz'
                     ),
               line=0, at = xpos, adj=adj,
               outer=TRUE, font = 1, cex=rave_cex.main*0.8)
@@ -266,6 +268,39 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
     
     invisible(hmaps)
 }
+
+
+calculate_abs_max <- function(y, requested_max, percentile_range=FALSE, do_round=FALSE) {
+    
+    true_abs_max <- max(abs(y), na.rm=TRUE)
+    
+    mx <- if(is.na(requested_max) || requested_max <= 0) {
+        true_abs_max
+    } else if (!percentile_range) {
+     requested_max   
+    } else {
+        if(requested_max >= 100) {
+            (requested_max / 100)*true_abs_max
+        } else {
+            quantile(abs(y), probs = requested_max / 100, names = FALSE, na.rm = TRUE)
+        }
+    }
+    
+    # if(do_round) {
+    #     mx = 0.99
+    #     dig <- -floor(log10(mx) - 1)
+    #     
+    #     if(mx %within% c(10,50))
+    #     
+    #     
+    #     else if(max_zlim > 10) {
+    #         max_zlim %<>% round_to_nearest(5)
+    #     }
+    # }
+    
+    return(mx)
+}
+
 
 build_group_names <- function(groups) {
     gnames = sapply(groups, `[[`, 'group_name')
@@ -657,10 +692,6 @@ by_electrode_heat_map_decorator <- function(plot_data=NULL, plot_options, Xmap=f
 #' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators.
 #' We are just plotting image(mat) Rather Than t(mat) as you might expect. The Rave_calculators know this so we can save a few transposes along the way.
 make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zlim=TRUE, add=TRUE) {
-    rave_context()
-    
-    #xlab='Time (s)', ylab='Frequency (Hz)', zlim, log='', useRaster=TRUE, PANEL.FIRST=NULL, PANEL.LAST=NULL, ...) {
-    # zmat %<>% clip_x(lim=zlim)
     
     if(missing(zlim)) {
         zlim <- c(-1,1)*max(abs(mat))
@@ -675,12 +706,39 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
     col %?<-% get_currently_active_heatmap()
     
     if(!('matrix' %in% class(mat))) {
-        warning('mat is not a matrix... check it out: make_image_mat')
+        stop('mat is not a matrix... check it out: make_image_mat')
         # assign('make_image_mat', mat, globalenv())
     }
 
-    image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
-          add=add, axes=F, xlab='', ylab='', main='')
+    # dipsaus::cat2(paste('range(x): ', paste(min(x), max(x))))
+    # dipsaus::cat2(paste('range(y): ', paste(min(y), max(y))))
+    # dipsaus::cat2(paste('range(z): ', paste(min(mat), max(mat))))
+    
+    # assign('make_image_mat', list(
+    #     'mat' = mat,
+    #     'x' = x,
+    #     'y' = y,
+    #     'zlim' = zlim,
+    #     'col' = col,
+    #     'useRaster' = useRaster,
+    #     'log' = log,
+    #     'add' = add
+    #     ), globalenv())
+    # 
+    if(is.na(log)) {
+        log = ''
+    }
+    
+    # with(make_image_mat, {
+    
+    
+    
+        image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
+              add=add, axes=F, xlab='', ylab='', main='')
+    # })
+    
+    
+    
 
     # return the clipped zmat
     invisible(mat)
@@ -881,9 +939,14 @@ reorder_trials_by_event <- function(bthmd, event_name) {
     attr(bthmd$data, 'zlab') <- .zlab
     
     
+    # what things need to be re-ordered... this is potentially dangerous because we don't know what we _aren't_ re-ordering
     bthmd$trials <-  bthmd$trials[new_order]
     bthmd$Trial_num <-  bthmd$Trial_num[new_order]
     bthmd$is_clean <-  bthmd$is_clean[new_order]
+    
+    if('ConditionGroup' %in% names(bthmd)) {
+        bthmd$ConditionGroup <- bthmd$ConditionGroup[new_order]
+    }
     
     return(bthmd)
 }
@@ -932,18 +995,52 @@ add_decorator <- function(f1, f2, ...) {
 
 # here we are creating a new decorator that uses component-esque pattern to draw
 # lines after the initial decoration is done
-trial_type_boundaries_hm_decorator <- function(map, ...) {
-    with(map, {
-        if(length(map$lines)>1) {
-            abline(h=remove_tail(map$lines) + 0.5, lwd=2, col=rave_colors$TRIAL_TYPE_SEPARATOR)
-            # draw the trial type labels
-            yat <- c(map$lines[1]/2, midpoint(map$lines))
-        } else {
-            yat <- median(y)
-        }
-        # rather than drawing the labels AT the lines, we should draw them intermediate
-        rave_axis(2, tcl=0, lwd=0, at=yat+0.5, labels=map$ttypes)
-    })
+trial_type_boundaries_hm_decorator <- function(map, try_to_label_groups=FALSE, label_colors = 'black', ...) {
+    
+    ttbhmd <- function(map, do_labels=force(try_to_label_groups), col = force(label_colors), ...) {
+        # with(map, {
+            if(length(map$lines)>1) {
+                abline(h=remove_tail(map$lines) + 0.5, lwd=2, col=rave_colors$TRIAL_TYPE_SEPARATOR)
+                # draw the trial type labels
+                yat <- c(map$lines[1]/2, midpoint(map$lines))
+            } else {
+                yat <- median(map$y)
+            }
+            # rather than drawing the labels AT the lines, we should draw them intermediate
+            rave_axis(2, tcl=0, lwd=0, at=yat+0.5, labels=map$ttypes)
+        # })
+            
+            if(do_labels && !any(is.null(map$ConditionGroup))) {
+                .rle <- rle(as.character(map$ConditionGroup))
+                
+                # this should be calculated in a smarter fashion
+                mtext(side=2, line=floor(par('mar')[2])*.9, text=.rle$values,
+                    cex=rave_cex.lab, col = col[seq_along(.rle$values)],
+                    at=c(.rle$lengths[1]/2, midpoint(cumsum(.rle$lengths)))
+                )
+                
+                # fancy shading of the labels
+                px=c(-1e100,#grconvertX(0, from='dev', to = 'user'),
+                    par('usr')[1])
+                .y <- c(1, cumsum(.rle$lengths))
+                for(ii in 1:3) {
+                    rutabaga::do_poly(x = px,
+                        y = c(.y[ii], .y[ii+1]) + 0.5, # don't forget the 0.5 pad to get the polys and lines aligned
+                        col=ii, xpd=T, lwd=1, border='white')
+                    
+                }
+                # plot(-5:5, rnorm(11))
+                # grconvertX(, from='line', to='user')
+                # abline(v=0.474, col='blue', xpd=T)
+                
+            }
+    }
+    
+    if(missing(map)) {
+        return(ttbhmd)
+    }
+    
+    ttbhmd(map, try_to_label_groups, label_colors, ...)
 
     invisible(map)
 }
@@ -1866,11 +1963,16 @@ cache_heatmap_palette <- function(pname, pal) {
 
 #'
 #'@export
-expand_heatmap <- function(pal, results, ncolors, space='Lab', ...) {
+expand_heatmap <- function(pal, results, ncolors=101, space='Lab', ...) {
     # interpolate_type=c('linear', 'spline'), color_space = c('Lab', 'rgb'),
     if(!missing(results)) {
         ncolors <- results$get_value('heatmap_number_color_values', 101)
         pal %?<-% results$get_value('heatmap_color_palette')
+    }
+    
+    # help people out if they give us a name of a color palette rather than the palette itself
+    if(length(pal) ==1 && pal[1] %in% get_heatmap_palette(get_palette_names = T)) {
+        pal %<>% get_heatmap_palette   
     }
     
     colorRampPalette(pal, space=space, ...)(ncolors)
@@ -1989,7 +2091,7 @@ get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FAL
 
 
 build_3dv_palette <- function(var_names, pal_names) {
-    if(length(var_names) < 1) stop('invalid names provided to build 3dv pal')
+    if(length(var_names) < 1) return (NULL)#stop('invalid names provided to build 3dv pal')
     
     .colors = get_heatmap_palette(pal_names[[1]])
     pal = expand_heatmap(.colors, ncolors=128)
