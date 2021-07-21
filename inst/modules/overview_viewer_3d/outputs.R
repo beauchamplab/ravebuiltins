@@ -44,8 +44,6 @@ brain_viewer_fun <- function( render_value, side_width, env, proxy ){
     }else{
         NULL
     }
-
-    
 }
 
 generate_brain <- function( brain, proxy ){
@@ -68,10 +66,19 @@ generate_brain <- function( brain, proxy ){
     controllers[['Background Color']] = bgcolor
     controllers[['Subject']] = NULL
     
-    
     pname <- input$heatmap_color_palette
     
-    pals <- build_3dv_palette(names(brain$electrodes$value_table), pal_names = pname)
+    # check for character data, coerce to factor
+    
+    vt <- brain$electrodes$value_table
+    
+    # build pals only for numeric data
+    nms <- names(vt)
+    
+    # don't create palette for string vars
+    nms = nms[!sapply(vt, function(x) any(is.factor(x), is.character(x)))]
+    
+    pals <- build_3dv_palette(nms, pal_names = pname)
     
     brain$plot(side_width = side_width, background = bgcolor, 
                controllers = controllers, start_zoom = camera$zoom, 
