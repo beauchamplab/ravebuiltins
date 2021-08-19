@@ -17,18 +17,18 @@ electrode_plot_ui = function(){
     }
 
     blocks = subject$preprocess_info('blocks'); blocks %?<-% ''
-    electrode_plt_block = isolate(local_data$electrode_plt_block);
+    electrode_plt_block = isolate(local_data$electrode_plt_block)
     electrode_plt_block %?<-% blocks[1]; if(!electrode_plt_block %in% blocks){ electrode_plt_block = blocks[1] }
 
     electrodes = group_info$electrodes
-    electrode_plt_electrode = isolate(local_data$electrode_plt_electrode);
-    electrode_plt_electrode %?<-% electrodes[1]; electrode_plt_electrode = as.integer(electrode_plt_electrode);
-    if(!electrode_plt_electrode %in% electrodes){ electrode_plt_electrode = electrodes[1] };
+    electrode_plt_electrode = isolate(local_data$electrode_plt_electrode)
+    electrode_plt_electrode %?<-% electrodes[1]; electrode_plt_electrode = as.integer(electrode_plt_electrode)
+    if(!electrode_plt_electrode %in% electrodes){ electrode_plt_electrode = electrodes[1] }
 
     srate = subject$preprocess_info('srate')
     electrode_plt_win = isolate(local_data$electrode_plt_win); electrode_plt_win %?<-% ceiling(srate * 2)
 
-    electrode_plt_mfreq = isolate(local_data$electrode_plt_mfreq); electrode_plt_mfreq %?<-% min(300, srate/2);
+    electrode_plt_mfreq = isolate(local_data$electrode_plt_mfreq); electrode_plt_mfreq %?<-% min(300, srate/2)
 
 
     fluidRow(
@@ -202,7 +202,7 @@ output$electrode_plot_raw = renderPlot({
     )
 
     win_len = (local_data$electrode_plt_win); win_len %?<-% ceiling(srate * 2)
-    max_freq = (local_data$electrode_plt_mfreq); max_freq %?<-% min(300, srate/2);
+    max_freq = (local_data$electrode_plt_mfreq); max_freq %?<-% min(300, srate/2)
 
 
     rave::diagnose_signal(
@@ -248,19 +248,19 @@ parallel_plot_ui = function(){
 
 
     blocks = subject$preprocess_info('blocks'); blocks %?<-% ''
-    parallel_plt_block = isolate(local_data$parallel_plt_block);
+    parallel_plt_block = isolate(local_data$parallel_plt_block)
     parallel_plt_block %?<-% blocks[1]; if(!parallel_plt_block %in% blocks){ parallel_plt_block = blocks[1] }
 
     parallel_plt_space = isolate(local_data$parallel_plt_space)
     parallel_plt_space %?<-% 1000; parallel_plt_space = max(parallel_plt_space, 0)
 
     parallel_plt_start = isolate(local_data$parallel_plt_start)
-    parallel_plt_start %?<-% 0;
+    parallel_plt_start %?<-% 0
     parallel_plt_start_step = isolate(local_data$parallel_plt_start_step); parallel_plt_start_step %?<-% 5
     parallel_plt_start_max = isolate(local_data$parallel_plt_start_max); parallel_plt_start_max %?<-% 300
 
     parallel_plt_duration = isolate(local_data$parallel_plt_duration)
-    parallel_plt_duration %?<-% 5;
+    parallel_plt_duration %?<-% 5
 
     parallel_plt_excl = isolate(local_data$parallel_plt_excl)
     parallel_plt_excl = parallel_plt_excl[parallel_plt_excl %in% group_info$electrodes]
@@ -320,10 +320,16 @@ channel_plot = function(){
 
     sel_hide = group_info$electrodes %in% local_data$parallel_plt_excl
 
-    space = local_data$parallel_plt_space; space %?<-% 1000; if(space <= 0) space = 1000;
+    space = local_data$parallel_plt_space; space %?<-% 1000
+    if(space <= 0) space = 1000
+    
     block = local_data$parallel_plt_block
-    start = local_data$parallel_plt_start; start %?<-% 0; start = max(start, 0)
-    duration = local_data$parallel_plt_duration; duration %?<-% 1; duration = max(duration, 1)
+    start = local_data$parallel_plt_start; start %?<-% 0
+    start = max(start, 0)
+    duration = local_data$parallel_plt_duration
+    duration %?<-% 1
+    duration = max(duration, 1)
+    
     srate = subject$preprocess_info('srate')
 
 

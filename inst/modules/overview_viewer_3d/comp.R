@@ -1,4 +1,3 @@
-#' @author Zhengjia Wang
 #' This is UI component especially designed for 3D viewers which uses `threebrain`
 #' to visualize electrodes as well as surfaces via webgl.
 #' 

@@ -3,6 +3,9 @@
 #' @param ... other parameters passed to module output
 #' @export
 over_time_plot <- function(results, ...) {
+    
+    
+    
     has_data <- results$get_value('has_data', FALSE)
 
     validate(need(has_data, message="No Condition Specified"))
@@ -16,11 +19,16 @@ over_time_plot <- function(results, ...) {
          decorator <- stimulation_window_decorator
     }
     
+    
+    # dipsaus::cat2('TSP START')
+    
     time_series_plot(plot_data = results$get_value('over_time_data'),
                      plot_time_range = results$get_value('plot_time_range'),
                      PANEL.FIRST = time_series_decorator(plot_options=po),
                      PANEL.LAST = decorator
     )
+    
+    # dipsaus::cat2('TSP END')
 }
 
 #' Draws an orange, dashed horizontal line at cut. Checks for not null and 
@@ -35,7 +43,7 @@ over_time_plot <- function(results, ...) {
 #' plot(-log10(runif(100)), ylab='p value')
 #' draw_cut_point(-log10(0.05))
 draw_cut_point <- function(cut=NULL) {
-    if(!is_null(cut) & length(cut)>0) {
+    if(!is.null(cut) & length(cut)>0) {
         abline(h=cut, lwd=1, col='orangered', lty=2)
     }
     invisible(cut)
@@ -45,6 +53,7 @@ across_electrode_statistics_plot <- function(results, ...) {
     validate(need(results$get_value('has_data', FALSE),
                   message="No Condition Specified"))
     
+    # dipsaus::cat2("Starting AESP")
     # assign('omnibus_results', results$omnibus_results, envir=globalenv())
 
     wrap_density <- function(expr) {
@@ -82,6 +91,8 @@ across_electrode_statistics_plot <- function(results, ...) {
             }
         )
     )
+    
+    # dipsaus::cat2("Done AESP")
 }
 
 plot_sideways_density <- function(x, xlim, cut=NULL) {
@@ -295,9 +306,9 @@ get_result_name <- function(full_name) {
 #' @export
 windowed_comparison_plot <- function(results, ...){
     has_data <- results$get_value('has_data', FALSE)
-    
     validate(need(has_data, message="No Condition Specified"))
     
+    # dipsaus::cat2("Starting WCP")
     set_palette_helper(results)
     
     # po = results$get_value('plot_options')
@@ -309,6 +320,8 @@ windowed_comparison_plot <- function(results, ...){
         show_outliers = results$get_value('show_outliers_on_plots'),
         PANEL.LAST = trial_scatter_plot_decortator(plot_title_options = po$plot_title_options)
     )
+    
+    # dipsaus::cat2("END WCP")
 }
 
 #' @title Basic Time Frequency Plot
@@ -327,6 +340,9 @@ windowed_comparison_plot <- function(results, ...){
 heat_map_plot <- function(results, ...){
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
+    
+    # dipsaus::cat2("Starting HMP")
+    
 
     set_palette_helper(results)
     set_heatmap_palette_helper(results)
@@ -356,6 +372,8 @@ heat_map_plot <- function(results, ...){
                         center_multipanel_title = results$get_value('center_multipanel_title'),
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE), color_bar_title_decorator, 0)
     )
+    
+    # dipsaus::cat2("Done HMP")
 }
 
 heatmap_plot_helper <- function(results, hmap_varname, ...) {
@@ -384,9 +402,10 @@ heatmap_plot_helper <- function(results, hmap_varname, ...) {
 }
 
 by_electrode_heat_map_plot <- function(results, ...) {
-    rave_context()
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
+    
+    # dipsaus::cat2("Starting BEHMP")
     
     set_palette_helper(results)
     set_heatmap_palette_helper(results)
@@ -407,7 +426,7 @@ by_electrode_heat_map_plot <- function(results, ...) {
     if(results$get_value('censor_stimulation_window')) {
         ignore_time_range <- results$get_value('stimulation_window')
     }
-    
+    # dipsaus::cat2("Starting DMHM")
     draw_many_heat_maps(behmd,
                         percentile_range=results$get_value('percentile_range'),
                         max_zlim = results$get_value('max_zlim'), log_scale=FALSE,
@@ -420,9 +439,9 @@ by_electrode_heat_map_plot <- function(results, ...) {
                         PANEL.COLOR_BAR = ifelse(results$get_value('show_heatmap_range', FALSE),
                                                  color_bar_title_decorator, 0)
                         )
+    
+    # dipsaus::cat2("Done BEHMP")
 }
-
-
 
 # this is separated out as other plots may need to do this
 remove_outliers_from_by_trial_data <- function(bthmd) {
@@ -455,7 +474,6 @@ remove_outliers_from_by_trial_data <- function(bthmd) {
     }
     return(bthmd)
 }
-
 
 # the only difference between this plot and the time x freq heat_map_plot
 # is the data and the decoration. Use the core heatmap function

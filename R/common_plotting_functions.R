@@ -1,5 +1,4 @@
 
-#' @author John Magnotti
 #' @title Draw several heatmaps in a row and (optionally) a color bar
 #' @param hmaps data to draw heatmaps
 #' @param percentile_range whether to draw in percentile
@@ -21,20 +20,20 @@
 #' @seealso layout_heat_maps
 #' @seealso draw_img
 draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_scale=FALSE,
-                                show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
-                                PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), plot_time_range=NULL, 
-                                special_case_first_plot = FALSE, max_columns=2, decorate_all_plots=FALSE, center_multipanel_title=FALSE,
-                                ignore_time_range=NULL, ...) {
+    show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
+    PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), plot_time_range=NULL, 
+    special_case_first_plot = FALSE, max_columns=2, decorate_all_plots=FALSE, center_multipanel_title=FALSE,
+    ignore_time_range=NULL, ...) {
     k <- sum(hmaps %>% get_list_elements('has_trials'))
     
     # need to determine the max columns
     
     orig.pars <- layout_heat_maps(k, max_col = max_columns, 
-                                  layout_color_bar = show_color_bar)
+        layout_color_bar = show_color_bar)
     
     # I'm getting error about pin here... let's just rely on the graphics device being reset?
     # on.exit({
-        # par(orig.pars)
+    # par(orig.pars)
     # })
     
     if(is.na(max_zlim)) {
@@ -50,8 +49,8 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
         
         print('draw_many_heat_maps should be using strwidth')
         par(mar = c(par('mar')[1],
-                    5.1 + max(0,(max_char_count - 5)*0.95),
-                    2, 2))
+            5.1 + max(0,(max_char_count - 5)*0.95),
+            2, 2))
     } else {
         # axis=2 is being cutoff on multi-panel plots
         if(any(par('mfrow')>1)) {
@@ -67,7 +66,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             par(mar=c(par('mar')[1], par('mar')[2], 2, 2))
         }
     }
-
+    
     # actual data range, as opposed to the max zlim which controls the plottable range
     actual_lim = get_data_range(hmaps)
     
@@ -79,14 +78,14 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
         } else {
             if(!is.numeric(ignore_time_range)) {
                 max_zlim <- quantile(unlist(lapply(hmaps, getElement, 'data')),
-                                     probs = max_zlim / 100,
-                                     na.rm = TRUE)
+                    probs = max_zlim / 100,
+                    na.rm = TRUE)
             } else {
                 ind <- !(hmaps[[1]]$x %within% ignore_time_range)
                 
                 max_zlim <- quantile(unlist(lapply(hmaps, function(h) h$data[ind,])),
-                                     probs = max_zlim / 100,
-                                     na.rm = TRUE)
+                    probs = max_zlim / 100,
+                    na.rm = TRUE)
             }
             
         }
@@ -98,7 +97,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             max_zlim %<>% round_to_nearest(5)
         }
     }
-
+    
     log_scale <- if(isTRUE(log_scale)) {
         'y'
     } else {
@@ -112,7 +111,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
         if(map$has_trials){
             # check the plottable range, to make sure we're only plotting what the user has requested
             plot_time_range %?<-% range(map$x)
-
+            
             if (! all(map$x %within% plot_time_range) ) {
                 # print('fixing x range')
                 .attr = attributes(map$data)
@@ -121,7 +120,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
                 
                 ## This is dropping attributes :(
                 map$data <- map$data[ind,,drop=FALSE]
-
+                
                 # update to the new dim                
                 .attr$dim = attr(map$data, 'dim')
                 
@@ -179,11 +178,11 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
                 pad = c(-0.5, 0.5)
                 # dipsaus::cat2("rutabaga::plot_clean")
                 rutabaga::plot_clean(xlim=range(x) + pad,
-                           ylim=range(y) + pad)
+                    ylim=range(y) + pad)
             }
             
             if(is.function(PANEL.FIRST)) {
-                    PANEL.FIRST(map)
+                PANEL.FIRST(map)
             }
             
             # make sure the decorators are aware that we are linearizing the y scale here
@@ -199,20 +198,20 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             } else {
                 yticks <- ..get_nearest(pretty(map$y), map$y)
             }
-
+            
             axes %<>% rep_len(2)
             if(axes[1])
                 rave_axis(1, at=xticks, labels=map$x[xticks], tcl=0, lwd=0)
             if(axes[2])
                 rave_axis(2, at=yticks, labels=map$y[yticks], tcl=0, lwd=0)
-
+            
             if(is.function(PANEL.LAST)) {
                 # dipsaus::cat2("PANEL.LAST")
                 #PANEL.LAST needs to know about the coordinate transform we made
-                    PANEL.LAST(map,
-                               Xmap=function(x) ..get_nearest_i(x, map$x),
-                               Ymap=function(y) ..get_nearest_i(y, map$y),
-                               more_title_options = mto)
+                PANEL.LAST(map,
+                    Xmap=function(x) ..get_nearest_i(x, map$x),
+                    Ymap=function(y) ..get_nearest_i(y, map$y),
+                    more_title_options = mto)
             }
         }
     }
@@ -246,7 +245,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
     # last thing we do is render a main title on the plot if needed
     if(!decorate_all_plots && any(
         par('mfrow')[1] > 1, par('mfrow')[2] > 2)
-       ) {
+    ) {
         # get the original title string
         
         
@@ -259,25 +258,25 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
         }
         
         mtext(text = paste(hmaps[[1]]$subject_code,
-                        "E", dipsaus::deparse_svec(hmaps[[1]]$electrodes), ", ",
-                        paste0(hmaps[[1]]$frequency_window, collapse=':'), 'Hz'
-                    ),
-              line=0, at = xpos, adj=adj,
-              outer=TRUE, font = 1, cex=rave_cex.main*0.8)
+            "E", dipsaus::deparse_svec(hmaps[[1]]$electrodes), ", ",
+            paste0(hmaps[[1]]$frequency_window, collapse=':'), 'Hz'
+        ),
+            line=0, at = xpos, adj=adj,
+            outer=TRUE, font = 1, cex=rave_cex.main*0.8)
     }
     
     invisible(hmaps)
 }
 
 
-calculate_abs_max <- function(y, requested_max, percentile_range=FALSE, do_round=FALSE) {
+calculate_abs_max <- function(y, requested_max=NA, percentile_range=FALSE, do_round=FALSE) {
     
     true_abs_max <- max(abs(y), na.rm=TRUE)
     
-    mx <- if(is.na(requested_max) || requested_max <= 0) {
+    mx <- if(is.null(requested_max) || is.na(requested_max) || requested_max <= 0) {
         true_abs_max
     } else if (!percentile_range) {
-     requested_max   
+        requested_max   
     } else {
         if(requested_max >= 100) {
             (requested_max / 100)*true_abs_max
@@ -310,12 +309,12 @@ build_group_names <- function(groups) {
 
 build_group_contrast_labels <- function(group_names) {
     apply(utils::combn(length(group_names),2), 2, 
-          function(x) paste(group_names[x],collapse='.vs.'))
+        function(x) paste(group_names[x],collapse='.vs.'))
 }
 
 # show power over time with MSE by condition
 time_series_plot <- function(plot_data, PANEL.FIRST=NULL, PANEL.LAST=NULL, plot_time_range=NULL,
-                             do_update_ylim=TRUE, axes=TRUE) {
+    do_update_ylim=TRUE, axes=TRUE) {
     # check the plottable range, to make sure we're only plotting what the user has requested
     plot_time_range %?<-% get_data_range(plot_data, 'x')
     
@@ -388,7 +387,7 @@ event_label_decorator <- function(data, event_label, Xmap=force, Ymap=force, sid
 # this is a list to allow different N in each group
 # NB: the reason we use barplot here is that it takes care of the width between groups for us, even though by default we don't actually show the bars
 trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, cols, ebar.cols='gray30', ebar.lwd=3, jitr_x,
-                              pchs=16, pt.alpha=175, xlab='Group', ylab='Mean % Signal Change', ebar.lend=2, show_outliers=TRUE, PANEL.LAST=NULL, ...) {
+    pchs=16, pt.alpha=175, xlab='Group', ylab='Mean % Signal Change', ebar.lend=2, show_outliers=TRUE, PANEL.LAST=NULL, ...) {
     
     nms <- group_data %>% get_list_elements('name')
     
@@ -406,7 +405,7 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
         yax <- do_if(missing(ylim), {
             pretty(sapply(group_data, function(.d) {
                 range(.d %$% data[is_clean])
-                }), high.u.bias = 100, n=4, min.n=3)
+            }), high.u.bias = 100, n=4, min.n=3)
         }, ylim)
     }
     
@@ -424,8 +423,8 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
     # x <- rave_barplot(mses[1,],col='white', ylim=.fast_range(yax), axes=F)
     .fg <- par('fg'=axis_col, 'col.lab' = axis_col, col.axis=axis_col)
     x <- rave_barplot(mses[1,],
-                      ylim=.fast_range(yax) %>% stretch(.01), col=bar.cols, border=bar.borders,
-                      names.arg=bp_names[ind], axes=FALSE, ...)
+        ylim=.fast_range(yax) %>% stretch(.01), col=bar.cols, border=bar.borders,
+        names.arg=bp_names[ind], axes=FALSE, ...)
     par('fg'=.fg)
     
     axis_label_decorator(group_data, label_alignment=FALSE)
@@ -433,12 +432,12 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
     rave_axis(2, at=yax)
     
     if(min(yax) < 0) abline(h=0, col='lightgray')
-
+    
     # grabbing an attribute from the group data
     if(not_null(attr(group_data, 'stats'))) {
         # rave_title(as.title(pretty(
-            # legend('topleft', bty='n', legend=attr(group_data, 'stats'))
-            # )))
+        # legend('topleft', bty='n', legend=attr(group_data, 'stats'))
+        # )))
     } else {
         # 
     }
@@ -472,7 +471,7 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
         if(group_data[[ii]]$has_trials) {
             
             lines(group_data[[ii]]$xp + c(-lsize, lsize), rep(mses[1, xi], 2),
-                  lwd=ebar.lwd, lend=ebar.lend, col=ebar.cols[ii])
+                lwd=ebar.lwd, lend=ebar.lend, col=ebar.cols[ii])
             
             # add_points(x[xi], group_data[[ii]]$data,
             #            col=getAlphaRGB(cols[ii], pt.alpha), pch=pchs[ii], jitr_x=jitr_x)
@@ -481,14 +480,14 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
             if(show_outliers) {
                 group_data[[ii]] %$% {
                     points(x, data,
-                           col=ifelse(is_clean, getAlphaRGB(cols[ii], pt.alpha), 'gray30'),
-                           pch=ifelse(is_clean, pchs[ii], 1))
+                        col=ifelse(is_clean, getAlphaRGB(cols[ii], pt.alpha), 'gray30'),
+                        pch=ifelse(is_clean, pchs[ii], 1))
                 }
             } else {
                 group_data[[ii]] %$% {
                     points(x[is_clean], data[is_clean],
-                           col=getAlphaRGB(cols[ii], pt.alpha),
-                           pch=pchs[ii])
+                        col=getAlphaRGB(cols[ii], pt.alpha),
+                        pch=pchs[ii])
                 }
                 
                 
@@ -496,7 +495,7 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
             
             # cat('How many clean datapoints?' %&% sum(group_data[[ii]]$is_clean) %&% '\n')
             ebars.y(x[xi], mses[1,xi], mses[2,xi],
-                    lwd=ebar.lwd, col=ebar.cols[ii], code=0, lend=ebar.lend)
+                lwd=ebar.lwd, col=ebar.cols[ii], code=0, lend=ebar.lend)
             
             xi <- xi+1
         }
@@ -513,7 +512,7 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
 trial_scatter_plot_decortator <- function(plot_data, plot_title_options, ...) {
     tspd <- function(plot_data, ...) {
         title_decorator(plot_data, plot_title_options=plot_title_options,
-                        allow_cond = FALSE, allow_sample_size = FALSE)
+            allow_cond = FALSE, allow_sample_size = FALSE)
     }
     
     if(missing(plot_data)) {
@@ -535,8 +534,8 @@ stimulation_window_decorator <- function(map, ..., Xmap=force) {
     }
     
     window_decorator(window = Xmap(map$stimulation_window),
-                     text = 'STIM\nARTF', text.col = get_middleground_color(k=.675),
-                     type = 'shaded', shade.col=paste0(get_background_color(), 'D8')
+        text = 'STIM\nARTF', text.col = get_middleground_color(k=.675),
+        type = 'shaded', shade.col=paste0(get_background_color(), 'D8')
     )
 }
 
@@ -551,7 +550,7 @@ draw.box <- function(x0,y0,x1,y1, ...) {
 # the Xmap and Ymap here are functions that allow for transformation of the plot_data $x and $y into
 # the coordinate system of the plot
 spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Ymap=force, btype='line', atype='box', 
-                                          title_options=list(allow_freq=FALSE), ...) {
+    title_options=list(allow_freq=FALSE), ...) {
     to <- force(title_options)
     if(missing(plot_options)) {
         plot_options = build_plot_options()
@@ -603,7 +602,7 @@ spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Y
             'Analysis'=list(
                 window = if(atype=='box') {
                     list(x=Xmap(plot_data$analysis_window),
-                         y=Ymap(plot_data$frequency_window))
+                        y=Ymap(plot_data$frequency_window))
                 } else if(atype == 'label') {
                     plot_data$analysis_window    
                 }else {
@@ -612,15 +611,15 @@ spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Y
                 type=atype
             )
         )
-
+        
         lapply(names(windows), function(nm) {
             if(paste(nm, 'Window') %in% plot_options$plot_title_options & windows[[nm]]$type != 'n') {
                 with(windows[[nm]],
-                     window_decorator(
-                         window=window, type=type,
-                         text=ifelse(plot_options$draw_decorator_labels, nm, ''),
-                         label_placement_offset = ifelse(all('label' == c(btype,atype), nm == 'Analysis'), 0.8, 0.9)
-                     )
+                    window_decorator(
+                        window=window, type=type,
+                        text=ifelse(plot_options$draw_decorator_labels, nm, ''),
+                        label_placement_offset = ifelse(all('label' == c(btype,atype), nm == 'Analysis'), 0.8, 0.9)
+                    )
                 )
             }
         })
@@ -640,7 +639,7 @@ spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Y
 
 # here we just call the spectrogram decorator with some special setup options
 by_trial_heat_map_decorator <- function(plot_data=NULL, plot_options, Xmap=force, Ymap=force,
-                                        title_options=list(allow_sample_size=FALSE), atype='line', btype='line', ...) {
+    title_options=list(allow_sample_size=FALSE), atype='line', btype='line', ...) {
     args <- list(
         plot_options=plot_options, Xmap=Xmap, Ymap=Ymap, atype=atype, btype=btype,
         title_options = title_options,
@@ -679,7 +678,6 @@ by_electrode_heat_map_decorator <- function(plot_data=NULL, plot_options, Xmap=f
 
 
 
-#' @author John Magnotti
 #' @title RAVE custom image plotter
 #' @param mat z-matrix
 #' @param x,y z and y axis
@@ -709,7 +707,7 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
         stop('mat is not a matrix... check it out: make_image_mat')
         # assign('make_image_mat', mat, globalenv())
     }
-
+    
     # dipsaus::cat2(paste('range(x): ', paste(min(x), max(x))))
     # dipsaus::cat2(paste('range(y): ', paste(min(y), max(y))))
     # dipsaus::cat2(paste('range(z): ', paste(min(mat), max(mat))))
@@ -733,13 +731,13 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
     
     
     
-        image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
-              add=add, axes=F, xlab='', ylab='', main='')
+    image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
+        add=add, axes=F, xlab='', ylab='', main='')
     # })
     
     
     
-
+    
     # return the clipped zmat
     invisible(mat)
 }
@@ -765,14 +763,14 @@ layout_heat_maps <- function(k, max_col, ratio=4, layout_color_bar=TRUE) {
     nr <- ceiling(k / max_col)
     max_col = min(k, max_col)
     m <- 1:k
-    mat <- matrix(c(m, rep.int(0, nr*max_col - k)), byrow = T,
-                 nrow=nr, ncol = max_col)
+    mat <- matrix(c(m, rep.int(0, nr*max_col - k)), byrow = TRUE,
+        nrow=nr, ncol = max_col)
     widths <- rep(ratio, max_col)
     if(layout_color_bar) {
         mat <- cbind(mat, k+1)
         widths <- c(widths, lcm(cbar_wid))
     }
-        
+    
     layout(mat, widths=widths)
     
     invisible(opars)
@@ -794,7 +792,7 @@ median_ticks <- function(k, .floor=1) c(.floor, ceiling(k/2), k)
 as_pdf = function(fname, w, h, expr, TEST=FALSE, bg='transparent') {
     if(! TEST) {
         on.exit(dev.off())
-
+        
         fname <- fix_pdf_name(fname)
         pdf(fname, width=w, height=h, useDingbats=FALSE, bg=bg)
         res = eval(expr)
@@ -819,14 +817,14 @@ str_rng <- function(rng) {
 
 
 rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change', ylab.line=1.5,
-                           mar=c(5.1, 5.1, 2, 2), adjust_for_nrow=TRUE, horizontal=FALSE, ...) {
+    mar=c(5.1, 5.1, 2, 2), adjust_for_nrow=TRUE, horizontal=FALSE, ...) {
     rave_context()
-
+    
     clrs %?<-% get_currently_active_heatmap()
     cbar <- matrix(seq(-zlim, zlim, length=length(clrs))) %>% t
     
     if(horizontal) cbar %<>% t
-
+    
     ylim = 0:1
     if(adjust_for_nrow && (par('mfrow')[1] > 1)) {
         nr = par('mfrow')[1]
@@ -835,8 +833,8 @@ rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change', 
     
     par(mar=mar)
     image(cbar, useRaster = FALSE, ylim=ylim,
-          col=clrs, axes=F, ylab='', main='',
-          col.lab = get_foreground_color())
+        col=clrs, axes=F, ylab='', main='',
+        col.lab = get_foreground_color())
     
     # check if any other graphics params were requested, direct them to the proper function
     more = list(...)
@@ -855,7 +853,7 @@ rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change', 
     
     if(horizontal) ra.args$side = 1
     do.call(rave_axis, ra.args)
-
+    
     ra.args[c('at', 'labels', 'tcl')] = list(0.5, 0, 0.3)
     do.call(rave_axis, ra.args)
     
@@ -864,11 +862,11 @@ rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change', 
     # we don't get clipping
     if(!horizontal) {
         rect(par('usr')[1], 0, par('usr')[2], 1,
-             lwd=1, xpd=T)
+            lwd=1, xpd=TRUE)
     } else {
         box()
     }
-
+    
     invisible(zlim)
 }
 
@@ -887,7 +885,7 @@ reorder_trials_by_type <- function(bthmd) {
     
     # we want to sort but preserve the order that the conditions were added to the group
     ind <- sapply(bthmd$conditions, function(ttype) which(ttype==bthmd$trials), simplify = FALSE)
-
+    
     .xlab <- attr(bthmd$data, 'xlab')
     .zlab <- attr(bthmd$data, 'zlab')
     
@@ -903,7 +901,7 @@ reorder_trials_by_type <- function(bthmd) {
     bthmd$trials <-  bthmd$trials[unlist(ind)]
     bthmd$Trial_num <-  bthmd$Trial_num[unlist(ind)]
     bthmd$is_clean <-  bthmd$is_clean[unlist(ind)]
-
+    
     return(bthmd)
 }
 
@@ -999,41 +997,41 @@ trial_type_boundaries_hm_decorator <- function(map, try_to_label_groups=FALSE, l
     
     ttbhmd <- function(map, do_labels=force(try_to_label_groups), col = force(label_colors), ...) {
         # with(map, {
-            if(length(map$lines)>1) {
-                abline(h=remove_tail(map$lines) + 0.5, lwd=2, col=rave_colors$TRIAL_TYPE_SEPARATOR)
-                # draw the trial type labels
-                yat <- c(map$lines[1]/2, midpoint(map$lines))
-            } else {
-                yat <- median(map$y)
-            }
-            # rather than drawing the labels AT the lines, we should draw them intermediate
-            rave_axis(2, tcl=0, lwd=0, at=yat+0.5, labels=map$ttypes)
+        if(length(map$lines)>1) {
+            abline(h=remove_tail(map$lines) + 0.5, lwd=2, col=rave_colors$TRIAL_TYPE_SEPARATOR)
+            # draw the trial type labels
+            yat <- c(map$lines[1]/2, midpoint(map$lines))
+        } else {
+            yat <- median(map$y)
+        }
+        # rather than drawing the labels AT the lines, we should draw them intermediate
+        rave_axis(2, tcl=0, lwd=0, at=yat+0.5, labels=map$ttypes)
         # })
+        
+        if(do_labels && !any(is.null(map$ConditionGroup))) {
+            .rle <- rle(as.character(map$ConditionGroup))
             
-            if(do_labels && !any(is.null(map$ConditionGroup))) {
-                .rle <- rle(as.character(map$ConditionGroup))
-                
-                # this should be calculated in a smarter fashion
-                mtext(side=2, line=floor(par('mar')[2])*.9, text=.rle$values,
-                    cex=rave_cex.lab, col = col[seq_along(.rle$values)],
-                    at=c(.rle$lengths[1]/2, midpoint(cumsum(.rle$lengths)))
-                )
-                
-                # fancy shading of the labels
-                px=c(-1e100,#grconvertX(0, from='dev', to = 'user'),
-                    par('usr')[1])
-                .y <- c(1, cumsum(.rle$lengths))
-                for(ii in 1:3) {
-                    rutabaga::do_poly(x = px,
-                        y = c(.y[ii], .y[ii+1]) + 0.5, # don't forget the 0.5 pad to get the polys and lines aligned
-                        col=ii, xpd=T, lwd=1, border='white')
-                    
-                }
-                # plot(-5:5, rnorm(11))
-                # grconvertX(, from='line', to='user')
-                # abline(v=0.474, col='blue', xpd=T)
+            # this should be calculated in a smarter fashion
+            mtext(side=2, line=floor(par('mar')[2])*.9, text=.rle$values,
+                cex=rave_cex.lab, col = col[seq_along(.rle$values)],
+                at=c(.rle$lengths[1]/2, midpoint(cumsum(.rle$lengths)))
+            )
+            
+            # fancy shading of the labels
+            px=c(-1e100,#grconvertX(0, from='dev', to = 'user'),
+                par('usr')[1])
+            .y <- c(1, cumsum(.rle$lengths))
+            for(ii in 1:3) {
+                rutabaga::do_poly(x = px,
+                    y = c(.y[ii], .y[ii+1]) + 0.5, # don't forget the 0.5 pad to get the polys and lines aligned
+                    col=ii, xpd=TRUE, lwd=1, border='white')
                 
             }
+            # plot(-5:5, rnorm(11))
+            # grconvertX(, from='line', to='user')
+            # abline(v=0.474, col='blue', xpd=T)
+            
+        }
     }
     
     if(missing(map)) {
@@ -1041,7 +1039,7 @@ trial_type_boundaries_hm_decorator <- function(map, try_to_label_groups=FALSE, l
     }
     
     ttbhmd(map, try_to_label_groups, label_colors, ...)
-
+    
     invisible(map)
 }
 
@@ -1050,13 +1048,13 @@ by_trial_analysis_window_decorator <- function(map, event_name, show_label=TRUE,
     
     btawd <- function(map, Xmap, Ymap, ...) {
         points(Xmap(map$events[[event_name]]), y = Ymap(seq_len(ncol(map$data))),
-               type='p', bg=adjustcolor('black', 1), pch=22, cex=0.25)
+            type='p', bg=adjustcolor('black', 1), pch=22, cex=0.25)
         
         
         if(show_label) {
             text(Xmap(quantile(map$events[[event_name]], 0.75)),
-                 y=Ymap(0.75*ncol(map$data)), label = event_name, cex=rave_cex.lab, pos=2,
-                 font=font)
+                y=Ymap(0.75*ncol(map$data)), label = event_name, cex=rave_cex.lab, pos=2,
+                font=font)
         }
         
         if(show_0) {
@@ -1083,7 +1081,7 @@ do_poly <- function(x, y, col, alpha=50/255, border=NA, ...) {
     
     
     polygon(c(x,rev(x)), rep(y, each=2),
-            col=adjustcolor(col, alpha), border=border, ...)
+        col=adjustcolor(col, alpha), border=border, ...)
 }
 
 heatmap_outlier_highlighter_decorator <- function(map, Xmap=force, Ymap=force, ...) {
@@ -1098,11 +1096,11 @@ heatmap_outlier_highlighter_decorator <- function(map, Xmap=force, Ymap=force, .
             # to do this extra check
             
             do_poly(Xmap(range(x)), y=ti %+-% 0.5, border=NA, lty=1, alpha=0.3,
-                    col=rave_colors$TRIAL_TYPE_SEPARATOR, lwd=2)
+                col=rave_colors$TRIAL_TYPE_SEPARATOR, lwd=2)
             # 
             # do_poly(Xmap(range(x)), y=ti %+-% 0.5, border='yellow', lty=2, alpha=0.0,
             #         col=rave_colors$TRIAL_TYPE_SEPARATOR, lwd=2)
-                
+            
             mtext(text = bquote('' %=>% "" ), at = ti, side=2, line=-2, cex=2, las=1, col='goldenrod2', adj = c(0,0))
             mtext(text = bquote("" %<=% ''), at = ti, side=4, line=-4, cex=2, las=1, col='goldenrod2')
         })
@@ -1112,27 +1110,27 @@ heatmap_outlier_highlighter_decorator <- function(map, Xmap=force, Ymap=force, .
 
 window_highlighter <- function(ylim, draw_labels=TRUE, window, window_name) {
     do_wh <- function(ylim, draw_labels) {
-            clr <- rave_colors[[toupper(window_name %&% '_window')]]
-            clr %?<-% 'gray50'
-            
-            do_poly(window, range(ylim), col=clr)
-            
-            if(draw_labels) {
-                text(min(window), max(ylim), window_name, col=clr, adj=c(0,1))
-            }
+        clr <- rave_colors[[toupper(window_name %&% '_window')]]
+        clr %?<-% 'gray50'
+        
+        do_poly(window, range(ylim), col=clr)
+        
+        if(draw_labels) {
+            text(min(window), max(ylim), window_name, col=clr, adj=c(0,1))
+        }
     }
-
+    
     if(missing(ylim)) {
         return(do_wh)
     }
-
+    
     do_wh(ylim, draw_labels)
 }
 
 # helper function for drawing vertical borders
 vertical_borders <- function(x, y, lbl, clr, ..., alpha=150, lwd=4, draw_labels=TRUE) {
     abline(v=range(x), col=getAlphaRGB(clr, alpha), lwd=lwd, ...)
-
+    
     if(draw_labels)
         text(median(x), max(y), '<- ' %&% lbl %&% ' ->', col=clr)
 }
@@ -1140,12 +1138,12 @@ vertical_borders <- function(x, y, lbl, clr, ..., alpha=150, lwd=4, draw_labels=
 # helper to show multiple different time windows
 # this is written as a function generator so you can effectively cache the TIMES list
 create_multi_window_shader <- function(TIMES, clrs) {
-
+    
     if(missing(clrs)) clrs <- rep('gray30', length(TIMES))
     if(length(clrs) < length(TIMES)) {
         clrs <- c(clrs, rep(clrs, length.out=length(TIMES)-length(clrs)))
     }
-
+    
     return (function(ylim, draw_labels, ...) {
         for(ti in seq_along(TIMES)){
             x <- unlist(TIMES[[ti]]$RANGE)
@@ -1157,7 +1155,7 @@ create_multi_window_shader <- function(TIMES, clrs) {
             }
         }
         vertical_borders(baseline_window, ylim,
-                         'baseline', rave_colors$baseline_window)
+            'baseline', rave_colors$baseline_window)
         abline(h=0, col='gray70')
     })
 }
@@ -1203,11 +1201,11 @@ round_to_nearest <- function(x, val=10) {
 
 get_foreground_color <- function() {
     switch(par('bg'),
-           'white' = 'black',
-           'black' = 'white',
-           '#1E1E1E' = 'gray70',
-           'gray' = '#A5A5A5', 
-           'black'
+        'white' = 'black',
+        'black' = 'white',
+        '#1E1E1E' = 'gray70',
+        'gray' = '#A5A5A5', 
+        'black'
     ) 
 }
 
@@ -1301,8 +1299,8 @@ shiny_is_running <- function() {
 # user preference. This seems rude at best, but for certain plots maybe they really require something to 
 # be put in the title?
 title_decorator <- function(plot_data, plot_title_options,
-                            allow_sid=TRUE, allow_enum=TRUE, allow_freq=TRUE,
-                            allow_cond=TRUE, allow_sample_size=TRUE, ..., plot=TRUE) {
+    allow_sid=TRUE, allow_enum=TRUE, allow_freq=TRUE,
+    allow_cond=TRUE, allow_sample_size=TRUE, ..., plot=TRUE) {
     title_string = ''
     
     # if(missing(plot_title_options)) {
@@ -1337,7 +1335,7 @@ title_decorator <- function(plot_data, plot_title_options,
     
     if(allow_enum)
         add_if_selected('Electrode #', {
-                el <- dipsaus::deparse_svec(plot_data$electrodes, max_lag=1)
+            el <- dipsaus::deparse_svec(plot_data$electrodes, max_lag=1)
             # print('EL: ' %&% el)
             conditional_sep(title_string) = 'E' %&% el
         })
@@ -1389,8 +1387,13 @@ set_font_scaling <- function(plot_options, FONT_SCALING = c('shiny', 'Rutabaga',
         font_opts$tcl = -0.3
     }
     
-    plot_options[names(font_opts)] = font_opts
- 
+    # check if we're using a fast_map
+    if(is.function(plot_options[['mset']])) {
+        plot_options$mset(.list = font_opts)
+    } else {
+        plot_options[names(font_opts)] = font_opts
+    }
+    
     return(plot_options)
 }
 
@@ -1406,7 +1409,7 @@ build_plot_options <- function(..., FONT_SCALING=c('shiny', 'Rutabaga', 'R')) {
         plot_time_range = c(-Inf,Inf),
         draw_decorator_labels = FALSE,
         plot_title_options = c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range', 
-                               'Sample Size', 'Baseline Window', 'Analysis Window'),
+            'Sample Size', 'Baseline Window', 'Analysis Window'),
         
         background_plot_color_hint = 'white',
         
@@ -1427,7 +1430,6 @@ build_plot_options <- function(..., FONT_SCALING=c('shiny', 'Rutabaga', 'R')) {
         sort_trials_by_type = 'Trial Number'
     )
     
-    
     options %<>% set_font_scaling(FONT_SCALING)
     
     
@@ -1435,7 +1437,7 @@ build_plot_options <- function(..., FONT_SCALING=c('shiny', 'Rutabaga', 'R')) {
     v = list(...)
     # options[names(v)] = v
     if(length(v))    options$mset(.list=v)
-
+    
     return(options)
 }
 
@@ -1461,7 +1463,7 @@ time_series_decorator <- function(plot_data, plot_options, do_not_shade = c(), .
     do_tsd <- function(plot_data, label_hint=label_hint) {
         # plot title
         title_decorator(plot_data, plot_title_options = .plot_options,
-                        allow_sample_size=FALSE, allow_cond = FALSE)
+            allow_sample_size=FALSE, allow_cond = FALSE)
         
         # axis labels
         axis_label_decorator(plot_data)
@@ -1482,9 +1484,9 @@ time_series_decorator <- function(plot_data, plot_options, do_not_shade = c(), .
                 }
                 if(!(full_name %in% do_not_shade)) {
                     window_decorator(plot_data[[1]][[full_name]],
-                                     type='shaded', shade.col = rave_colors[[full_name]], text = nm,
-                                     label_placement_offset = ifelse(
-                                         nm == 'Baseline', 0.9, 0.8)
+                        type='shaded', shade.col = rave_colors[[full_name]], text = nm,
+                        label_placement_offset = ifelse(
+                            nm == 'Baseline', 0.9, 0.8)
                     )
                 }
             }
@@ -1494,7 +1496,7 @@ time_series_decorator <- function(plot_data, plot_options, do_not_shade = c(), .
         legend_include = c('name', 'N')[c('Condition', 'Sample Size') %in% .plot_options]
         legend_decorator(plot_data, include = legend_include)
     }
-
+    
     if(missing(plot_data)) {
         return (do_tsd)        
     } 
@@ -1505,7 +1507,7 @@ time_series_decorator <- function(plot_data, plot_options, do_not_shade = c(), .
 # this decorator takes care of checking if has_data==TRUE and only shows labels for which there is data
 # I guess there could be an option to include N==0 labels...
 legend_decorator <- function(plot_data, include=c('name', 'N'), location='topleft') {
-
+    
     valid.names <- c('name', 'N')
     
     if(length(include) < 1 || !any(include %in% valid.names)) {
@@ -1531,10 +1533,10 @@ legend_decorator <- function(plot_data, include=c('name', 'N'), location='toplef
     if(plotting_to_file()) {
         .cex = 1*get_cex_for_multifigure()
     }
-
+    
     legend(location, legend=legend_text, ncol=ceiling(length(ii)/3),
-           inset=c(.025,.075), bty='n',
-           text.col=ii, cex=.cex)
+        inset=c(.025,.075), bty='n',
+        text.col=ii, cex=.cex)
     
     invisible()
 }
@@ -1554,10 +1556,10 @@ pretty_round <- function(x, allow_negative_round=FALSE) {
 
 color_bar_title_decorator <- function(m, cex = rave_cex.lab * 0.8) {
     rave_title(paste0('Range\n[', 
-                      paste0(pretty_round(get_data_range(m)), collapse = ':'),
-                      ']'),
-               font = 1,
-               cex = cex)
+        paste0(pretty_round(get_data_range(m)), collapse = ':'),
+        ']'),
+        font = 1,
+        cex = cex)
 }
 
 format_unit_of_analysis_name <- function(unit_of_analysis) {
@@ -1579,7 +1581,7 @@ add_strings_to_plot_title <- function(strings, color_variable, width_factor=1.5,
     mapply(function(nm, spacer, col, tots = max(nchars)) {
         .main = paste0(rep(' ', spacer), collapse='') %&% nm %&% paste0(rep(" ", tots-spacer), collapse='')
         title(main = .main, font=3, family='mono',
-              col.main = col, cex.main = get_cex_for_multifigure()*rave_cex.main, ...)
+            col.main = col, cex.main = get_cex_for_multifigure()*rave_cex.main, ...)
         
     }, strings, nchars, color_variable)
 }
@@ -1608,8 +1610,8 @@ get_unit_of_analysis <- function(requested_unit, names=FALSE) {
 }
 
 window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
-                             line.col, shade.col='gray60', label_placement_offset=0.9,
-                             text=FALSE, text.col, lwd, lty, text.adj, ...) {
+    line.col, shade.col='gray60', label_placement_offset=0.9,
+    text=FALSE, text.col, lwd, lty, text.adj, ...) {
     type <- match.arg(type)
     text.x = unlist(window)[1]
     text.y <- par('usr')[4] * label_placement_offset
@@ -1617,60 +1619,60 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
     line.col %?<-% get_foreground_color()
     
     switch(type,
-           line = {
-               lwd %?<-% 1
-               lty %?<-% 2
-               text.col %?<-% line.col
-               abline(v=unlist(window), lwd=lwd, lty=lty, col=line.col)
-           },
-           box = {
-               lwd %?<-% 2
-               lty %?<-% 2
-               text.col %?<-% line.col
-
-               if(any(is.null(window$x), is.null(window$y)) ) {
-                   warning("window must be a list with x and y components to draw a box")
-                   text=FALSE
-               } else {
-                   with(window, rect(x[1], y[1], x[2], y[2], lwd=lwd, lty=lty, border=line.col, col=NA))
-
-                   text.x <- window$x[1]
-
-                   # the multipler on the box here needs to be based on the size of the plot to reduce
-                   # the likelihood of over-printing. Basically we plot just above the analysis window (2.5% of the plottting range), or else
-                   # at 90% of the figure region, whichever is lower
-                   yfac <- diff(par('usr')[4] * c(.975,1))
-                   text.y <- min(par('usr')[4]*.9, window$y[2] + yfac)
-               }
-           },
-           label = {
-               text.col %?<-% shade.col
-               if(is.character(text) && nchar(text) > 1) {
-                   text = paste0(text, ':')
-               } else {
-                   text = ''
-               }
-               text = bquote(.(text) ~ .(window[1]) %->% .(window[2]))
-           },
-           shaded = {
-               text.col %?<-% shade.col
-               text.x = window[[1]]
-               x = window
-               y = par('usr')[3:4]
-
-               amt = diff(par('usr')[3:4])*.10
-               text.y = par('usr')[4] - amt
-
-               if(is.list(window)) {
-                   x = window$x
-                   y = window$y
-                   text.x <- window$x[1]
-                   yfac <- diff(par('usr')[4] * c(.975,1))
-                   text.y <- min(par('usr')[4]*.95, window$y[2] + yfac)
-               }
-               do_poly(x, y, col=shade.col)
-           })
-
+        line = {
+            lwd %?<-% 1
+            lty %?<-% 2
+            text.col %?<-% line.col
+            abline(v=unlist(window), lwd=lwd, lty=lty, col=line.col)
+        },
+        box = {
+            lwd %?<-% 2
+            lty %?<-% 2
+            text.col %?<-% line.col
+            
+            if(any(is.null(window$x), is.null(window$y)) ) {
+                warning("window must be a list with x and y components to draw a box")
+                text=FALSE
+            } else {
+                with(window, rect(x[1], y[1], x[2], y[2], lwd=lwd, lty=lty, border=line.col, col=NA))
+                
+                text.x <- window$x[1]
+                
+                # the multipler on the box here needs to be based on the size of the plot to reduce
+                # the likelihood of over-printing. Basically we plot just above the analysis window (2.5% of the plottting range), or else
+                # at 90% of the figure region, whichever is lower
+                yfac <- diff(par('usr')[4] * c(.975,1))
+                text.y <- min(par('usr')[4]*.9, window$y[2] + yfac)
+            }
+        },
+        label = {
+            text.col %?<-% shade.col
+            if(is.character(text) && nchar(text) > 1) {
+                text = paste0(text, ':')
+            } else {
+                text = ''
+            }
+            text = bquote(.(text) ~ .(window[1]) %->% .(window[2]))
+        },
+        shaded = {
+            text.col %?<-% shade.col
+            text.x = window[[1]]
+            x = window
+            y = par('usr')[3:4]
+            
+            amt = diff(par('usr')[3:4])*.10
+            text.y = par('usr')[4] - amt
+            
+            if(is.list(window)) {
+                x = window$x
+                y = window$y
+                text.x <- window$x[1]
+                yfac <- diff(par('usr')[4] * c(.975,1))
+                text.y <- min(par('usr')[4]*.95, window$y[2] + yfac)
+            }
+            do_poly(x, y, col=shade.col)
+        })
+    
     if(!isFALSE(text) && nchar(text) > 0) {
         cex = rave_cex.lab*get_cex_for_multifigure()
         if(plotting_to_file()) {
@@ -1709,7 +1711,7 @@ heat_map_axes <- function(x, y, xlab, ylab, xax=TRUE, yax=TRUE, yntick=6) {
         } else {
             xlab <- xlab[..get_nearest(.px, x)]
         }
-
+        
         rave_axis(1, at=.px, labels = xlab, tcl=0, lwd=0)
     }
     if(yax) {
@@ -1719,7 +1721,7 @@ heat_map_axes <- function(x, y, xlab, ylab, xax=TRUE, yax=TRUE, yntick=6) {
         } else {
             ylab <- ylab[..get_nearest(.qy, y)]
         }
-
+        
         rave_axis(2, at=.qy, labels = ylab, tcl=0, lwd=0)
     }
 }
@@ -1727,7 +1729,7 @@ heat_map_axes <- function(x, y, xlab, ylab, xax=TRUE, yax=TRUE, yntick=6) {
 
 #
 trial_hm_decorator <- function(hmap, baseline, x, y, xax=TRUE, yax=TRUE, analysis=FALSE, ...) {
-
+    
     do_thmd <- function(hmap, x, y, ...) {
         list2env(list(...), environment())
         if(!isFALSE(baseline)) {
@@ -1738,11 +1740,11 @@ trial_hm_decorator <- function(hmap, baseline, x, y, xax=TRUE, yax=TRUE, analysi
         }
         heat_map_axes(x,y, xax=xax, yax=yax)
     }
-
+    
     if(any(c(missing(hmap), missing(x), missing(y)))) {
         return (do_thmd)
     }
-
+    
     do_thmd(hmap, x, y, ...)
 }
 
@@ -1751,37 +1753,36 @@ tf_hm_decorator <- function(hmap, results, ...)
     # x, y, xlab=x, ylab=y, ..., label.col='black', draw_time_baseline=TRUE, xax=TRUE, yax=TRUE,
     #                         TIME_RANGE = NULL, FREQUENCY = NULL, BASELINE = NULL)
 {
-
+    
     do_tfhmd <- function(hmap, x, y, ...) {
         list2env(list(...), environment())
-
+        
         heat_map_axes(x,y, xax=xax, yax=yax)
-
+        
         if(draw_time_baseline) {
             # These variables are in ...
             xy <- cbind(analysis_window, frequency_window)
-
+            
             #TODO refactor with rutabaga::do_poly
             polygon(c(xy[,1], rev(xy[,1])) , rep(xy[,2], each=2), lty=2, lwd=3, border=label.col)
-
+            
             #draw baseline region
             abline(v=baseline_window, lty=3, lwd=2, col=label.col)
-
+            
             # label baseline region
             text(median(baseline_window), quantile(y, .7), 'baseline', col=label.col, cex=rave_cex.lab*get_cex_for_multifigure(), pos=3)
             arrows(baseline_window[1], quantile(y, .7), baseline_window[2], col=label.col, length=.1, code=3)
         }
     }
-
+    
     if(any(c(missing(hmap), missing(x), missing(y)))) {
         return (do_tfhmd)
     }
-
+    
     do_tfhmd(hmap=hmap, x=x,y=y)
 }
 
 #' Create a easy layout for multiple plots sharing the same x,y and legend
-#' @author Zhengjia Wang, John Magnotti
 #' @description Provide easy ways to set plot layouts
 #' @param K number of plots to be made
 #' @param nrows number of rows for the plot, default 1
@@ -1792,10 +1793,10 @@ tf_hm_decorator <- function(hmap, results, ...)
 #' @param b_margin margins for the whole plot see "?par" for "oma"
 #' @param l_margin legend margin
 easy_layout <- function(K, nrows = 1, legend,
-                        legend_size = lcm(3), legend_side = 4,
-                        s_margin = par('mar'), b_margin = par('oma'),
-                        l_margin){
-#TODO RUTABAGA
+    legend_size = lcm(3), legend_side = 4,
+    s_margin = par('mar'), b_margin = par('oma'),
+    l_margin){
+    #TODO RUTABAGA
     if(missing( l_margin )){
         l_margin = local({
             mar = s_margin;
@@ -1804,30 +1805,30 @@ easy_layout <- function(K, nrows = 1, legend,
             mar
         })
     }
-
+    
     # calculate nrow and ncols
     ncols = ceiling(K / nrows)
     K = nrows * ncols
-    mat = matrix(seq_len(K) + 1, nrow = nrows, byrow = T)
-
-
+    mat = matrix(seq_len(K) + 1, nrow = nrows, byrow = TRUE)
+    
+    
     switch (as.character(legend_side),
-            '1' = {
-                mat = rbind(mat, 1)
-                layout(mat, heights = c(rep(1, nrows), legend_size))
-            },
-            '2' = {
-                mat = cbind(1, mat)
-                layout(mat, widths = c(legend_size, rep(1, ncols)))
-            },
-            '3' = {
-                mat = rbind(1, mat)
-                layout(mat, heights = c(legend_size, rep(1, nrows)))
-            },
-            {
-                mat = cbind(mat, 1)
-                layout(mat, widths = c(rep(1, ncols), legend_size))
-            }
+        '1' = {
+            mat = rbind(mat, 1)
+            layout(mat, heights = c(rep(1, nrows), legend_size))
+        },
+        '2' = {
+            mat = cbind(1, mat)
+            layout(mat, widths = c(legend_size, rep(1, ncols)))
+        },
+        '3' = {
+            mat = rbind(1, mat)
+            layout(mat, heights = c(legend_size, rep(1, nrows)))
+        },
+        {
+            mat = cbind(mat, 1)
+            layout(mat, widths = c(rep(1, ncols), legend_size))
+        }
     )
     oma = par('oma')
     mar = par('mar')
@@ -1835,16 +1836,16 @@ easy_layout <- function(K, nrows = 1, legend,
         oma = oma,
         mar = mar
     )
-
+    
     par(oma = b_margin)
-
+    
     # draw legend first!
     parent_env = parent.frame()
     expr = eval(substitute(substitute(legend)), parent_env)
-
+    
     par(mar = l_margin)
     eval(expr, envir = new.env(parent = parent_env))
-
+    
     par(mar = s_margin)
 }
 
@@ -1873,30 +1874,30 @@ pretty_num <- function(x, digits = 3, roundup = 5, decimal.mark = '.', ...){
 # enabling easier comparison of the concentraion/dispersion kappa
 hist.circular <- function(x, ymax, nticks=3, digits=1, breaks=20, col='black', ...) {
     x.deg <- x %>% deg %>% circular(units='degrees')
-
+    
     x.hist <- hist(as.numeric(x.deg), plot=FALSE, breaks=breaks)
-
+    
     # table(round(4*x)/4) %>% pscl
-
+    
     # now that we have the angles, make a polygon
     x.hist$prob <- x.hist$counts %>% pscl
-
+    
     .k <- (.99*breaks)/2
-
+    
     xS <- x.hist$prob * cos(rad(x.hist$mids-.k))
     xF <- x.hist$prob * cos(rad(x.hist$mids+.k))
-
+    
     yS <- x.hist$prob * sin(rad(x.hist$mids-.k))
     yF <- x.hist$prob * sin(rad(x.hist$mids+.k))
-
+    
     # Draw polar axes, three evenly spaced lines
-
+    
     if(missing(ymax)) {
         ymax <- max(pretty(x.hist$prob))
     }
     tcks <- 0.01*round(100*seq(0, ymax, length=nticks+1)[-1])
     ylim <- c(-1,1)*ymax
-
+    
     plot_clean(ylim, ylim, asp=1, ...)
     #the white borders here ensure the lines don't smear together
     for(ii in seq_along(xS)) {
@@ -1907,12 +1908,12 @@ hist.circular <- function(x, ymax, nticks=3, digits=1, breaks=20, col='black', .
     sapply(tcks, function(.r) {
         .theta <- rad(seq(-180, 180, length.out=360))
         lines(.r * cos(.theta), .r * sin(.theta), col='gray50' %>% getAlphaRGB(150),
-              lwd=1, lty=1)#, cex=.5, pch=21, col='white', type='l')
+            lwd=1, lty=1)#, cex=.5, pch=21, col='white', type='l')
     })
-
+    
     #TODO this should be done via an (optional) decorator
     text(0, tcks[tcks>0.001], tcks[tcks > 0.001], cex=1.2, col='gray50', pos=1)
-
+    
     invisible(x.hist)
 }
 
@@ -1922,10 +1923,11 @@ hist.circular <- function(x, ymax, nticks=3, digits=1, breaks=20, col='black', .
 #' @param get_palettes ignored
 #' @export
 get_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
-    # from:
-    # http://colorbrewer2.org/
+    # from: http://colorbrewer2.org/ or in R or from unknown
     .palettes <- list(
         'Beautiful Field' = c("orange", "dodgerblue3", "darkgreen", "orangered", "brown",  "purple3"),
+        'Perm4_0' = c("#2297E6", "#F5C710", "#61D04F", "#DF536B", "#CD0BBC"),
+        'Black+tan' = c('#1A1A19', '#A25D34', '#353634', '#D0A380'),
         'Accent' = c('#7fc97f','#beaed4','#fdc086','#ffff99','#386cb0','#f0027f','#bf5b17','#666666'),
         'Dark2' = c('#1b9e77','#d95f02','#7570b3','#e7298a','#66a61e','#e6ab02','#a6761d','#666666'),
         'Paired' = c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00'),
@@ -1971,7 +1973,7 @@ expand_heatmap <- function(pal, results, ncolors=101, space='Lab', ...) {
     }
     
     # help people out if they give us a name of a color palette rather than the palette itself
-    if(length(pal) ==1 && pal[1] %in% get_heatmap_palette(get_palette_names = T)) {
+    if(length(pal) ==1 && pal[1] %in% get_heatmap_palette(get_palette_names = TRUE)) {
         pal %<>% get_heatmap_palette   
     }
     
@@ -1986,15 +1988,15 @@ set_heatmap_palette_helper <- function(results, plot_options, ...) {
     results %?<-% build_results_object(plot_options)
     
     requested_palette_name = paste(results$get_value('heatmap_color_palette'),
-                                   par('bg'),
-                                 results$get_value('heatmap_number_color_values'),
-                                 results$get_value('invert_colors_in_heatmap_palette'),
-                                 results$get_value('reverse_colors_in_heatmap_palette'),
-                                 sep = '_')
-
+        par('bg'),
+        results$get_value('heatmap_number_color_values'),
+        results$get_value('invert_colors_in_heatmap_palette'),
+        results$get_value('reverse_colors_in_heatmap_palette'),
+        sep = '_')
+    
     ## FIXME reverting to old cache method 
     cached_palette_name = cache(key='current_rave_heatmap_palette_name', val='none', 
-                                name='current_rave_heatmap_palette_name')
+        name='current_rave_heatmap_palette_name')
     
     if(cached_palette_name != requested_palette_name) {
         if(par('bg') %in% c('#1E1E1E', 'black')) {
@@ -2023,11 +2025,11 @@ set_heatmap_palette_helper <- function(results, plot_options, ...) {
 get_currently_active_heatmap <- function() {
     rave_context()
     cache(key = 'current_rave_heatmap_palette', 
-          val = {
-              cat2('No heatmap is active, using default', level = 'WARNING')
-              expand_heatmap(get_heatmap_palette('BlueWhiteRed'), ncolors = 101)
-          },
-          name = 'current_rave_heatmap_palette')
+        val = {
+            cat2('No heatmap is active, using default', level = 'WARNING')
+            expand_heatmap(get_heatmap_palette('BlueWhiteRed'), ncolors = 101)
+        },
+        name = 'current_rave_heatmap_palette')
 }
 
 get_dark_mode_heatmap_palette <- function(pal, mid_color = par('bg')) {
@@ -2051,24 +2053,24 @@ get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FAL
     
     .heatmap_palettes <- list(
         BlueWhiteRed = c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#ffffff", 
-                             "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061") %>% rev,
+            "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061") %>% rev,
         BlueGrayRed = rev(c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#b4b4b4", "#92c5de", "#4393c3", "#2166ac", "#053061")),
         Spectral = c('#9e0142','#d53e4f','#f46d43','#fdae61','#fee08b','#ffffbf',
-                     '#e6f598','#abdda4','#66c2a5','#3288bd','#5e4fa2') %>% rev,
+            '#e6f598','#abdda4','#66c2a5','#3288bd','#5e4fa2') %>% rev,
         BrownWhiteGreen = c('#543005','#8c510a','#bf812d','#dfc27d','#f6e8c3','#f5f5f5',
-                       '#c7eae5','#80cdc1','#35978f','#01665e','#003c30'),
+            '#c7eae5','#80cdc1','#35978f','#01665e','#003c30'),
         PinkWhiteGreen =c('#8e0152','#c51b7d','#de77ae','#f1b6da','#fde0ef','#f7f7f7',
-                          '#e6f5d0','#b8e186','#7fbc41','#4d9221','#276419'),
+            '#e6f5d0','#b8e186','#7fbc41','#4d9221','#276419'),
         PurpleWhiteGreen = c('#40004b','#762a83','#9970ab','#c2a5cf','#e7d4e8','#f7f7f7',
-                             '#d9f0d3','#a6dba0','#5aae61','#1b7837','#00441b'),
+            '#d9f0d3','#a6dba0','#5aae61','#1b7837','#00441b'),
         OrangeWhitePurple = c('#7f3b08','#b35806','#e08214','#fdb863','#fee0b6','#f7f7f7',
-                              '#d8daeb','#b2abd2','#8073ac','#542788','#2d004b'),
+            '#d8daeb','#b2abd2','#8073ac','#542788','#2d004b'),
         BlackWhiteRed = c('#67001f','#b2182b','#d6604d','#f4a582','#fddbc7','#ffffff',
-                           '#e0e0e0','#bababa','#878787','#4d4d4d','#1a1a1a') %>% rev,
+            '#e0e0e0','#bababa','#878787','#4d4d4d','#1a1a1a') %>% rev,
         BlueYellowRed = c('#a50026','#d73027','#f46d43','#fdae61','#fee090','#ffffbf',
-                          '#e0f3f8','#abd9e9','#74add1','#4575b4','#313695') %>% rev,
+            '#e0f3f8','#abd9e9','#74add1','#4575b4','#313695') %>% rev,
         GreenYellowRed = c('#a50026','#d73027','#f46d43','#fdae61','#fee08b','#ffffbf',
-                           '#d9ef8b','#a6d96a','#66bd63','#1a9850','#006837') %>% rev
+            '#d9ef8b','#a6d96a','#66bd63','#1a9850','#006837') %>% rev
     )
     if(missing(pname)) {
         if(get_palette_names)
@@ -2080,7 +2082,7 @@ get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FAL
     pal <- .heatmap_palettes[[pname]]
     if(is.null(pal)) {
         cat2("Invalid palette requested: ", pname, ". Returning random palette",
-             level="WARNING")
+            level="WARNING")
         pname = sample(names(.heatmap_palettes), 1)
         pal <- .heatmap_palettes[[pname]]
     }
@@ -2091,7 +2093,7 @@ get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FAL
 
 
 build_3dv_palette <- function(var_names, pal_names) {
-    if(length(var_names) < 1) return (NULL)#stop('invalid names provided to build 3dv pal')
+    if(length(var_names) < 1) return (NULL) #stop('invalid names provided to build 3dv pal')
     
     .colors = get_heatmap_palette(pal_names[[1]])
     pal = expand_heatmap(.colors, ncolors=128)
@@ -2110,14 +2112,12 @@ build_3dv_palette <- function(var_names, pal_names) {
     return(pals)
 }
 
-
-
 set_palette <- function(pname) {
     if (is.null(pname)) {
-      pname = get_palette(get_palette_names = TRUE)[1]  
+        pname = get_palette( get_palette(get_palette_names = TRUE)[1] )
     } else if(length(pname) == 1) {
         pname %<>% get_palette
-    } 
+    }
     
     grDevices::palette(pname)
 }
@@ -2130,3 +2130,299 @@ fix_name_for_js <- function(nm) {
         '-' = '.'
     ))
 }
+
+#' @description this doesn't do any decoration, it's designed for use with rutabaga::create_frames.
+#' Note that we're using barplot to set the x- and y-range of the plot.
+#' @note Does not handle log axes correctly
+#' @param ... extra options to pass to barplot during plot creation
+plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 'means', 'ebar_poly'),
+    layout=c('grouped', 'overlay'), draw0=TRUE, ylim=NULL, col=NULL, ..., plot_options) {
+    # here we need to know about grouping var, x-axis
+    
+    # removed (layout := 'stacked') because I don't know if iEEG data 
+    # should ever be stacked ?
+    
+    if(missing(xvar) && !is.null(gvar)) {
+        xvar <- gvar
+        gvar <- NULL
+    }
+    
+    layout = match.arg(layout)
+    
+    # first step is to aggregate the data to get the means and potentially SE
+    keys <- xvar
+    if(!is.null(gvar)) {
+        keys <- c(gvar, keys)
+    }
+    raw <- data.table::data.table(mat)
+
+    # get the aggregate data for plotting means/se
+    agg <- raw[ , list(y=mean(get(yvar)), se=rutabaga:::se(get(yvar)), n=.N), keyby=keys]
+    
+    # convert y into a matrix for plotting 
+    if(is.null(gvar)) {
+        means <- matrix(agg$y, ncol=1)
+        names.arg = levels(as.factor(agg[[xvar]]))
+        
+        if('overlay' == layout) {
+            names.arg=NA
+        }
+    } else {
+        means <- matrix(agg$y, ncol=nlevels(as.factor(agg[[gvar]])))
+        names.arg = levels(as.factor(agg[[gvar]]))
+    }
+    # color is based on rows of means
+    col %?<-% seq_len(nrow(means))
+    
+    # in case we have a caller-supplied col but it's the wrong length
+    if(length(col) < nrow(means)) {
+        col %<>% rep(length.out=nrow(means))
+    }
+    
+    bp_clean <- function(...) {
+        my_args <- list(axes=F, ylab='', xlab='', border=NA,
+                        beside = layout=='grouped'
+        )
+        your_args <- list(...)
+        if(length(your_args) > 1) {
+            my_args[names(your_args)] <- your_args
+        }
+        
+        do.call(barplot, my_args)
+    }
+    
+    # we want to use barplot to create the window because it has nice xlim and ylim padding
+    # but if we're adding points / ebars we need to consider that at creation time
+    tmp_y <- ylim
+    if(is.null(tmp_y)) {
+        tmp_y <- if(any(c('ebar_poly', 'ebar') %in% types)) {
+            range(plus_minus(agg$y, agg$se))
+        } else {
+            range(agg$y)
+        }
+        
+        if (any(c('points', 'jitter points', 'connect points', 'density', 'density poly') %in% types)) {
+            tmp_y %<>% range(raw[[yvar]])
+        }
+        
+        # ensure start at 0 if doing tru barplot
+        if(any(c('bars', 'borders') %in% types)) {
+            tmp_y %<>% range(0)
+        }
+        tmp_y <- range(pretty(tmp_y), tmp_y)
+    }
+    
+    # first create the empty plot. the trick here is that we're 
+    # giving barplot data with the same dimension of means but with the appropriate 
+    # range
+    ylim %?<-% range(tmp_y, pretty(tmp_y))
+    
+    # NB: heights could end up a 1x1 matrix w/o the appropriate range
+    bars.x <- bp_clean(array(tmp_y, dim=dim(means)), col=par('bg'), names.arg=names.arg, ylim=ylim, ...)
+    
+    if(!is.matrix(bars.x)) {
+        if(layout == 'grouped') {
+            warning("layout is grouped but I don't have grouped coordinates... bail!")
+            return(FALSE)
+        }
+        bars.x %<>% matrix(nrow = nrow(means), ncol=ncol(means), byrow=T)
+    }
+    
+    if(draw0) abline(h=0)
+    
+    
+    # in case you're looping over agg, you'll want this
+    long_col <- rep(col, times=ncol(bars.x))
+    # for jittering and other l/r movement
+    r <- if(length(bars.x) == 1) {
+        1/3
+    } else if(nrow(bars.x) == 1) {
+        (1/3) * min(diff(c(bars.x)))
+    } else {
+        if ('overlay' == layout && ncol(bars.x) > 1) {
+            (1 / 3) * min(diff(t(bars.x)))
+        } else {
+            (1/3) * min(diff(bars.x))
+        }
+    }
+    if(any(r==0, is.infinite(r))) {r <- 1/3}
+    
+    points_list <- split(raw, by=keys) %>% lapply(`[[`, yvar)
+    
+    # we need to make sure the points_list respects the factor ordering
+    if(is.null(gvar)) {
+        ord <- levels(as.factor(mat[,xvar]))
+    } else {
+        ord <- stringr::str_replace_all(levels(do.call(`:`, mat[,keys])), ':', '.')
+    }
+    points_list <- points_list[ord]
+    
+    # helper function to determine location of x-position for points
+    .get_x <- if('jitter points' %in% types) {
+        # here we shrink r so that the points stay w/n r after plotting (non-zero point size)
+        function(pl, bx) density_jitter(pl, around = bx, max.r = 0.95*r)
+    } else {
+        function(pl, bx) rep(bx, length(pl))
+    }
+    
+    points_list.x <- mapply(.get_x, points_list, bars.x, SIMPLIFY = FALSE)
+    
+    ### BARS
+    if (any(c('bars', 'borders') %in% types)) {
+        bar.col = adjustcolor(col, .7)
+        bar.border = col
+        if(!('bars' %in% types)) {
+            bar.col = rep(NA, length(bar.col))
+        }
+        if(!('borders' %in% types)) {
+            bar.border = rep(NA, length(bar.border))
+        }
+        
+        # if type is overlay, then we need to draw these on top of each other
+        if('overlay' == layout) {
+            mapply(function(row, col, border) {
+                bp_clean(height=means[row, ], col=col, border=border, add=TRUE)
+            }, seq_len(nrow(means)), bar.col, bar.border)
+        } else {
+            # stacked and grouped are handled cleanly by bp_clean            
+            bp_clean(height = means, col=bar.col, border=bar.border, add=TRUE)
+        }
+    }
+    
+    ## DENSITIES    
+    
+    if('density poly' %in% types) {
+        for(ii in seq_along(points_list)) {
+            dx <- density(points_list[[ii]], n=64)
+            dx$y <- r*(dx$y/max(dx$y))
+            polygon(x = c(bars.x[ii] + dx$y, rev(bars.x[ii] -dx$y), bars.x[ii]+ dx$y[1]),
+                    c(dx$x, rev(dx$x), dx$x[1]),  
+                    border = NA, col=adjustcolor(long_col[ii], .3), lwd=1.5)
+        }
+    }
+    
+    if('density' %in% types) { 
+        for(ii in seq_along(points_list)) {
+            dx <- density(points_list[[ii]], n=64) 
+            dx$y <- r*(dx$y/max(dx$y))
+            for(k in c(-1,1)) lines(bars.x[ii] + k*dx$y, dx$x, col=adjustcolor(long_col[ii], .8), lwd=1.5)
+        }
+    }
+    
+    
+    if('connect points' %in% types) {
+        # need to determine which points to connect.        
+        
+        # connect points based on how many
+        if(layout=='grouped') {
+            ymat <- do.call(cbind, points_list)
+            xmat <- do.call(cbind, points_list.x)
+            
+            col_ind <- matrix(seq_along(points_list), nrow=nrow(means))
+            
+            apply(col_ind, 2, function(ci) {
+                for(ii in seq_len(nrow(col_ind)-1)) {
+                    segments(
+                        xmat[,ci[ii]], ymat[,ci[ii]],
+                        xmat[,ci[ii+1]], ymat[,ci[ii+1]],
+                        lwd=0.75, col=adjustcolor('lightgray', .7)
+                    )
+                }
+            })
+        } else {
+            # when we're overlaying, we connect by gvar (assuming their is one?)
+            ymat <- do.call(cbind, points_list)
+            xmat <- do.call(cbind, points_list.x)
+            
+            ind <- matrix(seq_along(points_list), nrow=nrow(means))
+            
+            # as with connecting means, if there is not a grouping variable, just connect what you can
+            # transpose the indices so it's like we're going over groups
+            if(ncol(ind) == 1) {
+                ind %<>% t
+            }
+    
+            apply(ind, 1, function(ri) {
+                for(ii in 1:nrow(xmat)) {
+                    lines(xmat[ii,ri], ymat[ii,ri], col='lightgray', lwd=0.75)
+                }
+            })
+        }
+    }
+    
+    if(any(c('points', 'jitter points') %in% types)) {
+        # go through each row in agg and select out the appropriate points from raw
+        # we need to make sure mat is sorted before we do this
+        
+        if(length(points_list) == length(bars.x)){
+            points_list.x %?<-% mapply(.get_x, points_list, bars.x, SIMPLIFY = FALSE)
+            
+            mapply(function(x, pl, clr) {
+                points(x, pl, col=clr, pch=16)
+            }, points_list.x, points_list, long_col)
+            
+        } else {
+            warning("couldn't line up points with bars... sorry!")
+        }
+    }
+    
+    # now do error bars if possible
+    if('ebar' %in% types) {
+        # check if we're horizontal or not
+        # if(horizontal) {
+        #   ebars.x(...)
+        #} else {
+        
+        ebars(bars.x, agg$y, sem = agg$se, code=0, col=col, lwd=2)
+        #}
+    }
+    
+    if('ebar poly' %in% types) {
+        for(ii in 1:nrow(agg)) {
+            do_poly(bars.x[ii] %>% plus_minus(r),
+                    y = agg$y[ii] %>% plus_minus(agg$se[ii]),
+                col = long_col[ii], alpha = .3)
+        }
+    }
+    
+    if ('connect means' %in% types) {
+        
+        # I think if we are grouped, then we don't allow the lines to go across the groups
+        if(layout == 'grouped') {
+            for(ii in seq_len(ncol(means))) {
+                lines(x=bars.x[,ii], means[,ii], col='black', type='l', lwd=2)
+            }
+        } else {
+            # for overlay, we go across the groups
+            for(ii in seq_len(nrow(means))) {
+                lines(x=bars.x[ii,], means[ii,], col=col[ii], type='l', lwd=2)
+            }
+            
+            # but if there are no groups.... then go over whatever we can? 
+            # I think this will make people happy; it's confusing to add an option
+            # and have it do nothing. If it does the wrong thing we can "change" it. If
+            # it does nothing, it looks broken and we have to "fix"
+            if(ncol(means)==1) {
+                lines(x=bars.x[,1], means[,1], col='black', type='l', lwd=2)
+            }
+            
+        }
+    }
+    
+    if('means' %in% types) {
+        segments(bars.x - r, x1=bars.x + r, y0 = means, col=long_col, lwd=2, lend=1)
+    }
+
+}
+
+density_jitter <- function(x, around=0, max.r=.2, n=length(x)) {
+    dx <- density(x, from=min(x), to=max(x), n=n)
+    
+    y <- approxfun(dx)(x)
+    
+    runif(length(x),
+        min = -max.r * (y/max(y)),
+        max = max.r * (y/max(y))
+    ) + around
+}
+

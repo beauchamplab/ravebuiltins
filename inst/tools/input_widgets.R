@@ -534,10 +534,10 @@ define_input_analysis_data_csv <- function(
         }, event.env = .env, handler.env = .env)
         
         observeEvent(input[[!!input_btn]], {
-          print('Observe input_btn')
+          # print('Observe input_btn')
           source_files = input[[!!input_selector]]
           search_paths = .local_data$search_paths
-          progress = rave::progress('Loading analysis', max = length(source_files) + 1)
+          progress = rave::progress('Loading data files', max = length(source_files) + 1)
           on.exit({ progress$close() })
           
           progress$inc('Checking files...')
@@ -561,7 +561,7 @@ define_input_analysis_data_csv <- function(
           # Read all data
           project_name = subject$project_name
           tbls = dipsaus::drop_nulls(lapply(metas, function(x){
-            print('trying to load ' %&% x$fpath)
+            # print('trying to load ' %&% x$fpath)
             progress$inc(rutabaga::get_filename(x$fpath))
             if(endsWith(x$fpath, 'csv')) {
               tbl = data.table::fread(file = x$fpath, stringsAsFactors = FALSE, header = TRUE)
@@ -585,7 +585,7 @@ define_input_analysis_data_csv <- function(
                 conf = yaml::read_yaml(yaml_path)
               }
             }
-            print('returning loaded data ')
+            # print('returning loaded data ')
             return(list(
               data = tbl,
               conf = conf,

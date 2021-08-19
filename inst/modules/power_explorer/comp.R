@@ -60,10 +60,10 @@ define_initialization({
     electrodes_csv[[column[1]]] [is.na(electrodes_csv[[column[1]]])] = "UNK"
     
     elec_filter <- names(electrodes_csv)[column[1]]
-    elec_labels <- unique(electrodes_csv[[column[1]]])
+    # elec_labels <- unique(electrodes_csv[[column[1]]])
     
     # we want to add the counts to the freesurfer labels
-    elec_labels = make_label_with_count(electrodes_csv[[column]])
+    elec_labels = make_label_with_count(electrodes_csv[[column[1]]])
   }
   
   # figure out if there are any outliers to prepopulate the outlier list
@@ -751,7 +751,8 @@ define_output_3d_viewer(
   message = 'Click here to reload viewer',
   title = 'Results on surface',
   height = '500px',
-  order = -1e4
+  order = -1e4,
+  additional_ui = htmltools::tagList(' | ', 'Double-click an electrode to update analysis. Single-click for electrode details')
 )
 
 define_output(

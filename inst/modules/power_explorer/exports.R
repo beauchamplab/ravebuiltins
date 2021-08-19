@@ -1,6 +1,23 @@
 input <- getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 
+
+fix_group_names <- function(group, namevar, prfx) {
+    nms <- paste(prfx, LETTERS[seq_along(group)])
+    
+    for (ii in seq_along(group)) {
+        if(!isTRUE(nchar(group[[ii]][[namevar]]) > 0)) {
+            group[[ii]][[namevar]] = nms[ii]
+        } else {
+            nms[ii] <- group[[ii]][[namevar]] 
+        }
+    }
+    
+    return (list('group'=group, 'names' = nms))
+}
+
+
+
 power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   showNotification(p('Rebuild 3d viewer...'), id='power_3d_fun')
   brain = rave::rave_brain2(subject = subject)
@@ -782,7 +799,7 @@ save_inputs <- function(yaml_path, variables_to_export){
 
 # export data for group analysis
 write_out_data_function <- function(write_out_movie_csv=TRUE){
-  dipsaus::cat2('start WOD', level='INFO')
+  # dipsaus::cat2('start WOD', level='INFO')
   project_name = subject$project_name
   subject_code = subject$subject_code
   
@@ -800,7 +817,7 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   trials = module_tools$get_meta('trials')
   trial_number = trials$Trial[trials$Condition %in% conditions]
   
-  dipsaus::cat2('Line 856', level='INFO')
+  # dipsaus::cat2('Line 856', level='INFO')
   
   # check if they want to include outliers
   .trial_outlier_list = input$trial_outliers_list
@@ -816,7 +833,7 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   
   # get baseline
   baseline_range = input$baseline_window
-  dipsaus::cat2('Line 872', level='INFO')
+  # dipsaus::cat2('Line 872', level='INFO')
   # Do some checks
   
   # Check 1: if no electrode is chosen
@@ -850,9 +867,12 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   unit_of_analysis <- input$unit_of_analysis
   baseline_method = get_unit_of_analysis(unit_of_analysis)
   unit_name = format_unit_of_analysis_name(unit_of_analysis)
-  dipsaus::cat2('Line 906', level='INFO')
+  # dipsaus::cat2('Line 906', level='INFO')
   # here we want to take into the event of interest as well I think we just shift the entire data set here
-  res = rave::lapply_async(electrodes, function(e){
+  
+  local_GROUPS = force(input$GROUPS)
+  
+  res = rave::lapply_async3(electrodes, function(e){
     # e = electrodes[1]
     progress$inc(sprintf('Electrode %d', e))
     # Important p_sub is assigned, otherwise, it will get gc before baselined
@@ -903,30 +923,50 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
       return(flat)
     }, USE.NAMES = TRUE, simplify = FALSE)
     
-    # if there is only one event, return it, else we need to merge the results
-    if(length(by_event_type) == 1) return (by_event_type[[1]])
+    
+    # we should also add in any available ConditionGroup variable
+    # make sure all the groups have a name
+    res <- fix_group_names(local_GROUPS, 'group_name', 'ConditionGroup')
+    cond_group = res$group
+    
+    # if there is only one event, return it, else we need to merge the results -- the code below works for #Event==1
+    # if(length(by_event_type) == 1) {
+        # by_event_type <- by_event_type[[1]]
+        
+        # return (by_event_type)
+    # }
     
     full_matrix = by_event_type[[1]]
     
-    # sapply(by_event_type, function(bet) bet$Time %>% range)
-    # sapply(by_event_type, names)
-    
-    for(ii in 2:length(by_event_type)) {
+    for(ii in seq_along(by_event_type)[-1]) {
       full_matrix = merge(full_matrix, by_event_type[[ii]], all=TRUE)
     }
+    
+    by_event_type$ConditionGroup = res$names[1]
+
+    # create a joint variable representing the Group as a factor
+    # now assign names to the ConditionGroup. start by assign nm1 to all trials
+    full_matrix$ConditionGroup = res$names[1]
+    
+    # now match the rest of the trials. We only need to do this if length(cond_group) > 1 (NB: the [-1])
+    # don't be silly and try 2:length(...) !
+    for(ii in seq_along(cond_group)[-1]) {
+        full_matrix$ConditionGroup[full_matrix$Condition %in% cond_group[[ii]]$group_conditions] = res$names[ii]
+    }
+    full_matrix$ConditionGroup %<>% factor(levels = res$names)
     
     return (full_matrix)
   }, 
   .globals = c('unit_name', 'unit_dims', 'baseline_method', 'power', 'event_of_interest',
-                  'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list'),
+                  'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list', 'local_GROUPS'),
   .gc = FALSE)
   
-  dipsaus::cat2('Line 977', level='INFO')
+  # dipsaus::cat2('Line 977', level='INFO')
   res = do.call('rbind', res)
   
   res$Project = project_name
   res$Subject = subject_code
-  dipsaus::cat2('Line 981', level='INFO')
+  # dipsaus::cat2('Line 981', level='INFO')
   # flag outliers as needed
   res$TrialIsOutlier = FALSE
   if(!is.null(.trial_outlier_list) && length(.trial_outlier_list) > 0) {
@@ -948,10 +988,10 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
       names(from_el)[vi] = paste0(RAVE_ROI_KEY, names(from_el)[vi])
   }
   
-  dipsaus::cat2('Line 996', level='INFO')
+  # dipsaus::cat2('Line 996', level='INFO')
   res = merge(res, from_el)
   
-  dipsaus::cat2('Line 998', level='INFO')
+  # dipsaus::cat2('Line 998', level='INFO')
   # also add in the block numbers per DABI request
   if(exists('epoch_data')) {
     res <- merge(res, epoch_data[,c('Block', 'Trial')], by='Trial')
@@ -960,7 +1000,7 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
     # but this expands the size of the data set, right. 1 million rows = 8MB, but should compress well
     res[[paste0(RAVE_ROI_KEY, 'Block')]] = res$Block
   }
-  dipsaus::cat2('Line 1003', level='INFO')
+  # dipsaus::cat2('Line 1003', level='INFO')
   
   # Write out results
   progress$inc('Writing out on server, preparing...')

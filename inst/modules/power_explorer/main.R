@@ -742,11 +742,14 @@ if(FALSE) {
 }
 
 # Debug
-rm(list = ls(all.names=T)); rstudioapi::restartSession()
+rm(list = ls(all.names=T))
+rstudioapi::restartSession()
 require(ravebuiltins)
 .__DEBUG__ = 1
+options(warn=1)
 ravebuiltins:::dev_ravebuiltins(T)
 mount_demo_subject(force_reload_subject = T)
+
 view_layout('power_explorer')
 
 reload_module_package()

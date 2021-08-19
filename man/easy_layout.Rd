@@ -35,6 +35,3 @@ easy_layout(
 \description{
 Provide easy ways to set plot layouts
 }
-\author{
-Zhengjia Wang, John Magnotti
-}

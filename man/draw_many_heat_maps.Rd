@@ -62,6 +62,3 @@ layout_heat_maps
 
 draw_img
 }
-\author{
-John Magnotti
-}

@@ -25,8 +25,12 @@ electrode_transform <- function(method='none') {
 }
 IDENTITY_TRANSFORM <- function(x) x
 
-get_by <- function(x, FUN, ...) {
-  x[FUN(x, ...)]
+get_by <- function(x, FUN, ..., negate=FALSE) {
+  ind <- FUN(x, ...)
+  if(negate)
+    ind <- !ind
+  
+  x[ind]
 }
 
 # is_within <- function(x, ref, strict = FALSE){

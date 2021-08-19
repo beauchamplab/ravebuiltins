@@ -37,6 +37,3 @@ make_image(
 The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators.
 We are just plotting image(mat) Rather Than t(mat) as you might expect. The Rave_calculators know this so we can save a few transposes along the way.
 }
-\author{
-John Magnotti
-}
