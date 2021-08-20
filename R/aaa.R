@@ -5,24 +5,22 @@
 #' @import rave
 #' @import shiny
 #' @import stringr
+#' @import data.table
 #' @import emmeans
+#' @import magrittr
+#' @import lme4
+#' @import threeBrain
 #' 
-#' @importFrom magrittr %>%
-#' @importFrom lme4 VarCorr
-#' @importFrom lme4 formatVC
 #' @importFrom lmerTest lmer
-#' @importFrom magrittr %<>%
-#' @importFrom magrittr %$%
-#' @importFrom magrittr extract2
-#' @importFrom magrittr extract
-#' @importFrom magrittr set_rownames
-#' @importFrom magrittr set_colnames
-#' @importFrom magrittr equals
-#' @import rlang
 #'
 #' @importFrom methods is
 #' @importFrom methods getMethod
 #' @import circular
+#' 
+#' @importFrom rlang quo
+#' @importFrom rlang quo_squash
+#' @importFrom rlang eval_tidy
+#' @importFrom rlang parse_expr
 #' 
 #' @importFrom grDevices dev.cur
 #' @importFrom grDevices dev.off
@@ -109,6 +107,14 @@ rave_cex.lab <- 1.4
 rave_axis_tcl = -0.3
 
 RAVE_ROI_KEY = 'VAR_IS_ROI_'
+
+RAVE_ROI_TYPES <- c(
+  'ROI_TYPE_I' = 'Comparisons w/n ROIs',
+  'ROI_TYPE_II' = 'All w/n and b/t comparisons',
+  'ROI_TYPE_III' = 'Random effect only',
+  'ROI_TYPE_IV' = 'Average electrodes w/n ROIs',
+  'ROI_TYPE_V' = 'Filter Only'
+)
 
 rave_color_ramp_palette <- colorRampPalette(c('navy', 'white', 'red'), interpolate='linear', space='Lab')
 rave_color_ramp_dark_palette <- colorRampPalette(c('#13547a', 'black', '#ff758c'), interpolate='linear', space='Lab')
@@ -269,7 +275,7 @@ ebars.x = function(x, y, sem, length = 0.05, code = 3, ...) {
   arrows(x - sem, y, x + sem, y, angle = 90, code = code, length = length, ...)
 }
 
-ebars.y = function(x, y, sem, length = 0.05, up = T, down = T, code = 2, ...) {
+ebars.y = function(x, y, sem, length = 0.05, up = TRUE, down = TRUE, code = 2, ...) {
   if (up) {
     arrows(x0 = x, y0 = as.numeric(y), y1 = as.numeric(y + sem), angle = 90, code = code, length = length, ...)
   }
@@ -279,14 +285,15 @@ ebars.y = function(x, y, sem, length = 0.05, up = T, down = T, code = 2, ...) {
 }
 
 plus_minus <- #rutabaga::plus_minus
-function (x, d) 
-{
-  if (missing(d) & is.matrix(x)) {
+function (x, d) {
+  if (missing(d)) {
+    x <- as.matrix(x)
     d <- x[, 2]
     x <- x[, 1]
-    
-    if(any(is.na(d))) d[is.na(d)] = 0
   }
+  
+  if(any(is.na(d))) d[is.na(d)] = 0
+  
   c(x - d, x + d)
 }
 
@@ -516,5 +523,14 @@ remove_gyrus_sulcus_labels <- function(str) {
                            c('GS ' = '', 'G ' ='', 'S '=''))
 }
 
-
-
+# no need to export this function
+try_ravebuiltins_debug <- function(..., DEBUG_FUN='.__DEBUG__', env=parent.frame(),
+                                   efun=function(...){}, wfun=function(...){}) {
+  tryCatch({
+    f <- match.fun(DEBUG_FUN, descend = FALSE)
+    
+    invisible(f(..., env=env))
+    
+  }, error=efun, warning=wfun)
+  
+}

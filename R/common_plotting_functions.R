@@ -2131,10 +2131,10 @@ fix_name_for_js <- function(nm) {
     ))
 }
 
-#' @description this doesn't do any decoration, it's designed for use with rutabaga::create_frames.
+#' description this doesn't do any decoration, it's designed for use with rutabaga::create_frames.
 #' Note that we're using barplot to set the x- and y-range of the plot.
-#' @note Does not handle log axes correctly
-#' @param ... extra options to pass to barplot during plot creation
+#' note Does not handle log axes correctly
+#' param ... extra options to pass to barplot during plot creation
 plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 'means', 'ebar_poly'),
     layout=c('grouped', 'overlay'), draw0=TRUE, ylim=NULL, col=NULL, ..., plot_options) {
     # here we need to know about grouping var, x-axis
