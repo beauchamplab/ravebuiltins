@@ -304,7 +304,7 @@ for(ii in which(has_trials)) {
   
   if(!all(is.finite(over_time_data[[ii]]$range))) {
     # assign('otd_ii',over_time_data[[ii]], envir=globalenv())
-    if(any(is.nan(otd_ii$data[,1]))) {
+    if(any(is.nan(over_time_data$data[,1]))) {
       stop('Unable to plot data, data are NaN')
     } else {
       stop(paste0('non-finite range... ', paste(over_time_data[[ii]]$range, collapse='|')))
