@@ -20,8 +20,8 @@ modules:
   group_name: Condition Explorer
   order: 1
 - module_id: group_analysis_lme
-  module_label: Linear Mixed Effects Analysis (beta)
-  group_name: Group Analysis
+  module_label: Linear Mixed Effects Analysis
+  group_name: In-development
   order: 6
 - module_id: overview_viewer_3d
   module_label: Surface and Volume Viewer
@@ -33,7 +33,7 @@ modules:
   order: 5
 - module_id: voltage_explorer
   module_label: Voltage Explorer
-  group_name: Experimental
+  group_name: In-development
   order: 3
 - module_id: phase_explorer
   module_label: Phase Explorer
@@ -42,7 +42,7 @@ modules:
 disabled_modules:
 - module_id: spike_explorer
   module_label: Spike Explorer
-  group_name: Experimental
+  group_name: In-development
   order: 7
 
 
