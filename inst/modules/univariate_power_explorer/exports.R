@@ -115,7 +115,7 @@ export_stats = function(conn=NA, lbl='stat_out', dir, ...){
 
 
   # run through all the active electrodes and get the data
-  # out_data <- lapply_async(electrodes, process_for_stats)
+  # out_data <- rave::lapply_async(electrodes, process_for_stats)
 
   out_data <- get_summary()
 

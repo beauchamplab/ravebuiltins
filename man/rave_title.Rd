@@ -4,7 +4,7 @@
 \alias{rave_title}
 \title{Function make a title for a plot, checks par('bg') to handle dark mode}
 \usage{
-rave_title(main, cex = rave_cex.main, col, font = 1)
+rave_title(main, cex = rave_cex.main, col, font = 1, adj = 0.5, ...)
 }
 \arguments{
 \item{cex}{the character expansion for the title (default is rave_cex.main)}

@@ -4,9 +4,18 @@
 \alias{layout_heat_maps}
 \title{layout_heat_map}
 \usage{
-layout_heat_maps(k, max_col, ratio = 4, layout_color_bar = TRUE)
+layout_heat_maps(
+  k,
+  max_col,
+  ratio = 4,
+  layout_color_bar = TRUE,
+  colorbar_cm = 3.5
+)
 }
 \arguments{
+\item{colorbar_cm}{The default width chosen (3.5) for the color bar relies on `lcm`. If the function detects the user
+is writing to a file (@seealso plotting_to_file), the width is currently forced to 3.0}
+
 \item{k:}{the number of heatmaps, excluding the color bar}
 
 \item{max_col:}{maximum number of columns before creating multiple rows}
@@ -17,8 +26,4 @@ layout_heat_maps(k, max_col, ratio = 4, layout_color_bar = TRUE)
 }
 \description{
 Create a layout so that heatmaps look nice and you have enough space for the color bar
-}
-\details{
-The width chosen (3.5) for the color bar relies on `lcm`. If the function detects the user
-  is writing to a file (@seealso plotting_to_file), the width is 3.0
 }

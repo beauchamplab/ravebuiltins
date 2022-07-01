@@ -16,8 +16,6 @@ fix_group_names <- function(group, namevar, prfx) {
     return (list('group'=group, 'names' = nms))
 }
 
-
-
 power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   showNotification(p('Rebuild 3d viewer...'), id='power_3d_fun')
   brain = rave::rave_brain2(subject = subject)
@@ -623,19 +621,19 @@ download_electrodes_csv <- function() {
           downloadLink(ns('btn_electrodes_meta_download'), 'Download copy of meta data for all electrodes'))
 }
 
-# do_calculate_btn_float = function() {
-#   dipsaus::actionButtonStyled(
-#     ns('do_calculate_btn_float_button'), label = 'RAVE!',
-#     width = '200px', type = 'info', 
-#     icon = icon('magic'), style = 'z-index: 999; position: fixed; left: 50px; top:10px; display: block !important')
-# }
+do_calculate_btn_float = function() {
+  dipsaus::actionButtonStyled(
+    ns('do_calculate_btn_float_button'), label = 'RAVE!',
+    width = '200px', type = 'info',
+    icon = icon('magic'), style = 'background-color:#ff8c00; border:#e8640c; z-index: 999; position: fixed; left: 50px; bottom:10px; display: block !important')
+}
 
 
-# observeEvent(input$do_calculate_btn_float_button, {
-#   if(shiny_is_running() & !auto_recalculate()) {
-#     trigger_recalculate()
-#   }
-# })
+observeEvent(input$do_calculate_btn_float_button, {
+  if(shiny_is_running() & !auto_recalculate()) {
+    trigger_recalculate()
+  }
+})
 
 output$btn_electrodes_meta_download <- downloadHandler(
   filename=function(...) {
@@ -828,8 +826,16 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   # Get timepoints,frequency range
   time_points = preload_info$time_points
   # time_points = time_points[time_points %within% input$export_time_window]
-  freq_range = preload_info$frequencies
-  freq_range = freq_range[freq_range %within% input$frequency_window]
+  f1_values = preload_info$frequencies
+  f1_values = f1_values[f1_values %within% input$frequency_window]
+  
+  # check for an active F2
+  hasf2 <- input$enable_frequency_window2
+  if(hasf2) {
+    f2_values = preload_info$frequencies[preload_info$frequencies %within% frequency_window2]
+    event_of_interest2 = input$event_of_interest2
+    analysis_window2 = input$analysis_window2
+  }
   
   # get baseline
   baseline_range = input$baseline_window
@@ -850,7 +856,7 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
     ))), type = 'error', id = ns('export_csv'))
     return()
   }
-  dipsaus::cat2('Line 889', level='INFO')
+  dipsaus::cat2('Passed checks', level='INFO')
   # Baseline
   progress$inc('Generating results... (might take a few minutes)')
   
@@ -876,17 +882,22 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
     # e = electrodes[1]
     progress$inc(sprintf('Electrode %d', e))
     # Important p_sub is assigned, otherwise, it will get gc before baselined
+    
+    needed_frequencies <- f1_values
+    if(hasf2) needed_frequencies <- unique(c(needed_frequencies, f2_values))
+    
     p_sub = power$subset(Trial = Trial %in% trial_number,
-                         Frequency = Frequency %within% freq_range,
+                         Frequency = Frequency %in% needed_frequencies,
                          Electrode = Electrode %in% e)
     
     # bl = baseline(p_sub, from = baseline_range[1], to = baseline_range[2], hybrid = FALSE, mem_optimize = FALSE)
-    bl = dipsaus::baseline_array(x = p_sub$get_data(), baseline_indexpoints = which(p_sub$dimnames$Time %within% baseline_range),
+    bl = dipsaus::baseline_array(x = p_sub$get_data(),
+      baseline_indexpoints = which(p_sub$dimnames$Time %within% baseline_range),
       along_dim = 3L, unit_dims = unit_dims, method = baseline_method)
     
     ### here I think we just want to export all the events...
     by_event_type <- sapply(epoch_event_types, function(eot) {
-      # eot = epoch_event_types[2]
+      # eot = epoch_event_types[1]
       
       if(eot != epoch_event_types[1]) {
         epoch_info = get_events_data(epoch_event_types)
@@ -909,16 +920,29 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
                             varnames = p_sub$varnames, hybrid = FALSE)
       }
       # analysis = analysis$subset(Time = Time %within% time_points)
-      flat = analysis$collapse(keep = c(1,3))
       
-      dimnames(flat) = dimnames(analysis)[c(1,3)]
-      flat = reshape2::melt(flat, value.name = sprintf('%s_%s', unit_name, 
-                                                       str_replace_all(eot, ' ', '_'))
-                            ) # trial time, value
-      flat$Condition = unlist(cond_list[flat$Trial])
-      flat$Electrode = e
+      build_flat_data <- function(tensor) {
+        freq = str_collapse(range(tensor$dimnames$Frequency), ':') %&% " Hz"
+        mat = tensor$collapse(keep=c(1,3))
+        dimnames(mat) = dimnames(tensor)[c(1,3)]
+        mat = reshape2::melt(mat, value.name = sprintf('%s_%s', unit_name, 
+          str_replace_all(eot, ' ', '_'))
+        ) # trial time, value
+        mat$Condition = unlist(cond_list[mat$Trial])
+        mat$Electrode = e
+        mat$FrequencyWindow = freq
+        
+        return(mat)
+      }
       
-      # flat$uuid = paste0(flat$Trial, '_', formatC(flat$Time, width = 12, digits=10, flag='0'))
+      # split by frequency groups prior to collapsing
+      if(!hasf2) {
+        flat = build_flat_data(tensor = analysis)
+      } else {
+        f1mat <- build_flat_data(analysis$subset(Frequency = Frequency %in% f1_values))
+        f2mat <- build_flat_data(analysis$subset(Frequency = Frequency %in% f2_values))
+        flat = rbind(f1mat, f2mat)
+      }
       
       return(flat)
     }, USE.NAMES = TRUE, simplify = FALSE)
@@ -929,10 +953,9 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
     res <- fix_group_names(local_GROUPS, 'group_name', 'ConditionGroup')
     cond_group = res$group
     
-    # if there is only one event, return it, else we need to merge the results -- the code below works for #Event==1
+    # if there is only one event, return it, else we need to merge the results -- the code below now works for #Event==1
     # if(length(by_event_type) == 1) {
         # by_event_type <- by_event_type[[1]]
-        
         # return (by_event_type)
     # }
     
@@ -958,7 +981,7 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
     return (full_matrix)
   }, 
   .globals = c('unit_name', 'unit_dims', 'baseline_method', 'power', 'event_of_interest',
-                  'trial_number', 'time_points', 'freq_range', 'e', 'baseline_range', 'cond_list', 'local_GROUPS'),
+                  'trial_number', 'time_points', 'f1_values', 'f2_values', 'e', 'baseline_range', 'cond_list', 'local_GROUPS'),
   .gc = FALSE)
   
   # dipsaus::cat2('Line 977', level='INFO')
@@ -995,10 +1018,6 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   # also add in the block numbers per DABI request
   if(exists('epoch_data')) {
     res <- merge(res, epoch_data[,c('Block', 'Trial')], by='Trial')
-    
-    # let's tag Block as an ROI variable too. Don't mess up DABI folks, so keep Block as a separate var,
-    # but this expands the size of the data set, right. 1 million rows = 8MB, but should compress well
-    res[[paste0(RAVE_ROI_KEY, 'Block')]] = res$Block
   }
   # dipsaus::cat2('Line 1003', level='INFO')
   
@@ -1019,14 +1038,38 @@ write_out_data_function <- function(write_out_movie_csv=TRUE){
   
   # Collapse Trial and save to 3D viewer
   if(write_out_movie_csv) {
-    collapsed_trial = reshape2::dcast(res, Project+Subject+Electrode+Time~Condition, mean, value.var = paste0(unit_name, '_', 'Trial_Onset'))
+    
+    collapsed_trial = reshape2::dcast(res, Project+Subject+Electrode+Time+FrequencyWindow~Condition, mean, value.var = paste0(unit_name, '_', 'Trial_Onset'))
     dirname_viewer = file.path(subject$dirs$subject_dir, '..', '_project_data', '3dviewer')
     dir.create(dirname_viewer, showWarnings = FALSE, recursive = TRUE)
     
     # create average columns based on the condition groups
-    for(ii in seq_along(input$GROUPS)) {
-      g <- input$GROUPS[[ii]]
-      collapsed_trial[[g$group_name]] <- rowMeans(collapsed_trial[,colnames(collapsed_trial) %in% g$group_conditions, drop=FALSE])
+    
+    # if there are 2 freqs, split by them then do the averaging
+    if(nlevels(as.factor(collapsed_trial$FrequencyWindow)) == 1) {
+      for(ii in seq_along(input$GROUPS)) {
+        g <- input$GROUPS[[ii]]
+        collapsed_trial[[g$group_name]] <- rowMeans(collapsed_trial[,colnames(collapsed_trial) %in% g$group_conditions, drop=FALSE])
+      }
+    } else {
+      cind <- colnames(collapsed_trial) %in% g$group_conditions
+      
+      ct_by_freq <- collapsed_trial %>% split((.)$FrequencyWindow)
+      fnames <- paste0('F', names(ct_by_freq))
+      
+      for(ff in seq_along(ct_by_freq)) {
+        for(ii in seq_along(input$GROUPS)) {
+          g <- input$GROUPS[[ii]]
+          ct_by_freq[[ff]][[paste(sep='-', fnames[ff], g$group_name)]] <- rowMeans(ct_by_freq[[ff]][,cind, drop=FALSE])
+          colnames(ct_by_freq[[ff]])[cind] = paste(sep='-', fnames[ff], colnames(ct_by_freq[[ff]])[cind])
+          
+          ct_by_freq[[ff]]$FrequencyWindow = NULL
+        }
+      }
+      
+      
+      # then we need to rename the group conditions 
+      collapsed_trial = merge(ct_by_freq[[1]], ct_by_freq[[2]])
     }
     
     fst::write_fst(

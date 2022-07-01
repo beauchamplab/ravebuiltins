@@ -2,18 +2,18 @@
 
 # ----------------------------------- Debug ------------------------------------
 require(ravebuiltins)
-
+require(rave)
 env = dev_ravebuiltins(T)
 
 ## Load subject for debugging
-mount_demo_subject()
+mount_demo_subject(force_reload_subject = T)
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
 #  ----------------------  Initializing Global variables -----------------------
 load_scripts(
   'inst/modules/power_explorer/exports.R',
-  'inst/modules/power_explorer/event_handlers.R', 
+  'inst/modules/power_explorer/event_handlers.R',
   asis = TRUE
 )
 
@@ -127,11 +127,36 @@ define_input(
 
 define_input_condition_groups(inputId = 'GROUPS')
 
-define_input(selectInput('electrode_analysis_type', label = 'How should Electrode be treated?',
+define_input(selectInput('electrode_analysis_type', label = 'How should Electrode be treated? (does not affect export)',
                          selected = 'Random intercept',
                          choices=c('Random intercept', 'Contrasts per electrode','Collapse electrode','Fixed effect')))
 
 define_input_frequency(inputId = 'frequency_window', initial_value = c(70,150))
+
+
+
+#### - secondary frequency window
+define_input(checkboxInput('enable_frequency_window2', label='Enable F2', value = FALSE))
+define_input(sliderInput('frequency_window2', label = 'F2 Window', min = 0,
+                         max=200, value = c(10,20), round = TRUE, step = 1))
+
+define_input(checkboxInput('enable_analysis_window2', label='F2 has sep time', value = FALSE))
+define_input_time(inputId = 'analysis_window2',
+                  label='F2 time (relative to analysis event)',
+                  initial_value = c(0,1))
+
+# define_input(checkboxInput('enable_event_of_interest2', label='F2 has sep epoch', value = FALSE))
+define_input(definition = selectInput('event_of_interest2', 'Analysis Event for F2 (currently ignored)',
+                                      choices=c('Trial Onset'), selected=c('Trial Onset'), multiple = FALSE),
+             init_args = c('choices'),
+             init_expr = {
+               choices = epoch_event_types
+             }
+)
+
+####---
+
+
 define_input_time(inputId = 'analysis_window', label='Analysis time (relative to analysis event)', initial_value = c(0,1))
 define_input_time(inputId = 'plot_time_range', label='Plot Time Range (relative to analysis event)')
 define_input_time(inputId = 'baseline_window', label='Baseline time (relative to trial onset)', initial_value = c(-1,0))
@@ -533,7 +558,6 @@ define_input(
   definition = customizedUI('download_electrodes_csv')
 )
 
-
 define_input_auto_recalculate(
   inputId = 'auto_calculate', label = 'Automatically recalculate analysis', 
   type = 'checkbox', default_on = FALSE
@@ -545,19 +569,13 @@ define_input_auto_recalculate(
 )
 
 
-# define_input(customizedUI('do_calculate_btn_float'))
-
-
-
-
-# 
-#   inputId = '', label = 'Recalculate everything', 
-#   type = 'button', button_type = 'primary'
-# )
+define_input(customizedUI('do_calculate_btn_float'),
+  inputId = '', label = 'Recalculate everything',
+  type = 'button', button_type = 'primary'
+)
 # 
 # 
-# register_auto_calculate_widget('do_calculate_btn_float_button', 'button', FALSE)
-
+register_auto_calculate_widget('do_calculate_btn_float_button', 'button', FALSE)
 
 
 # this is hard because we need to figure out which pieces of data are need for quick calculation vs. full calculation
@@ -565,8 +583,6 @@ define_input_auto_recalculate(
 #   inputId = 'do_quick_calculate_btn', label = 'Recalculate across-electrode stats only', 
 #   type = 'button', button_type = 'success'
 # )
-
-
 
 
 #
@@ -598,9 +614,6 @@ render_inputs <- c(
 )
 
 
-
-
-
 # Define layouts if exists
 input_layout = list(
   # '[#cccccc]
@@ -612,7 +625,7 @@ input_layout = list(
     'reset_electrode_selectors', 
     'download_electrodes_csv',
   'do_calculate_btn_float'),
-  'Configure analysis' = list(
+  '[-]Configure analysis' = list(
     'frequency_window',
      c('unit_of_analysis'),
     'baseline_window',
@@ -620,21 +633,24 @@ input_layout = list(
     'analysis_window',
     'plot_time_range',
     c('event_of_interest', 'sort_trials_by_type'),
-    'do_calculate_btn', 'auto_calculate', 'do_quick_calculate_btn'
+    'do_calculate_btn', 'auto_calculate',
+    'analysis_settings'
+  ),
+  '[-]Multi-frequency analysis' = list(
+    'enable_frequency_window2',
+    'frequency_window2',
+    'enable_analysis_window2',
+    'analysis_window2',
+    'event_of_interest2'
   ),
   '[-]Create condition contrasts' = list(
     'electrode_analysis_type',
-    'GROUPS',
-    'analysis_settings'
+    'GROUPS'
   ),
   '[-]Manage trial outliers' = list(
     'show_outliers_on_plots',
     'trial_outliers_list',
     'clear_outliers', 'save_new_epoch_file'
-  ),
-  '[-]Stimulation-related options' = list(
-    'stimulation_window', 'censor_stimulation_window',
-    'show_stimulation_window'
   ),
   '[-]Find + Export active electrodes' = list(
     c('which_result_to_show_on_electrodes'), 
@@ -680,6 +696,9 @@ input_layout = list(
     'custom_plot_download'
   ), '[-]Download stat heatmaps' = list(
     'sheth_special'
+  ),  '[-]Stimulation-related options' = list(
+    'stimulation_window', 'censor_stimulation_window',
+    'show_stimulation_window'
   )
 )
 
@@ -694,48 +713,95 @@ define_output(
 )
 
 define_output(
+  definition = plotOutput(outputId = 'frequency_correlation_plot'),
+  title = 'Time-wise correlation by frequency',
+  width = 12,
+  order = 1
+)
+
+define_output(
   definition = plotOutput('by_trial_heat_map_plot'),
                           # click = clickOpts(shiny::NS('power_explorer')('by_trial_heat_map_click'), clip = FALSE)),
-  title = 'Activity over time by trial',
+  title = 'Activity over time by trial (primary frequency)',
   width = 12,
-  order = 2
+  order = 3
 )
+
+define_output(
+  definition = plotOutput('by_trial_heat_map_plot2'),
+  title = 'Activity over time by trial (secondary frequency)',
+  width = 12,
+  order = 3.1
+)
+
+define_output(
+  definition = plotOutput('trialwise_correlation_plot'),
+  title = 'Primary vs. secondary frequency correlation per trial (within analysis window)',
+  width = 12,
+  order = 3.1
+)
+
 
 define_output(
   definition = plotOutput('by_electrode_heat_map_plot'),
-  title = 'Activity over time by electrode',
+  title = ' ',
   width = 12,
-  order = -1
+  order = 10
 )
+# define_output(
+#   definition = plotOutput('by_electrode_heat_map_plot2'),
+#   title = '  ',
+#   width = 12,
+#   order = 10.1
+# )
 
 define_output(
   definition = plotOutput('over_time_plot'),
-  title = 'Activity over time by condition',
-  width = 7,
-  order = 3
+  title = 'Activity over time',
+  width = 12,
+  order = 51
 )
+define_output(
+  definition = plotOutput('over_time_plot2'),
+  title = 'Activity over time, panel by frequency',
+  width = 12,
+  order = 52
+)
+
+# define_output(
+#   definition = plotOutput('over_time_correlation_plot'),
+#   title = 'over_time_correlation_plot',
+#   width=12,
+#   order=53
+# )
 
 define_output(
   definition = plotOutput('windowed_comparison_plot',
                           click = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_click'), clip = T),
                           dblclick = clickOpts(shiny::NS('power_explorer')('windowed_by_trial_dbl_click'), clip = T)),
-  title = 'Windowed Avg',
-  width = 3,
-  order = 4
+  title = 'Windowed Average',
+  width = 8,
+  order = 6
+)
+
+define_output(
+  definition = plotOutput('windowed_correlation_plot'),
+  title = 'Windowed Correlation',
+  width =12,
+  order = 6.1
 )
 
 define_output(
   definition = customizedUI('click_output'),
   title = 'Info Panel',
-  width=2, order=4.1
+  width=4, order=4.1
 )
 
 define_output(
   definition = plotOutput('across_electrode_statistics_plot'),
-  title = 'Per electrode statistical tests',
+  title = 'Per electrode stats (filled circles pass all filters)',
   width = 12,
-  order = -1#,
-  # alt_text = 'This does...'
+  order = 21
 )
 
 
@@ -751,7 +817,7 @@ define_output_3d_viewer(
   message = 'Click here to reload viewer',
   title = 'Results on surface',
   height = '500px',
-  order = -1e4,
+  order = 02,
   additional_ui = htmltools::tagList(' | ', 'Double-click an electrode to update analysis. Single-click for electrode details')
 )
 
@@ -770,7 +836,6 @@ define_output(
   order = 201
 )
 
-
 define_output(
   outputId = 'assess_stability_over_time',
   definition = plotOutput('assess_stability_over_time_plot'),
@@ -779,6 +844,21 @@ define_output(
   order = 202
 )
 
+output_layout = list(
+  'Surface viewer' = list('3dViewer' = 'power_3d'),
+  'Activity by electrode' = list('Activity over time' = '..by_electrode_heat_map_plot',
+    # 'Correlation across frequencies' = '..by_electrode_heat_map_plot2',
+    'Stat overview' = '..across_electrode_statistics_plot'),
+  'Activity over time by frequency' = list('Spectrogram' = '..heat_map_plot', 'Frequency correlations' = '..frequency_correlation_plot'),
+  'Activity over time by trial' = list('Main frequency' = '..by_trial_heat_map_plot', 'Secondary frequency'='..by_trial_heat_map_plot2',
+    'Trial-by-trial cross-freq correlation' = '..trialwise_correlation_plot'),
+  'Activity over time by condition' = list('Combined frequencies' = '..over_time_plot',
+    # 'Lagged correlation across frequencies'='..over_time_correlation_plot',
+    'Separated frequencies' = c('..over_time_plot2')),
+  'Windowed activity by trial' = list('Main frequency'=c('..windowed_comparison_plot', 'click_output'),
+    # 'Secondary frequency' = '..windowed_comparison_plot2',
+    'Correlation across frequencies' = '..windowed_correlation_plot')
+)
 
 
 
@@ -789,5 +869,5 @@ define_output(
 
 # -------------------------------- View layout ---------------------------------
 quos = rave:::parse_components(module_id = 'power_explorer', parse_context = 'rave_running_local')
-
+ravebuiltins:::dev_ravebuiltins(T)
 view_layout('power_explorer')

@@ -22,6 +22,9 @@ draw_many_heat_maps(
   decorate_all_plots = FALSE,
   center_multipanel_title = FALSE,
   ignore_time_range = NULL,
+  marginal_text_fields = c("Subject ID", "Electrode", "Frequency"),
+  extra_plot_parameters = NULL,
+  do_layout = TRUE,
   ...
 )
 }

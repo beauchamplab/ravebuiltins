@@ -23,13 +23,15 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
     show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
     PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), plot_time_range=NULL, 
     special_case_first_plot = FALSE, max_columns=2, decorate_all_plots=FALSE, center_multipanel_title=FALSE,
-    ignore_time_range=NULL, ...) {
+    ignore_time_range=NULL, marginal_text_fields=c('Subject ID', 'Electrode', 'Frequency'), extra_plot_parameters=NULL, do_layout=TRUE, ...) {
     k <- sum(hmaps %>% get_list_elements('has_trials'))
     
     # need to determine the max columns
-    
-    orig.pars <- layout_heat_maps(k, max_col = max_columns, 
-        layout_color_bar = show_color_bar)
+    if(do_layout) {
+        # print('LAYOUT')
+        orig.pars <- layout_heat_maps(k, max_col = max_columns, 
+                                      layout_color_bar = show_color_bar)
+    }
     
     # I'm getting error about pin here... let's just rely on the graphics device being reset?
     # on.exit({
@@ -47,23 +49,28 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
         # trying to be smart about the size of the margin to accomodate the angular text. R doesn't auto adjust :(
         max_char_count = max(sapply(hmaps, function(h) ifelse(h$has_trials, max(nchar(h$conditions)), 1)))
         
-        print('draw_many_heat_maps should be using strwidth')
+        # print('draw_many_heat_maps should be using strwidth')
         par(mar = c(par('mar')[1],
             5.1 + max(0,(max_char_count - 5)*0.95),
             2, 2))
     } else {
         # axis=2 is being cutoff on multi-panel plots
         if(any(par('mfrow')>1)) {
-            # print('setting mar')
-            par(mar= .1 + c(4, 4.5, 2, 0))
-            if(!decorate_all_plots) {
+            default_mar <- c(5.1, 4.1, 4.1, 2.1)
+            
+            if(all(par('mar') == default_mar)) {
+                par(mar= .1 + c(4, 4.5, 2, 0))
+            }
+            if(!decorate_all_plots && do_layout) {
                 # create an outer margin for title information
                 # that applies to all plots
                 par('oma' = c(0,0,2,0))
             }
             # c(par('mar')[1], par('mar')[2]*1.3, 2, 2))
         } else {
-            par(mar=c(par('mar')[1], par('mar')[2], 2, 2))
+            if(all(par('mar') == default_mar)) {
+                par(mar=c(par('mar')[1], par('mar')[2], 2, 2))
+            }
         }
     }
     
@@ -87,7 +94,6 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
                     probs = max_zlim / 100,
                     na.rm = TRUE)
             }
-            
         }
         
         if(max_zlim > 100) {
@@ -151,7 +157,6 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
                     ncol_wo_cbar = ncol_wo_cbar - 1
                 }
                 
-                
                 # drop xlab if there is a plot "beneath" this plot
                 if(mi + ncol_wo_cbar <= k) {
                     attr(map$data, 'xlab') <- ' '
@@ -166,20 +171,31 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
                 }
             }
             
-            
             # because image plot centers the data on the y-variable, it can introduce 0s which fail when log='y'
             # so we shift y by a small amount so that the minimum is > 0
             dy <- 0
+            pc_args = list()
             if(log_scale == 'y') {
                 dy <- (y[2]-y[1])/2 + min(y)
                 #FIXME I think this may be making the edge boxes too small cf. the else block where we pad 0.5
-                rutabaga::plot_clean(x,y+dy, xlab='', ylab='', cex.lab=rave_cex.axis*get_cex_for_multifigure(), log='y')
+                # rutabaga::plot_clean(x,y+dy, xlab='', ylab='', cex.lab=rave_cex.axis*get_cex_for_multifigure(), log='y')
+                pc_args[c('xlim', 'ylim', 'cex.lab', 'log')] = list(x, y+dy, rave_cex.axis*get_cex_for_multifigure(), 'y')
+                
             } else {
                 pad = c(-0.5, 0.5)
+                
                 # dipsaus::cat2("rutabaga::plot_clean")
-                rutabaga::plot_clean(xlim=range(x) + pad,
-                    ylim=range(y) + pad)
+                # rutabaga::plot_clean(xlim=range(x) + pad, ylim=range(y) + pad)
+                pc_args[c('xlim', 'ylim')] = list(range(x)+pad, range(y)+pad)
+                # pc_args[c('xlim', 'ylim')] = list(range(x), range(y))
             }
+            
+            # any specialized graphics par go here:
+            if(!is.null(extra_plot_parameters)) {
+                pc_args[names(extra_plot_parameters)] = extra_plot_parameters
+            }
+            
+            do.call(rutabaga::plot_clean, pc_args)
             
             if(is.function(PANEL.FIRST)) {
                 PANEL.FIRST(map)
@@ -187,30 +203,38 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             
             # make sure the decorators are aware that we are linearizing the y scale here
             # dipsaus::cat2("make_image")
-            make_image(map$data, x=x, y=y, log=ifelse(log_scale, 'y', ''), zlim=c(-1,1)*max_zlim)
+            make_image(map$data, x=x, y=y, log=ifelse(log_scale, 'y', ''),
+                zlim=c(-1,1)*max_zlim)
             xticks <- ..get_nearest(pretty(map$x), map$x)
             
             # this doesn't look great for unequally spaced items. better would be something
             # like sorting the values and taking the values according to rank, r1, r25%, r50%, r75% rMax
-            if(diff(range(diff(sort(map$y)))) > 2) {
+            if(length(map$y) <= 5) {
+                yticks <- seq_along(map$y)
+            }
+            else if(diff(range(diff(sort(map$y)))) > 2) {
                 tck = map$y[c(1, round(length(map$y)*(1/3)), round((2/3)*length(map$y)), 1.0*length(map$y))]
+                
                 yticks <- ..get_nearest(tck, map$y)
             } else {
                 yticks <- ..get_nearest(pretty(map$y), map$y)
             }
             
             axes %<>% rep_len(2)
-            if(axes[1])
-                rave_axis(1, at=xticks, labels=map$x[xticks], tcl=0, lwd=0)
+            if(axes[1]) {
+                rave_axis(1, at=xticks, labels=map$x[xticks], tcl=0, lwd=0, mgpx=c(0,0.5,0))
+            }
             if(axes[2])
-                rave_axis(2, at=yticks, labels=map$y[yticks], tcl=0, lwd=0)
+                rave_axis(2, at=yticks, labels=map$y[yticks], tcl=0, lwd=0, mgpy=c(0,0.5,0))
             
             if(is.function(PANEL.LAST)) {
                 # dipsaus::cat2("PANEL.LAST")
                 #PANEL.LAST needs to know about the coordinate transform we made
                 PANEL.LAST(map,
                     Xmap=function(x) ..get_nearest_i(x, map$x),
-                    Ymap=function(y) ..get_nearest_i(y, map$y),
+                    Ymap=function(y) {
+                        ..get_nearest_i(y, map$y)
+                    },
                     more_title_options = mto)
             }
         }
@@ -248,7 +272,6 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
     ) {
         # get the original title string
         
-        
         if(center_multipanel_title) {
             xpos <- ifelse(show_color_bar, 0.475, 0.5)
             adj <- 0.5
@@ -257,10 +280,16 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             adj <- 0
         }
         
-        mtext(text = paste(hmaps[[1]]$subject_code,
-            "E", dipsaus::deparse_svec(hmaps[[1]]$electrodes), ", ",
-            paste0(hmaps[[1]]$frequency_window, collapse=':'), 'Hz'
-        ),
+        # need to respect wishes about what is shown:
+        tokens = c(
+            "Subject ID" = hmaps[[1]]$subject_code,
+            "Electrode" = 'E' %&% dipsaus::deparse_svec(hmaps[[1]]$electrodes),
+            "Frequency" = paste0(hmaps[[1]]$frequency_window, collapse=':') %&% ' Hz'
+        )
+        
+        tokens = tokens[(names(tokens) %in% marginal_text_fields)]
+        
+        mtext(text = paste(tokens, collapse=' '),
             line=0, at = xpos, adj=adj,
             outer=TRUE, font = 1, cex=rave_cex.main*0.8)
     }
@@ -269,7 +298,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
 }
 
 
-calculate_abs_max <- function(y, requested_max=NA, percentile_range=FALSE, do_round=FALSE) {
+calculate_abs_max <- function(y, requested_max=NA, percentile_range=is.numeric(requested_max), do_round=FALSE) {
     
     true_abs_max <- max(abs(y), na.rm=TRUE)
     
@@ -285,17 +314,13 @@ calculate_abs_max <- function(y, requested_max=NA, percentile_range=FALSE, do_ro
         }
     }
     
-    # if(do_round) {
-    #     mx = 0.99
-    #     dig <- -floor(log10(mx) - 1)
-    #     
-    #     if(mx %within% c(10,50))
-    #     
-    #     
-    #     else if(max_zlim > 10) {
-    #         max_zlim %<>% round_to_nearest(5)
-    #     }
-    # }
+    if(do_round) {
+        if(mx > 100) {
+            mx %<>% round(-1)
+        } else if(mx > 10) {
+            mx %<>% round_to_nearest(5)
+        }
+    }
     
     return(mx)
 }
@@ -306,6 +331,7 @@ build_group_names <- function(groups) {
     gnames[gnames == ""] = paste0('rave_group_', LETTERS[which(gnames=='')])
     return(gnames)
 }
+
 
 build_group_contrast_labels <- function(group_names) {
     apply(utils::combn(length(group_names),2), 2, 
@@ -489,8 +515,6 @@ trial_scatter_plot = function(group_data, ylim, bar.cols=NA, bar.borders=NA, col
                         col=getAlphaRGB(cols[ii], pt.alpha),
                         pch=pchs[ii])
                 }
-                
-                
             }
             
             # cat('How many clean datapoints?' %&% sum(group_data[[ii]]$is_clean) %&% '\n')
@@ -612,14 +636,42 @@ spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Y
             )
         )
         
+        if(isTRUE(plot_data$enable_frequency2)) {
+            
+            windows[['F2 Analysis']] = list(
+                window = if(atype=='box') {
+                    list(x=Xmap(plot_data$analysis_window2),
+                         y=Ymap(plot_data$frequency_window2))
+                } else if(atype == 'label') {
+                    plot_data$analysis_window2    
+                }else {
+                    Xmap(plot_data$analysis_window2)
+                },
+                type=atype
+            )
+            
+            if('Analysis Window' %in% plot_options$plot_title_options) {
+                plot_options$plot_title_options %<>% c('F2 Analysis Window')
+                # print('adding F2 AW')
+            }
+        }
+        # print(str_collapse(plot_options$plot_title_options))
+        
         lapply(names(windows), function(nm) {
             if(paste(nm, 'Window') %in% plot_options$plot_title_options & windows[[nm]]$type != 'n') {
+                # cat('trying:\t', str_collapse(c(atype, btype, nm)), '\n')
+                
+                lpo <- 0.9
+                if(all('label' == c(btype,atype), nm %in% c('F2 Analysis', 'Analysis'))){
+                    lpo <- 0.8
+                } else if(nm == 'F2 Analysis') {
+                    lpo = 0.75
+                }
+                
                 with(windows[[nm]],
                     window_decorator(
                         window=window, type=type,
-                        text=ifelse(plot_options$draw_decorator_labels, nm, ''),
-                        label_placement_offset = ifelse(all('label' == c(btype,atype), nm == 'Analysis'), 0.8, 0.9)
-                    )
+                        text=ifelse(plot_options$draw_decorator_labels, nm, ''))
                 )
             }
         })
@@ -631,6 +683,7 @@ spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Y
     }
     
     if(missing(plot_data)) {
+        # dipsaus::cat2('returning decorator')
         return (shd)
     }
     
@@ -729,13 +782,9 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
     
     # with(make_image_mat, {
     
-    
-    
     image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
         add=add, axes=F, xlab='', ylab='', main='')
     # })
-    
-    
     
     
     # return the clipped zmat
@@ -750,14 +799,14 @@ make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zli
 #' @param max_col: maximum number of columns before creating multiple rows
 #' @param ratio: heatmap to color bar width ratio (Default 4:1)
 #' @param layout_color_bar: whether space should be made for the color bar (Default TRUE)
-#' @details The width chosen (3.5) for the color bar relies on `lcm`. If the function detects the user
-#'   is writing to a file (@seealso plotting_to_file), the width is 3.0
-layout_heat_maps <- function(k, max_col, ratio=4, layout_color_bar=TRUE) {
+#' @param colorbar_cm The default width chosen (3.5) for the color bar relies on `lcm`. If the function detects the user
+#'   is writing to a file (@seealso plotting_to_file), the width is currently forced to 3.0
+layout_heat_maps <- function(k, max_col, ratio=4, layout_color_bar=TRUE, colorbar_cm=3.5) {
     opars <- par(no.readonly = TRUE)
     
-    cbar_wid <- 3.5
+    # colorbar_cm <- 3.5
     if(plotting_to_file()) {
-        cbar_wid <- 3
+        colorbar_cm <- 3
     }
     
     nr <- ceiling(k / max_col)
@@ -768,12 +817,11 @@ layout_heat_maps <- function(k, max_col, ratio=4, layout_color_bar=TRUE) {
     widths <- rep(ratio, max_col)
     if(layout_color_bar) {
         mat <- cbind(mat, k+1)
-        widths <- c(widths, lcm(cbar_wid))
+        widths <- c(widths, lcm(colorbar_cm))
     }
     
+    # print('doing layout')
     layout(mat, widths=widths)
-    
-    invisible(opars)
 }
 
 ##RUTABAGA
@@ -819,7 +867,7 @@ str_rng <- function(rng) {
 rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change', ylab.line=1.5,
     mar=c(5.1, 5.1, 2, 2), adjust_for_nrow=TRUE, horizontal=FALSE, ...) {
     rave_context()
-    
+    # print('drawing color bar')
     clrs %?<-% get_currently_active_heatmap()
     cbar <- matrix(seq(-zlim, zlim, length=length(clrs))) %>% t
     
@@ -831,7 +879,10 @@ rave_color_bar <- function(zlim, actual_lim, clrs, ylab='Mean % Signal Change', 
         ylim = 1/nr * c(-1,1) + ylim
     }
     
-    par(mar=mar)
+    orig.pty <- par('pty')
+    on.exit(par(pty=orig.pty))
+    
+    par(mar=mar, pty='m')
     image(cbar, useRaster = FALSE, ylim=ylim,
         col=clrs, axes=F, ylab='', main='',
         col.lab = get_foreground_color())
@@ -906,44 +957,52 @@ reorder_trials_by_type <- function(bthmd) {
 }
 
 reorder_trials_by_event <- function(bthmd, event_name) {
-    if(event_name != 'Condition') {
-        new_order = order(bthmd$events[[event_name]])
+    # bthmd <- by_trial_heat_map_data[[1]]
+    
+    #recursively process multiple-frequency data
+    if(any(c('F1', 'F2') %in% names(bthmd))) {
+        bthmd <- lapply(bthmd, reorder_trials_by_event, event_name)
     } else {
-        # We want to sort, but if we're using Condition, we want to preserve the order that the conditions were added to the group.
-        # What if we factor the data, then sort by the 1e7*factor_number + trial_number
-        as_fact = factor(bthmd$events[['Condition']], levels = bthmd$conditions)
-        new_order = order(1e7*as.integer(as_fact) + bthmd$Trial_num)
+        if(event_name != 'Condition') {
+            new_order = order(bthmd$events[[event_name]])
+        } else {
+            # We want to sort, but if we're using Condition, we want to preserve the order that the conditions were added to the group.
+            # What if we factor the data, then sort by the 1e7*factor_number + trial_number
+            as_fact = factor(bthmd$events[['Condition']], levels = bthmd$conditions)
+            new_order = order(1e7*as.integer(as_fact) + bthmd$Trial_num)
+            
+            # if we're sorting by condition (or any categorical variable) 
+            # we can show labels
+            ind <- sapply(bthmd$conditions, function(ttype) sum(ttype==bthmd$trials), simplify = FALSE)
+            bthmd$lines <- cumsum(ind)
+            bthmd$ttypes <- names(ind)
+        }
         
-        # if we're sorting by condition (or any categorical variable) 
-        # we can show labels
-        ind <- sapply(bthmd$conditions, function(ttype) sum(ttype==bthmd$trials), simplify = FALSE)
-        bthmd$lines <- cumsum(ind)
-        bthmd$ttypes <- names(ind)
-    }
-    
-    .xlab <- attr(bthmd$data, 'xlab')
-    .zlab <- attr(bthmd$data, 'zlab')
-    
-    # note that data is the transpose of what might be expected...
-    # this saves a transpose during plotting and doesn't cause issues if you're careful
-    bthmd$data <- bthmd$data[, new_order]
-    bthmd$events <- bthmd$events[new_order, ]
-    
-    # set the axis labels
-    attr(bthmd$data, 'xlab') <- .xlab
-    if(event_name != 'Condition') {
-        attr(bthmd$data, 'ylab') <- 'Trial # (sorted by ' %&% event_name %&% ')'
-    }
-    attr(bthmd$data, 'zlab') <- .zlab
-    
-    
-    # what things need to be re-ordered... this is potentially dangerous because we don't know what we _aren't_ re-ordering
-    bthmd$trials <-  bthmd$trials[new_order]
-    bthmd$Trial_num <-  bthmd$Trial_num[new_order]
-    bthmd$is_clean <-  bthmd$is_clean[new_order]
-    
-    if('ConditionGroup' %in% names(bthmd)) {
-        bthmd$ConditionGroup <- bthmd$ConditionGroup[new_order]
+        .xlab <- attr(bthmd$data, 'xlab')
+        .zlab <- attr(bthmd$data, 'zlab')
+        
+        # note that data is the transpose of what might be expected...
+        # this saves a transpose during plotting and doesn't cause issues if you're careful
+        bthmd$data <- bthmd$data[, new_order]
+        bthmd$events <- bthmd$events[new_order, ]
+        
+        # set the axis labels
+        attr(bthmd$data, 'xlab') <- .xlab
+        if(event_name != 'Condition') {
+            attr(bthmd$data, 'ylab') <- 'Trial # (sorted by ' %&% event_name %&% ')'
+        }
+        attr(bthmd$data, 'zlab') <- .zlab
+        
+        
+        # what things need to be re-ordered... this is potentially dangerous because we don't know what we _aren't_ re-ordering
+        bthmd$trials <-  bthmd$trials[new_order]
+        bthmd$Trial_num <-  bthmd$Trial_num[new_order]
+        bthmd$is_clean <-  bthmd$is_clean[new_order]
+        
+        if('ConditionGroup' %in% names(bthmd)) {
+            bthmd$ConditionGroup <- bthmd$ConditionGroup[new_order]
+        }
+        
     }
     
     return(bthmd)
@@ -1209,7 +1268,6 @@ get_foreground_color <- function() {
     ) 
 }
 
-
 get_middleground_color <- function(k=0.5) {
     
     bg = par('bg')
@@ -1217,7 +1275,6 @@ get_middleground_color <- function(k=0.5) {
     
     rgb(colorRamp(c(bg, fg), space='Lab')(k), maxColorValue = 255)
 }
-
 
 
 # just to make it consistent naming with the others
@@ -1354,6 +1411,8 @@ title_decorator <- function(plot_data, plot_title_options,
     # rave_title is an "additive" instead of replacement call, so rendering an empty string won't hurt anything,
     # but let's save a few needless function calls
     if(nchar(title_string) > 0 && plot) {
+        # dipsaus::cat2('dput on title:\t', dput(title_string), '\nlen: ', length(title_string), ', nchar=', nchar(title_string), pal = list("Blue" = "dodgerblue3"), level = "Blue")
+        
         rave_title(title_string)
     }
     
@@ -1611,7 +1670,7 @@ get_unit_of_analysis <- function(requested_unit, names=FALSE) {
 
 window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
     line.col, shade.col='gray60', label_placement_offset=0.9,
-    text=FALSE, text.col, lwd, lty, text.adj, ...) {
+    text=FALSE, text.col, lwd, lty, text.adj, AUTO_ADJUST_YAX = 0.5, text.pos=3, auto_left_align_text = TRUE, ...) {
     type <- match.arg(type)
     text.x = unlist(window)[1]
     text.y <- par('usr')[4] * label_placement_offset
@@ -1622,8 +1681,13 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
         line = {
             lwd %?<-% 1
             lty %?<-% 2
-            text.col %?<-% line.col
             abline(v=unlist(window), lwd=lwd, lty=lty, col=line.col)
+            
+            # in case there is associated text
+            text.col %?<-% line.col
+            amt = diff(par('usr')[3:4])*.065
+            text.y = par('usr')[4] - amt
+            text.pos=1
         },
         box = {
             lwd %?<-% 2
@@ -1634,15 +1698,19 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
                 warning("window must be a list with x and y components to draw a box")
                 text=FALSE
             } else {
-                with(window, rect(x[1], y[1], x[2], y[2], lwd=lwd, lty=lty, border=line.col, col=NA))
+                with(window, rect(x[1], y[1]-AUTO_ADJUST_YAX, x[2], y[2]+AUTO_ADJUST_YAX, lwd=lwd, lty=lty, border=line.col, col=NA))
                 
                 text.x <- window$x[1]
                 
                 # the multipler on the box here needs to be based on the size of the plot to reduce
-                # the likelihood of over-printing. Basically we plot just above the analysis window (2.5% of the plottting range), or else
-                # at 90% of the figure region, whichever is lower
-                yfac <- diff(par('usr')[4] * c(.975,1))
-                text.y <- min(par('usr')[4]*.9, window$y[2] + yfac)
+                # the likelihood of over-printing. Basically we plot just above the analysis window (2.5% of the plotting range), or else
+                # at 97.5% of the figure region, whichever is lower
+                # yfac <- diff(par('usr')[4] * c(.975,1))
+                # text.y <- min(par('usr')[4]*.975, window$y[2] + yfac)
+                
+                # just set text = bottom of top of window
+                text.pos = 1
+                text.y = window$y[2]
             }
         },
         label = {
@@ -1679,9 +1747,24 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
             cex = 1
         }
         if(missing(text.adj)) {
-            text.adj = c(0,0.5)
+            # text.adj = if(text.y == 'F2 Analysis') {
+            # text.adj = 0.5
+            # } else {
+                # c(0,0.5)
+            # }
         }
-        text(text.x, text.y, labels = text, adj=text.adj, col=text.col,cex=cex)
+        
+        # dipsaus::cat2('rendering text: ', text, 'at', label_placement_offset, '=', text.y, level='INFO')
+        
+        if(auto_left_align_text) {
+            text.x = text.x + strwidth(text)/2 + 2*strwidth("F")
+        }
+        
+        
+        text(text.x, text.y, labels = text, 
+            # adj=text.adj,
+            pos = text.pos,
+            col=text.col,cex=cex, xpd=TRUE)
     }
 }
 
@@ -2019,7 +2102,6 @@ set_heatmap_palette_helper <- function(results, plot_options, ...) {
         #       val=expand_heatmap(pal, results = results),
         #       name='current_rave_heatmap_palette')
     }
-    
 }
 
 get_currently_active_heatmap <- function() {
@@ -2131,38 +2213,64 @@ fix_name_for_js <- function(nm) {
     ))
 }
 
-#' description this doesn't do any decoration, it's designed for use with rutabaga::create_frames.
+#' Description this doesn't do any decoration, it's designed for use with rutabaga::create_frames.
 #' Note that we're using barplot to set the x- and y-range of the plot.
-#' note Does not handle log axes correctly
+#' Note Does not handle log axes correctly
 #' param ... extra options to pass to barplot during plot creation
-plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 'means', 'ebar_poly'),
-    layout=c('grouped', 'overlay'), draw0=TRUE, ylim=NULL, col=NULL, ..., plot_options) {
+plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 'means', 'ebar polygons'),
+    layout=c('grouped', 'overlay'), draw0=TRUE, draw0.col='black', ylim=NULL, col=NULL, ..., plot_options = NULL, jitter_seed) {
     # here we need to know about grouping var, x-axis
+    
+    if(is.null(plot_options)) {
+        plot_options <- list()
+    } 
+    
+    plot_options$pch %?<-% 19
+    plot_options$pt.cex %?<-% (1*get_cex_for_multifigure())
+    plot_options$outlier_pch %?<-% 1
+    
+    types %?<-% c('jitter points', 'means', 'ebar polygons')
     
     # removed (layout := 'stacked') because I don't know if iEEG data 
     # should ever be stacked ?
     
     if(missing(xvar) && !is.null(gvar)) {
         xvar <- gvar
-        gvar <- NULL
+        gvar <- 'none'
+    }
+    
+    if(is.null(gvar) || gvar == xvar) {
+        gvar <- 'none'
     }
     
     layout = match.arg(layout)
     
     # first step is to aggregate the data to get the means and potentially SE
     keys <- xvar
+    if(gvar=='none') gvar=NULL
+    
     if(!is.null(gvar)) {
         keys <- c(gvar, keys)
     }
     raw <- data.table::data.table(mat)
-
-    # get the aggregate data for plotting means/se
-    agg <- raw[ , list(y=mean(get(yvar)), se=rutabaga:::se(get(yvar)), n=.N), keyby=keys]
     
+    if(!is.null(mat$is_clean) && any(!mat$is_clean)) {
+        # get the aggregate data for plotting means/se
+        clean <- raw[mat$is_clean, ]
+        agg <- clean[ , list(y=mean(get(yvar)), se=rutabaga:::se(get(yvar)), n=.N), keyby=keys]
+        
+        # plot_options$pch <- ifelse(mat$is_clean, plot_options$pch, plot_options$outlier_pch)
+    } else {
+        # get the aggregate data for plotting means/se
+        agg <- raw[ , list(y=mean(get(yvar)), se=rutabaga:::se(get(yvar)), n=.N), keyby=keys]
+    }
+
     # convert y into a matrix for plotting 
     if(is.null(gvar)) {
         means <- matrix(agg$y, ncol=1)
         names.arg = levels(as.factor(agg[[xvar]]))
+        
+        # assign('cc', list('a'=agg, 'x'=xvar), envir = globalenv())
         
         if('overlay' == layout) {
             names.arg=NA
@@ -2181,7 +2289,9 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
     
     bp_clean <- function(...) {
         my_args <- list(axes=F, ylab='', xlab='', border=NA,
-                        beside = layout=='grouped'
+                        beside = layout=='grouped',
+            # cex.axis=1*get_cex_for_multifigure(),
+            cex.names = rave_cex.lab*get_cex_for_multifigure()
         )
         your_args <- list(...)
         if(length(your_args) > 1) {
@@ -2195,13 +2305,13 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
     # but if we're adding points / ebars we need to consider that at creation time
     tmp_y <- ylim
     if(is.null(tmp_y)) {
-        tmp_y <- if(any(c('ebar_poly', 'ebar') %in% types)) {
+        tmp_y <- if(any(c('ebar polygons', 'ebars') %in% types)) {
             range(plus_minus(agg$y, agg$se))
         } else {
             range(agg$y)
         }
         
-        if (any(c('points', 'jitter points', 'connect points', 'density', 'density poly') %in% types)) {
+        if (any(c('points', 'jitter points', 'connect points', 'densities', 'density polygons', 'rugs') %in% types)) {
             tmp_y %<>% range(raw[[yvar]])
         }
         
@@ -2228,8 +2338,7 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
         bars.x %<>% matrix(nrow = nrow(means), ncol=ncol(means), byrow=T)
     }
     
-    if(draw0) abline(h=0)
-    
+    if(draw0) abline(h=0, col=draw0.col)
     
     # in case you're looping over agg, you'll want this
     long_col <- rep(col, times=ncol(bars.x))
@@ -2247,12 +2356,15 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
     }
     if(any(r==0, is.infinite(r))) {r <- 1/3}
     
-    points_list <- split(raw, by=keys) %>% lapply(`[[`, yvar)
+    #keep the data together so we can check outlier status later
+    points_list <- split(raw, by=keys)# %>% lapply(`[[`, yvar)
     
     # we need to make sure the points_list respects the factor ordering
     if(is.null(gvar)) {
         ord <- levels(as.factor(mat[,xvar]))
     } else {
+        mat[keys] <- lapply(mat[keys], as.factor)
+        
         ord <- stringr::str_replace_all(levels(do.call(`:`, mat[,keys])), ':', '.')
     }
     points_list <- points_list[ord]
@@ -2260,9 +2372,9 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
     # helper function to determine location of x-position for points
     .get_x <- if('jitter points' %in% types) {
         # here we shrink r so that the points stay w/n r after plotting (non-zero point size)
-        function(pl, bx) density_jitter(pl, around = bx, max.r = 0.95*r)
+        function(pl, bx) density_jitter(pl$y, around = bx, max.r = 0.8*r, seed = jitter_seed)
     } else {
-        function(pl, bx) rep(bx, length(pl))
+        function(pl, bx) rep(bx, length(pl$y))
     }
     
     points_list.x <- mapply(.get_x, points_list, bars.x, SIMPLIFY = FALSE)
@@ -2291,9 +2403,9 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
     
     ## DENSITIES    
     
-    if('density poly' %in% types) {
+    if('density polygons' %in% types) {
         for(ii in seq_along(points_list)) {
-            dx <- density(points_list[[ii]], n=64)
+            dx <- density(points_list[[ii]]$y, n=64)
             dx$y <- r*(dx$y/max(dx$y))
             polygon(x = c(bars.x[ii] + dx$y, rev(bars.x[ii] -dx$y), bars.x[ii]+ dx$y[1]),
                     c(dx$x, rev(dx$x), dx$x[1]),  
@@ -2301,20 +2413,20 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
         }
     }
     
-    if('density' %in% types) { 
+    if('densities' %in% types) { 
         for(ii in seq_along(points_list)) {
-            dx <- density(points_list[[ii]], n=64) 
+            dx <- density(points_list[[ii]]$y, n=64) 
             dx$y <- r*(dx$y/max(dx$y))
             for(k in c(-1,1)) lines(bars.x[ii] + k*dx$y, dx$x, col=adjustcolor(long_col[ii], .8), lwd=1.5)
         }
     }
-    
     
     if('connect points' %in% types) {
         # need to determine which points to connect.        
         
         # connect points based on how many
         if(layout=='grouped') {
+            
             ymat <- do.call(cbind, points_list)
             xmat <- do.call(cbind, points_list.x)
             
@@ -2330,7 +2442,7 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
                 }
             })
         } else {
-            # when we're overlaying, we connect by gvar (assuming their is one?)
+            # when we're overlaying, we connect by gvar (assuming there is one?)
             ymat <- do.call(cbind, points_list)
             xmat <- do.call(cbind, points_list.x)
             
@@ -2350,6 +2462,20 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
         }
     }
     
+    if('rugs' %in% types) {
+        warning('rugs not implemented')
+        # mapply(function(x, pts, clr) {
+        #     d <- diff(grconvertY(1:2, from='lines', to='user'))
+        # 
+        #     if(any(duplicated(y))) {
+        #         y %<>% jitter
+        #     }
+        #     
+        #     lapply(pts$y, function(y) segments(x0=x-d, x+d, y0=y, col=clr))
+        #     
+        # }, bars.x, points_list, col)
+    }
+    
     if(any(c('points', 'jitter points') %in% types)) {
         # go through each row in agg and select out the appropriate points from raw
         # we need to make sure mat is sorted before we do this
@@ -2358,7 +2484,7 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
             points_list.x %?<-% mapply(.get_x, points_list, bars.x, SIMPLIFY = FALSE)
             
             mapply(function(x, pl, clr) {
-                points(x, pl, col=clr, pch=16)
+                points(x, pl$y, col=clr, pch=ifelse(pl$is_clean, plot_options$pch, plot_options$outlier_pch), cex = plot_options$pt.cex)
             }, points_list.x, points_list, long_col)
             
         } else {
@@ -2367,7 +2493,7 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
     }
     
     # now do error bars if possible
-    if('ebar' %in% types) {
+    if('ebars' %in% types) {
         # check if we're horizontal or not
         # if(horizontal) {
         #   ebars.x(...)
@@ -2377,7 +2503,7 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
         #}
     }
     
-    if('ebar poly' %in% types) {
+    if('ebar polygons' %in% types) {
         for(ii in 1:nrow(agg)) {
             do_poly(bars.x[ii] %>% plus_minus(r),
                     y = agg$y[ii] %>% plus_minus(agg$se[ii]),
@@ -2386,7 +2512,6 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
     }
     
     if ('connect means' %in% types) {
-        
         # I think if we are grouped, then we don't allow the lines to go across the groups
         if(layout == 'grouped') {
             for(ii in seq_len(ncol(means))) {
@@ -2413,13 +2538,19 @@ plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 
         segments(bars.x - r, x1=bars.x + r, y0 = means, col=long_col, lwd=2, lend=1)
     }
 
+    
+    return(invisible(list(x=points_list.x, y=points_list)))
 }
 
-density_jitter <- function(x, around=0, max.r=.2, n=length(x)) {
+density_jitter <- function(x, around=0, max.r=.2, n=length(x), seed) {
     dx <- density(x, from=min(x), to=max(x), n=n)
     
+    # careful here, switching from x to y (i.e., y = f(x))
     y <- approxfun(dx)(x)
     
+    seed %?<-% sample(1:100)
+    set.seed(seed)
+        
     runif(length(x),
         min = -max.r * (y/max(y)),
         max = max.r * (y/max(y))

@@ -219,13 +219,14 @@ rave_axis <- function(side, at, tcl=rave_axis_tcl, labels=at, las=1, cex.axis=ra
 #' @param cex the character expansion for the title (default is rave_cex.main)
 #' @param font the font type (default = 1, plain)
 #' @export
-rave_title <- function(main, cex=rave_cex.main, col, font=1) {
+rave_title <- function(main, cex=rave_cex.main, col, font=1, adj=0.5, ...) {
   col %?<-% get_foreground_color()
   
   if(plotting_to_file()) {
    cex = 1
   }
-  title(main=list(main, cex=cex*get_cex_for_multifigure(), col=col, font=font))
+  
+  title(main=list(main, cex=cex*get_cex_for_multifigure(), col=col, font=font), adj=adj)
 }
 
 rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.lab, line=NA, ...) {
@@ -238,7 +239,7 @@ rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab=rave_cex.la
     if(!is.null(ylab)) {
       title(xlab=NULL, ylab=ylab,
             cex.lab=cex.lab*get_cex_for_multifigure(),
-            col.lab=col, line=2.5, ...)
+            col.lab=col, line=2.75, ...)
     }
     
     if(!is.null(xlab)) {
@@ -489,6 +490,14 @@ build_file_output_args <- function(ftype, width, height, outfile) {
 }
 
 which.equal <- function(needle, haystack) which(needle == haystack)
+
+if(!exists('str_collapse', mode = 'function')) {
+  str_collapse <- function(x, by=', ', ...) {
+    paste0(x, collapse=by, ...)
+  }
+}
+
+
 
 # append the number of electrodes in each label onto the label
 #' @export

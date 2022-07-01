@@ -33,54 +33,7 @@ get_by <- function(x, FUN, ..., negate=FALSE) {
   x[ind]
 }
 
-# is_within <- function(x, ref, strict = FALSE){
-#     rg = range(ref)
-#     if(strict){
-#         return(x > rg[1] & x < rg[2])
-#     }else{
-#         return(x >= rg[1] & x <= rg[2])
-#     }
-# }
-#
-# `%within%` <- function(x,ref){
-#     is_within(x,ref)
-# }
 
-
-# this can be better than baselining using cumsum over the network
-# .local_baseline <- function(e_tensor, baseline_range, data_only=FALSE) {
-#     bl_data <- e_tensor$data
-# 
-#     bsl <- e_tensor$dimnames$Time %within% baseline_range
-# 
-#     for(ei in seq_len(dim(bl_data)[4L])) {
-#         bl <- vapply(seq_along(e_tensor$dimnames$Frequency), function(fi) {
-#             rowMeans(e_tensor$data[,fi,bsl,ei])
-#         }, FUN.VALUE = array(0, dim=dim(e_tensor$data)[1]))
-# 
-#         bl_data[,,,ei] <- (100 * (e_tensor$data[,,,ei] / as.vector(bl) -1))
-#     }
-# 
-#     if(data_only) return (bl_data)
-# 
-#     return (ECoGTensor$new(
-#         data = bl_data,
-#         dimnames = e_tensor$dimnames,
-#         varnames = names(e_tensor$dimnames)
-#     ))
-# }
-
-# mean for each time/frequency across trials
-collapse_over_trial <- function(el) {
-    # ~ 230 ms
-    #res <- apply(el$data[,,,1], 2, colMeans)
-
-    # ~ 72 ms
-    el <- el$data
-    vapply(seq_len(dim(el)[2L]), FUN = function(ii) {
-        .colMeans(el[,ii,,1], dim(el)[1L], dim(el)[3L])
-    }, FUN.VALUE = rep(0.0, dim(el)[3L]))
-}
 
 # first take mean over frequency
 # then grab mean and SE across trials
@@ -163,36 +116,33 @@ collapse_over_trial <- function(el) {
 }
 
 
+# x is trimmed from RIGHT
+# y is trimmed from LEFT
+get_lagged_vectors <- function(x, y, amt) {
+  cbind(
+    x[1:(length(x)-amt)],
+    y[(amt+1):length(y)]
+  )
+}
+
 
 ## 
 lagged_cor <- function(x, y, method='pearson', len=20) {
-  
   stopifnot(length(x) == length(y))
   
   if (len > length(x))
     len <- length(x)-3
   
-  rng <- c(0, len)
-  cors <- sapply(seq(rng[1], rng[2], by=1), function(r) {
-    
-    yS <- y[(r+1):length(y)]
-    xS <- x[1:(length(x)-r)]
-    # cor.test(xS, yS, method=method)
-    cor(xS,yS, method=method)
+  stopifnot(len < length(x))
+  
+  # sapply(0:len, function(r) {
+  #   xS <- x[1:(length(x)-r)]
+  #   yS <- y[(r+1):length(y)]
+  #   cor(xS,yS, method=method)
+  # })
+  
+  sapply(0:len, function(r) {
+    cor(get_lagged_vectors(x, y, r), method=method)[2,1]
   })
-  
-  # best_lag <- which.max(abs(cors %>% sapply(getElement, 'estimate')))
-  # 
-  # ret <- list (
-  #   'lag'=best_lag-1,
-  #   'cor'=cors[[best_lag]]$estimate,
-  #   'method'=method,
-  #   'tested_range'=rng,
-  #   'p.value'=cors[[best_lag]]$p.value
-  # )
-  # 
-  # class(ret) <- c('lcor', class(ret))
-  
-  return(cors)
 }
 

@@ -978,7 +978,7 @@ define_input_analysis_yaml_chooser <- function(
           ),
           div(
             style = 'flex-basis:50%',
-            shinyFiles::shinyFilesButton(id = ns(!!load_btn), label = !!labels[[2]], title = 'Select Analysis Settings',
+            shinyFiles::shinyFilesButton(id = ns(!!load_btn), label = !!labels[[2]], title = 'Load Analysis Settings',
                                          multiple = FALSE, icon = shiny::icon('puzzle-piece'), style = 'width:100%')
           )
         )
@@ -1050,3 +1050,42 @@ define_input_analysis_yaml_chooser <- function(
   parent_env = parent.frame()
   eval_dirty(quo, env = parent_env)
 }
+
+
+
+define_input_auto_recalculate <- function(inputId, label, 
+  type = c('checkbox', 'button'), 
+  button_type = 'primary', 
+  default_on = FALSE){
+  type = match.arg(type)
+  widget_id = paste0(inputId, '_', type)
+  
+  quo = rlang::quo({
+    define_input(customizedUI(inputId = !!inputId))
+    load_scripts(rlang::quo({
+      assign(!!inputId, function(){
+        if( !!type == 'checkbox' ){
+          checkboxInput(ns(!!widget_id), label = !!label, value = !!default_on)
+        }else{
+          icon = NULL
+          if(!!(!default_on)){
+            icon = shiny::icon('arrow-right')
+          }
+          dipsaus::actionButtonStyled(
+            ns(!!widget_id), !!label, width = '100%', type = !!button_type,
+            icon = icon)
+        }
+      })
+      
+      register_auto_calculate_widget(!!widget_id, !!type, !!default_on)
+      
+    }))
+  })
+  parent_env = parent.frame()
+  dipsaus::eval_dirty(quo, env = parent_env)
+  
+  
+}
+
+
+
