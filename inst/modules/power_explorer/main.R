@@ -181,6 +181,9 @@ for(ii in which(has_trials)) {
     logger = cat2t
   )
   
+  # re-assign the events list, in case it changed
+  events = power_data$events
+  
   N = dim(power_data$shifted_data)[1L]
   Nclean <- dim(power_data$shifted_clean_data)[1L]
   
@@ -740,11 +743,11 @@ module = rave::get_module(module='power_explorer', package = 'ravebuiltins', loc
 # eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
 # attachDefaultDataRepository() 
  result = module(electrode_text = '14:100', percentile_range = TRUE, 
-  GROUPS = list(
-    list(group_name='AUD', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a'))
+  # GROUPS = list(
+    # list(group_name='AUD', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a'))
     # list(group_name='AV', group_conditions=c('known_av', 'last_av', 'drive_av', 'meant_av')),
     # list(group_name='VIS', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))
-  ),
+  # ),
   background_plot_color_hint='white',
   draw_decorator_labels = TRUE,
   baseline_window = c(-1,-.4),
@@ -759,11 +762,14 @@ module = rave::get_module(module='power_explorer', package = 'ravebuiltins', loc
   frequency_window = c(70,150),
   # trial_outliers_list = sample(1:280, 50),
   show_outliers_on_plots = TRUE,
-  max_zlim=99, 
+  max_zlim=99,
+   sort_trials_by_type = '2ndWord',
+   event_of_interest = '2ndWord',
   enable_frequency_window2=TRUE
 )
 
-results = result$results
+
+ results = result$results
 
 # result$results$get_variables()
 # dev.off()
@@ -772,6 +778,8 @@ heat_map_plot(results)
 windowed_comparison_plot(results)
 
 frequency_correlation_plot(results)
+
+by_trial_heat_map_plot(results)
 
 # by_electrode_heat_map_plot(results)
 

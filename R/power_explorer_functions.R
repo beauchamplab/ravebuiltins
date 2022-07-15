@@ -51,6 +51,9 @@ get_pluriform_power <- function(baselined_data, trial_indices, events, epoch_eve
         res$clean_data <- res$data$subset(Trial = !(Trial %in% trial_outliers_list))
         res$shifted_clean_data <- res$shifted_data$subset(Trial = !(Trial %in% trial_outliers_list))
     }
+    
+    # make sure to save out the update time stamps to be used later
+    res$events = events
 
     return(res)
 }
