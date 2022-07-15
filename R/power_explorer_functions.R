@@ -26,15 +26,15 @@ get_pluriform_power <- function(baselined_data, trial_indices, events, epoch_eve
         
         logger('dispaus::shift')
         
-        if(length(shift_amount) != dim(trial_subset_data)[1L]) {
+        if(length(shift_amount) != dim(res$data)[1L]) {
             # assign('shift_amt', shift_amount, envir = globalenv())
             # assign('event_mat', events, envir = globalenv())
             stop('shift amount != # trials... stopping')
         }
         
-        res$shifted_data = get_shifted_tensor(raw_tensor = trial_subset_data$get_data(),
+        res$shifted_data = get_shifted_tensor(raw_tensor = res$data$get_data(),
             shift_amount = shift_amount, new_range = new_range,
-            dimnames = dimnames(trial_subset_data), varnames = names(trial_subset_data$dimnames))
+            dimnames = dimnames(res$data), varnames = names(res$data$dimnames))
         
         # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
         logger('updating events file')
