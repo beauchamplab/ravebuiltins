@@ -105,6 +105,7 @@ setup_over_time_plot <- function(otd, results, ...) {
 #' @examples
 #' plot(-log10(runif(100)), ylab='p value')
 #' draw_cut_point(-log10(0.05))
+#' @export
 draw_cut_point <- function(cut=NULL) {
     if(!is.null(cut) & length(cut)>0) {
         abline(h=cut, lwd=1, col='orangered', lty=2)
