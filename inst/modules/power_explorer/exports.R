@@ -45,8 +45,11 @@ power_3d_fun = function(need_calc, side_width, daemon_env, viewer_proxy, ...){
   
   if( need_calc ){
     or = local_data$omnibus_results#cache(name='omnibus_results')
-    
-    values = data.frame(t(or))
+    if(is.matrix(or)) {
+        values = data.frame(t(or))
+    } else {
+        values <- data.frame()    
+    }
     values$Subject = as.factor(subject$subject_code)
     values$Electrode = as.numeric(colnames(or))
     values$Time = 0

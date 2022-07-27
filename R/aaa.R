@@ -42,14 +42,22 @@
 #' @importFrom stats symnum
 #' @importFrom stats density
 #' @importFrom stats cor
-#' @importFrom grDevices colorRamp
+
 #' @importFrom stats cor.test
 #' @importFrom stats ks.test
 #' @importFrom stats rbinom
 #' @importFrom stats rnorm
 #' @importFrom stats runif
 #' @importFrom stats runmed
+#' @importFrom stats aggregate
+#' @importFrom stats aggregate
+#' @importFrom stats approxfun
+#' @importFrom stats lm
+#' @importFrom stats wilcox.test
+
 #' @importFrom utils tail
+#' @importFrom grDevices colorRamp
+#' 
 #' 
 #' @importFrom fst read_fst
 #' @importFrom fst write_fst

@@ -19,6 +19,7 @@
 #' By default it is setup for time/freq, but by swapping labels and decorators you can do anything.
 #' @seealso layout_heat_maps
 #' @seealso draw_img
+#' @export
 draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_scale=FALSE,
     show_color_bar=TRUE, useRaster=TRUE, wide=FALSE,
     PANEL.FIRST=NULL, PANEL.LAST=NULL, PANEL.COLOR_BAR=NULL, axes=c(TRUE, TRUE), plot_time_range=NULL, 
@@ -205,7 +206,7 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             # dipsaus::cat2("make_image")
             make_image(map$data, x=x, y=y, log=ifelse(log_scale, 'y', ''),
                 zlim=c(-1,1)*max_zlim)
-            xticks <- ..get_nearest(pretty(map$x), map$x)
+            xticks <- ..get_nearest_i(pretty(map$x), map$x)
             
             # this doesn't look great for unequally spaced items. better would be something
             # like sorting the values and taking the values according to rank, r1, r25%, r50%, r75% rMax
@@ -215,9 +216,9 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
             else if(diff(range(diff(sort(map$y)))) > 2) {
                 tck = map$y[c(1, round(length(map$y)*(1/3)), round((2/3)*length(map$y)), 1.0*length(map$y))]
                 
-                yticks <- ..get_nearest(tck, map$y)
+                yticks <- ..get_nearest_i(tck, map$y)
             } else {
-                yticks <- ..get_nearest(pretty(map$y), map$y)
+                yticks <- ..get_nearest_i(pretty(map$y), map$y)
             }
             
             axes %<>% rep_len(2)
@@ -231,9 +232,9 @@ draw_many_heat_maps <- function(hmaps, max_zlim=0, percentile_range=FALSE, log_s
                 # dipsaus::cat2("PANEL.LAST")
                 #PANEL.LAST needs to know about the coordinate transform we made
                 PANEL.LAST(map,
-                    Xmap=function(x) ..get_nearest_i(x, map$x),
+                    Xmap=function(x) ..get_nearest(x, map$x),
                     Ymap=function(y) {
-                        ..get_nearest_i(y, map$y)
+                        ..get_nearest(y, map$y)
                     },
                     more_title_options = mto)
             }
@@ -742,7 +743,7 @@ by_electrode_heat_map_decorator <- function(plot_data=NULL, plot_options, Xmap=f
 #' @param add logical, whether to overlay current plot to an existing image
 #' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators.
 #' We are just plotting image(mat) Rather Than t(mat) as you might expect. The Rave_calculators know this so we can save a few transposes along the way.
-make_image <- function(mat, x, y, zlim, col, log='', useRaster=TRUE, clip_to_zlim=TRUE, add=TRUE) {
+make_image <- function(mat, x, y, zlim, col=NULL, log='', useRaster=TRUE, clip_to_zlim=TRUE, add=TRUE) {
     
     if(missing(zlim)) {
         zlim <- c(-1,1)*max(abs(mat))
@@ -1645,6 +1646,7 @@ add_strings_to_plot_title <- function(strings, color_variable, width_factor=1.5,
     }, strings, nchars, color_variable)
 }
 
+#'
 get_unit_of_analysis <- function(requested_unit, names=FALSE) {
     ll = list(
         '% Change Power' = 'percentage',
@@ -1754,7 +1756,7 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
             # }
         }
         
-        # dipsaus::cat2('rendering text: ', text, 'at', label_placement_offset, '=', text.y, level='INFO')
+        dipsaus::cat2('rendering text: ', text, 'at', label_placement_offset, '=', text.y, level='INFO')
         
         if(auto_left_align_text) {
             text.x = text.x + strwidth(text)/2 + 2*strwidth("F")
@@ -1773,9 +1775,15 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
 # ..get_nearest(pretty(x), x)
 # move to RUTABAGA
 ..get_nearest_i <- function(from,to) {
-    sapply(from, function(.x) which.min(abs(.x-to)))
+    res <- sapply(from, function(.x) which.min(abs(.x-to)))
+    dipsaus::cat2('from: ' %&% str_collapse(from) %&% " || to: " %&% str_collapse(to) %&% ". res = " %&% str_collapse(res),
+                  level = 'BLUE', pal = list('BLUE'='dodgerblue3'))
+    
+    return(res)
 }
-..get_nearest <- ..get_nearest_i
+..get_nearest <- function(from, to) {
+    approxfun(to, seq_along(to))(from)
+}
 
 ..get_nearest_val <- function(from,to) {
     to[..get_nearest_i(from,to)]
@@ -2217,7 +2225,8 @@ fix_name_for_js <- function(nm) {
 #' Note that we're using barplot to set the x- and y-range of the plot.
 #' Note Does not handle log axes correctly
 #' param ... extra options to pass to barplot during plot creation
-plot.grouped <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 'means', 'ebar polygons'),
+#' @export
+plot_grouped_data <- function(mat, yvar, xvar, gvar=NULL, types = c('jitter points', 'means', 'ebar polygons'),
     layout=c('grouped', 'overlay'), draw0=TRUE, draw0.col='black', ylim=NULL, col=NULL, ..., plot_options = NULL, jitter_seed) {
     # here we need to know about grouping var, x-axis
     

@@ -1,5 +1,5 @@
 get_pluriform_power <- function(baselined_data, trial_indices, events, epoch_event_types, event_of_interest, trial_outliers_list,
-    logger=function(...){invisible()}) {
+    logger=function(...){invisible(NULL)}) {
     
     res <- list()
     
@@ -113,7 +113,10 @@ build_heatmap_correlation_data <- function(data, data_wrapper,
         zlab='Frequency-wise Pearson correlation',
         x = data$dimnames$Frequency,
         y = data$dimnames$Frequency,
-        N = 2*dim(data)[2L], ...
+        N = 2*dim(data)[2L], 
+        frequency_window1 = analysis_settings$frequency_window,
+        frequency_window2 = analysis_settings2$frequency_window,   
+        ...
     )
 }
 

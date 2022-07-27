@@ -9,7 +9,7 @@ make_image(
   x,
   y,
   zlim,
-  col,
+  col = NULL,
   log = "",
   useRaster = TRUE,
   clip_to_zlim = TRUE,

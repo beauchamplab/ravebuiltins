@@ -102,9 +102,6 @@ setup_over_time_plot <- function(otd, results, ...) {
 #'
 #' @return the value of cut (invisibly)
 #'
-#' @examples
-#' plot(-log10(runif(100)), ylab='p value')
-#' draw_cut_point(-log10(0.05))
 #' @export
 draw_cut_point <- function(cut=NULL) {
     if(!is.null(cut) & length(cut)>0) {
@@ -457,11 +454,11 @@ windowed_comparison_plot <- function(results, ...){
     par(mar=.1+c(5,10,4,2))
     
     if(nlevels(fd$freq) > 1) {
-        pt.loc <- plot.grouped(mat = fd, yvar = 'y', xvar = 'group_name', gvar='freq', draw0=min(fd$y)<0,
+        pt.loc <- plot_grouped_data(mat = fd, yvar = 'y', xvar = 'group_name', gvar='freq', draw0=min(fd$y)<0,
                                jitter_seed=results$get_value('jitter_seed'))
         rave_axis_labels(xlab='Frequency', ylab=attr(sbd[[1]]$F1$data, 'ylab'), line=4)
     } else {
-        pt.loc <- plot.grouped(mat = fd, yvar = 'y', xvar = 'group_name', draw0 = min(fd$y)<0,
+        pt.loc <- plot_grouped_data(mat = fd, yvar = 'y', xvar = 'group_name', draw0 = min(fd$y)<0,
                                jitter_seed=results$get_value('jitter_seed'))
         axis_label_decorator(sbd[[1]]$F1, label_alignment=FALSE, line=4)
     }
@@ -556,11 +553,26 @@ frequency_correlation_plot <- function(results, ...) {
     args$plot_time_range = range(hmaps[[1]]$x)
     
     po <- results$get_value('ravebuiltins_power_explorer_plot_options')$as_list()
-    po$plot_title_options = with(po, plot_title_options[!plot_title_options %in% c('Baseline Window', 'Analysis Window', 'Frequency Range')])
+    po$plot_title_options = with(po, plot_title_options[!plot_title_options %in% c('Baseline Window',
+                                                                                   'Analysis Window', 'Frequency Range')])
+    
+    po$plot_title_options %<>% c('Frequency Range')
     
     po$draw_decorator_labels = FALSE
-    
-    args$PANEL.LAST = spectrogram_heatmap_decorator(plot_options = po)
+    fw <- hmaps[[1]]$frequency_window
+    fw2 <- fw
+    if(hmaps[[1]]$enable_frequency_window2) {
+        fw2 = hmaps[[1]]$frequency_window2
+    }
+    args$PANEL.LAST = add_decorator(spectrogram_heatmap_decorator(plot_options = po), function(..., Xmap=force, Ymap=force) {
+        draw.box(Xmap(fw[1]), Ymap(fw[1]), Xmap(fw[2]), Ymap(fw[2]), lty=2, lwd=2)
+        text(labels='F1', fw[1] + diff(fw)/2, fw[2], pos='3')
+        if(!all(fw == fw2)) {
+            draw.box(Xmap(fw2[1]), Ymap(fw2[1]), Xmap(fw2[2]), Ymap(fw2[2]), lty=2, lwd=2)
+            text(labels='F2', fw2[1] + diff(fw2)/2, fw2[2], pos='3')
+        }
+        
+    })
     # args$extra_plot_parameters = list('asp'=1)
     if(length(hmaps) < 3) {
         args$do_layout = FALSE
@@ -728,7 +740,8 @@ windowed_correlation_plot <- function(results, ...) {
         rave_axis(1, at=axTicks(1))
         rave_axis(2, at=axTicks(2))
         points(f2$data, f1$data, pch=16, col=f2$group_info$current_group)
-        legend('topright', cex=rave_cex.lab, bty = 'n', legend=cor.test(f1$data, f2$data) %$% sprintf("r = %s\np = %s", round(estimate,2), format.pval(p.value,digits=2)))
+        legend('topright', cex=rave_cex.lab, bty = 'n', legend=cor.test(f1$data, f2$data) %$% 
+                   sprintf("r = %s\np = %s", round(estimate,2), format.pval(p.value,digits=2)))
         abline(lm(
             f1$data ~ f2$data
         ), lty=2, col=f2$group_info$current_group)

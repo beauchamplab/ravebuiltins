@@ -17,7 +17,3 @@ the value of cut (invisibly)
 Draws an orange, dashed horizontal line at cut. Checks for not null and 
 length > 0
 }
-\examples{
-plot(-log10(runif(100)), ylab='p value')
-draw_cut_point(-log10(0.05))
-}
