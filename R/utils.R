@@ -257,33 +257,37 @@ ravebuiltins_finalize_installation <- function(
   }
   
   ### Demo subject data files
-  upgrade_demodata <- FALSE
-  demo_subj <- raveio::as_rave_subject("demo/DemoSubject", strict = FALSE)
-  if( !isTRUE(demo_subj$preprocess_settings$valid()) ) {
+  upgrade_demodata <- !isTRUE(checks[[1]])
+  if( !upgrade_demodata ) {
     if(upgrade %in% "ask") {
       upgrade_demodata <- dipsaus::ask_yesno("Re-install Demo Subject Data?")
-    } else {
+    } else if (upgrade %in% c("always", "data-only")) {
       upgrade_demodata <- TRUE
     }
-  } else if (upgrade %in% c("always", "data-only")) {
-    upgrade_demodata <- TRUE
   }
+  
+  upgrade_groupdata <- !isTRUE(checks[[2]])
+  if( !upgrade_groupdata ) {
+    if(upgrade %in% "ask") {
+      upgrade_groupdata <- dipsaus::ask_yesno("Re-install Demo Group Data?")
+    } else if (upgrade %in% c("always", "data-only")) {
+      upgrade_groupdata <- TRUE
+    }
+  }
+  
+  upgrade_markdowns <- !isTRUE(checks[[3]])
+  if( !upgrade_markdowns ) {
+    if(upgrade %in% "ask") {
+      upgrade_markdowns <- dipsaus::ask_yesno("Re-install RMarkdown Templates?")
+    } else if (upgrade %in% c("always", "config-only")) {
+      upgrade_markdowns <- TRUE
+    }
+  }
+  
   
   if(isTRUE(upgrade_demodata)) {
     dipsaus::cat2(level='DEFAULT', 'Downloading demo subject data...')
     rave::download_subject_data("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectFull.zip", replace_if_exists = TRUE)
-  }
-  
-  
-  upgrade_groupdata <- FALSE
-  if(!isTRUE(checks[[2]])) {
-    if(upgrade %in% "ask") {
-      upgrade_groupdata <- dipsaus::ask_yesno("Re-install Demo Group Data?")
-    } else {
-      upgrade_groupdata <- TRUE
-    }
-  } else if (upgrade %in% c("always", "data-only")) {
-    upgrade_groupdata <- TRUE
   }
   
   if(upgrade_groupdata) {
@@ -297,18 +301,6 @@ ravebuiltins_finalize_installation <- function(
     } else {
       warn_dl('Demo Group Data', url_str, extract_to)
     }
-  }
-  
-  
-  upgrade_markdowns <- FALSE
-  if(!isTRUE(checks[[3]])) {
-    if(upgrade %in% "ask") {
-      upgrade_markdowns <- dipsaus::ask_yesno("Re-install RMarkdown Templates?")
-    } else {
-      upgrade_markdowns <- TRUE
-    }
-  } else if (upgrade %in% c("always", "config-only")) {
-    upgrade_markdowns <- TRUE
   }
   
   if(upgrade_markdowns) {
