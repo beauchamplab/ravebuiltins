@@ -472,6 +472,8 @@ update_click_information <- function() {
         return()
     }
     
+    # assign('wcpd', wcpd, envir = globalenv())
+    
     # scale x to have similar weight to y (akin to putting everything into pixel space)
     wX <- diff(range(wcpd$y)) / diff(range(wcpd$x))
     
@@ -482,11 +484,18 @@ update_click_information <- function() {
     val <- wcpd$y[ind]
     val <- round(val, digits = abs(min(0, -1+floor(log10(max(abs(val)))))))
     
+    yy <- wcpd$y[(wcpd$group_name == wcpd$group_name[ind]) & (wcpd$is_clean)]
+    .msd = m_sd(yy)
+    zscore = round((val -.msd[1]) / .msd[2], 1)
+    .mad <- round(abs(val - median(yy)) / mad(yy), 1)
+    
     # if(is.null(local_data$click_info)) {
     local_data$click_info <- list('trial' = wcpd$orig_trial_number[ind],
-                                  'value' = val,
-                                  'group_label' = as.character(wcpd$group_name[ind]),
-                                  'trial_type'= wcpd$trial_type[ind])
+        'value' = val,
+        'zscore' = zscore,
+        'mad' = .mad,
+        'group_label' = as.character(wcpd$group_name[ind]),
+        'trial_type'= wcpd$trial_type[ind])
     
     # } else {
     #     # are we clicking a new location same place?
@@ -565,7 +574,9 @@ observeEvent(input$GROUPS, {
 output$trial_click <- renderUI({
     .click <- local_data$click_info
     HTML(
-        "<div style='margin-left: 5px; min-height:375px'>Trial #: " %&% .click$trial %&% '<br/>Value: ' %&% .click$value %&%
+        "<div style='margin-left: 5px; min-height:375px'>Trial #: " %&%
+            .click$trial %&% '<br/>Value: ' %&% .click$value %&%
+            "(z: " %&% .click$zscore %&% ', MAD: ' %&% .click$mad %&% ')' %&%
             '<br/>Condition name: ' %&% .click$trial_type %&%
             '<br/>Group label: ' %&% .click$group_label %&%
             "<p style='margin-top:20px'>&mdash;<br/>" %&% local_data$condition_stats %&% '</p>' %&%

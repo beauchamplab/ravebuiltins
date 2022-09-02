@@ -1776,8 +1776,8 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
 # move to RUTABAGA
 ..get_nearest_i <- function(from,to) {
     res <- sapply(from, function(.x) which.min(abs(.x-to)))
-    dipsaus::cat2('from: ' %&% str_collapse(from) %&% " || to: " %&% str_collapse(to) %&% ". res = " %&% str_collapse(res),
-                  level = 'BLUE', pal = list('BLUE'='dodgerblue3'))
+    # dipsaus::cat2('from: ' %&% str_collapse(from) %&% " || to: " %&% str_collapse(to) %&% ". res = " %&% str_collapse(res),
+    #               level = 'BLUE', pal = list('BLUE'='dodgerblue3'))
     
     return(res)
 }
