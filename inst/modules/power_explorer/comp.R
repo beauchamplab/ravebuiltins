@@ -846,9 +846,11 @@ define_output(
 
 output_layout = list(
   'Surface viewer' = list('3dViewer' = 'power_3d'),
-  'Activity by electrode' = list('Activity over time' = '..by_electrode_heat_map_plot',
-    # 'Correlation across frequencies' = '..by_electrode_heat_map_plot2',
-    'Stat overview' = '..across_electrode_statistics_plot'),
+  'Activity by electrode' = list(
+      'Stat overview' = '..across_electrode_statistics_plot',
+      'Activity over time' = '..by_electrode_heat_map_plot'
+  ),
+    # 'Correlation across frequencies' = '..by_electrode_heat_map_plot2'),
   'Activity over time by frequency' = list('Spectrogram' = '..heat_map_plot', 'Frequency correlations' = '..frequency_correlation_plot'),
   'Activity over time by trial' = list('Main frequency' = '..by_trial_heat_map_plot', 'Secondary frequency'='..by_trial_heat_map_plot2',
     'Trial-by-trial cross-freq correlation' = '..trialwise_correlation_plot'),
