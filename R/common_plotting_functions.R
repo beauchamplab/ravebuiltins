@@ -1756,7 +1756,7 @@ window_decorator <- function(window, type=c('line', 'box', 'shaded', 'label'),
             # }
         }
         
-        dipsaus::cat2('rendering text: ', text, 'at', label_placement_offset, '=', text.y, level='INFO')
+        # dipsaus::cat2('rendering text: ', text, 'at', label_placement_offset, '=', text.y, level='INFO')
         
         if(auto_left_align_text) {
             text.x = text.x + strwidth(text)/2 + 2*strwidth("F")

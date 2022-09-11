@@ -464,7 +464,7 @@ update_click_information <- function() {
     loc <- local_data$windowed_by_trial_click_location
 
     # these data were cached by the plotter    
-    wcpd <- cache(key='current_rbn_windowed_comparison_plot_data', name = 'rbn_windowed_comparison_plot_data', val='none')
+    wcpd <- cache(key='current_rbn_windowed_comparison_plot_data',name = 'rbn_windowed_comparison_plot_data', val='none')
     
     if(is.null(wcpd)) {
         warning('no plot data available to identify')

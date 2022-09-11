@@ -425,7 +425,7 @@ define_input(
   
   define_input(
     definition = actionButtonStyled('select_good_electrodes',label='Apply filters to analysis',
-                                    icon=shiny::icon('magic'), type = 'default'))
+                                    icon=ravedash::shiny_icons$magic, type = 'default'))
   
   define_input(
     definition = textInput('current_active_set',
@@ -551,6 +551,11 @@ define_input(
 define_input(
   definition = customizedUI('download_all_graphs')
 )
+
+define_input(
+    definition = customizedUI('download_mask_file')
+)
+
 ####
 }
 
@@ -661,11 +666,11 @@ input_layout = list(
     c('analysis_filter_variable', 'analysis_filter_elec'),
     c('analysis_filter_variable_2', 'analysis_filter_elec_2'),
     'current_active_set',
+    'download_mask_file',
     'select_good_electrodes',
     'trial_type_filter', 'synch_with_trial_selector',
     'include_outliers_in_export',
     'analysis_prefix',
-    # 'export_data'
     'write_out_data_ui',
     'export_also_download'
   ),

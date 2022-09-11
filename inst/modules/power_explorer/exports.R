@@ -148,6 +148,15 @@ download_all_graphs = function(){
   )
 }
 
+download_mask_file = function(){
+    tagList(
+        fix_font_color_button(ns('btn_mask_file_download'),
+                              'Download Results Mask', icon= ravedash::shiny_icons$download,
+                              class = 'btn-primary text-white'),
+        p(HTML("&nbsp;"))
+    )
+}
+
 ### hi-res plot download
 custom_plot_download <- custom_plot_download_impl(module_id = 'power_explorer',
   c('Activity over time by frequency',
@@ -648,6 +657,27 @@ output$btn_electrodes_meta_download <- downloadHandler(
   }
 )
 
+
+output$btn_mask_file_download <- downloadHandler(
+    filename = function(...) {
+        paste0('power_explorer_mask_', subject$subject_code, format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.csv')
+    },
+    content = function(conn) {
+        validate(need(local_data$omnibus_results, message=FALSE))
+        
+        data <- as.data.frame(local_data$omnibus_results)
+        data$row_label <- rownames(data)
+        data <- data[,c(ncol(data), 1:(ncol(data)-1))]
+        
+        # flip the data around so ELectrode is a column (for use as mask file)
+        df <- data.frame(Electrode = as.numeric(colnames(data)[-1]))
+        df <- cbind(df, data.frame(t(data[,-1])))
+        
+        data.table::fwrite(df, file = conn)
+    }
+)
+
+
 output$btn_graph_download <- downloadHandler(
   filename = function(...) {
     paste0('power_explorer_export',
@@ -700,8 +730,8 @@ write_out_graphs <- function(outdir, prefix, ...) {
   
   # get the RMarkdown files
   # attachDefaultDataRepository()
-  rave_root = dirname(module_tools$get_subject_dirs()$data_dir)
-  mrkdwn = file.path(rave_root, 'others', 'ravebuiltins', 'markdown')
+  # rave_root = dirname(module_tools$get_subject_dirs()$data_dir)
+  mrkdwn = file.path('~', 'rave_data', 'others', 'ravebuiltins', 'markdown')
   pptx = file.path(mrkdwn, 'powerexplorer-pptx.Rmd')
   if(!file.exists(pptx)) {
     shiny::showNotification("No markdown template files available", type='error', id='PWR-XPL_NO_MARKDOWN')
@@ -722,27 +752,11 @@ write_out_graphs <- function(outdir, prefix, ...) {
                     output_file = paste0(prefix, 'RAVE_AUTO_GEN.pptx'),
                     output_format = rmarkdown::powerpoint_presentation(reference_doc=template,
                                                                        keep_md=isTRUE(args$keep_markdown)))
-  
   # save out settings file
   # print("trying to save settings: " %&% paste0(prefix, 'RAVE_GUI_settings.yaml'))
   yaml::write_yaml(x = args, fileEncoding = 'utf-8',
                    file = file.path(outdir, paste0(prefix, 'RAVE_GUI_settings.yaml'))
   )
-  
-  if(args$include_data) {
-    data <- as.data.frame(results$get_value('omnibus_results'))
-    data$row_label <- rownames(data)
-    data <- data[,c(ncol(data), 1:(ncol(data)-1))]
-    
-    outfile = file.path(outdir, paste0(subject$subject_code, '_by_electrode.csv'))
-    
-    # print('writing out data: ' %&% outfile)
-    data.table::fwrite(data, file = outfile)
-    
-    summ_stat <- as.data.frame(results$get_value('summary_statistics'))
-    outfile = file.path(outdir, paste0(subject$subject_code, '_comparing_conditions.csv'))
-    data.table::fwrite(summ_stat, file = outfile)
-  }
   
   if(shiny_is_running()) {
     showNotification(p('Exports finished!'))
