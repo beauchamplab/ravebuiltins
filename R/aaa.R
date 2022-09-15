@@ -453,9 +453,8 @@ customDownloadButton <- function(outputId, label='Download', class=NULL, icon_lb
   tags$a(id = outputId,
          class = paste("btn btn-default shiny-download-link", class),
          href = "", target = "_blank", download = NA, 
-         icon(icon_lbl), label, ...)
+         ravedash::shiny_icons[[icon_lbl]], label, ...)
 }
-
 
 custom_plot_download_impl <- function(module_id, choices, selected=choices[1], w=5,h=3) {
   force(choices); force(selected); force(w); force(h)

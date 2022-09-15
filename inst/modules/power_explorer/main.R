@@ -5,9 +5,11 @@
 require(ravebuiltins)
 ravebuiltins:::dev_ravebuiltins(T)
 
-mount_demo_subject(electrodes = 10:25)
+# mount_demo_subject(electrodes = 10:25)
 
-view_layout('power_explorer')
+
+
+# view_layout('power_explorer', theme='gold')
 # mount_demo_subject(subject_code = 'YCZ', 'Sentences', epoch='YCZ_gingko', electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
 
 if(FALSE) {
@@ -141,16 +143,16 @@ f1_analysis_settings <- list(
   baseline_window = baseline_window,
   collapse_method = collapse_method,
   do_censor = censor_stimulation_window,
-  censor_window = stimulation_window
+  censor_window = stimulation_window,
+  enable_frequency_window2 = enable_frequency_window2
 )
 
 # first set equality to get shared parameters
 f2_analysis_settings <- f1_analysis_settings
 
-if(f2_analysis_settings$enabled <- enable_frequency_window2) {
-  
-  f2_analysis_settings$frequency_window = frequency_window2    
-  
+if(f2_analysis_settings$enable_frequency_window2) {
+    f2_analysis_settings$frequency_window = frequency_window2    
+    
   if(enable_analysis_window2) {
     f2_analysis_settings$analysis_window = analysis_window2    
   }
@@ -520,7 +522,7 @@ get_stats_per_electrode <- function(ttypes){
       # e = electrodes[1]
       # we need to figure out if there are two frequencies being measured
       requested_frequencies <- f1_analysis_settings$frequency_window
-      if(f2_analysis_settings$enabled) {
+      if(f2_analysis_settings$enable_frequency_window2) {
         requested_frequencies <- c(requested_frequencies, f2_analysis_settings$frequency_window)
       }
       
@@ -580,7 +582,7 @@ get_stats_per_electrode <- function(ttypes){
         return(res)
       }
       
-      if(f2_analysis_settings$enabled) {
+      if(f2_analysis_settings$enable_frequency_window2) {
         res <- list('F1' = do_analysis(bl.analysis$subset(Frequency = Frequency %within% f1_analysis_settings$frequency_window)$get_data()),
           'F2' = do_analysis(bl.analysis$subset(Frequency = Frequency %within% f2_analysis_settings$frequency_window)$get_data())
         )
@@ -621,7 +623,7 @@ get_stats_per_electrode <- function(ttypes){
   combined_res = apply_labels(do.call('cbind', lapply(res, `[[`, 'F1')))
   
   # get the F2 names figured out
-  if(f2_analysis_settings$enabled) {
+  if(f2_analysis_settings$enable_frequency_window2) {
     f2_res <- apply_labels(do.call('cbind', lapply(res, `[[`, 'F2')))
     rownames(f2_res) = 'F2_' %&% rownames(f2_res)
     
@@ -742,7 +744,7 @@ module = rave::get_module(module='power_explorer', package = 'ravebuiltins', loc
 
 # eval_when_ready %?<-% function(FUN, ...) {FUN(...)}
 # attachDefaultDataRepository() 
- result = module(electrode_text = '14:100', percentile_range = TRUE, 
+ result = module(electrode_text = '14:20', percentile_range = TRUE, 
   # GROUPS = list(
     # list(group_name='AUD', group_conditions=c('known_a', 'last_a', 'drive_a', 'meant_a'))
     # list(group_name='AV', group_conditions=c('known_av', 'last_av', 'drive_av', 'meant_av')),
@@ -763,8 +765,8 @@ module = rave::get_module(module='power_explorer', package = 'ravebuiltins', loc
   # trial_outliers_list = sample(1:280, 50),
   show_outliers_on_plots = TRUE,
   max_zlim=99,
-   sort_trials_by_type = '2ndWord',
-   event_of_interest = '2ndWord',
+   # sort_trials_by_type = '2ndWord',
+   # event_of_interest = '2ndWord',
   enable_frequency_window2=TRUE
 )
 

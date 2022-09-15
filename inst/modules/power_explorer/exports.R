@@ -224,6 +224,8 @@ custom_plot_download_renderers <- function(nm) {
   plot_options = ravebuiltins_power_explorer_plot_options$as_list()
   plot_options %<>% set_font_scaling('Rutabaga')
   
+  dipsaus::cat2("trying CPDR")
+  
   # dipsaus::cat2('setting rave context')
   
   pest  = function() {
@@ -269,6 +271,7 @@ custom_plot_download_renderers <- function(nm) {
     )
   }
   aotbt = function() {
+     
     set_heatmap_palette_helper(plot_options=plot_options)
     by_trial_heat_map_data = local_data$by_trial_heat_map_data
     
@@ -348,7 +351,8 @@ custom_plot_download_renderers <- function(nm) {
 sheth_special <- function() {
   tagList(div(class='rave-grid-inputs',
               div(style='flex-basis: 100%', customDownloadButton(ns('btn_sheth_special'),
-                                                                 label = "Sheth's special stat heatmap", icon_lbl = 'user-md')),
+                                                                 label = "Sheth's special stat heatmap",
+                  icon_lbl = 'user-md')),
               div(style='flex-basis: 25%', numericInput(ns('sheth_special_width'), label='width (inches)', value=15, min=5, step = 1)),
               div(style='flex-basis: 25%', numericInput(ns('sheth_special_height'), label='height (inches)', value=10, min=3, step = 1))
   ))
@@ -637,7 +641,7 @@ do_calculate_btn_float = function() {
   dipsaus::actionButtonStyled(
     ns('do_calculate_btn_float_button'), label = 'RAVE!',
     width = '200px', type = 'info',
-    icon = icon('magic'), style = 'background-color:#ff8c00; border:#e8640c; z-index: 999; position: fixed; left: 50px; bottom:10px; display: block !important')
+    icon = ravedash::shiny_icons$magic, style = 'background-color:#ff8c00; border:#e8640c; z-index: 999; position: fixed; left: 50px; bottom:10px; display: block !important')
 }
 
 
