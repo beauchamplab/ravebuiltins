@@ -16,7 +16,7 @@ if(FALSE) {
                  colMeans(g1$data[,,1]),
                  .fast_column_se(g1$data[,,1]),
                  col=get_color(1))
-    abline(v=TIME_RANGE)
+    abline(v=analysis_window)
     rave_axis(1,at=pretty(volt$dimnames$Time))
     
     .v <- volt$subset(Trial = Trial %in% GROUPS[[2]]$Trial_num, Time = round(Time,4) %in% tind)

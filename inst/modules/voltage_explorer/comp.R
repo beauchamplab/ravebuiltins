@@ -51,9 +51,9 @@ define_input(
 
 define_input_condition_groups(inputId = 'GROUPS')
 define_input_single_electrode(inputId = 'ELECTRODE')
-define_input_frequency(inputId = 'FREQUENCY')
-define_input_time(inputId = 'ANALYSIS_WINDOW', label='Analysis', initial_value = c(0,1))
-define_input_time(inputId = 'BASELINE_WINDOW', label='Baseline', initial_value = c(-1,0))
+define_input_frequency(inputId = 'frequency_window')
+define_input_time(inputId = 'analysis_window', label='Analysis', initial_value = c(0,1))
+define_input_time(inputId = 'baseline_window', label='Baseline', initial_value = c(-1,0))
 
 define_srate_input_slider('ERP_SAMPLE_RATE', 'Sampling Rate (Hz)')
 
@@ -107,7 +107,7 @@ define_input(
 )
 
 define_input(
-    definition = checkboxInput('invert_colors_in_palette', "Inverse Palette Colors", value=FALSE)
+    definition = checkboxInput('invert_colors_in_palette', "Invert Palette Colors", value=FALSE)
 )
 
 define_input(
@@ -136,17 +136,17 @@ input_layout = list(
     ),
     'Analysis Settings' = list(
         'ERP_SAMPLE_RATE',
-        'FREQUENCY',
+        'frequency_window',
         c('do_baseline',
           'BASELINE_TYPE'),
-        'BASELINE_WINDOW',
-        'ANALYSIS_WINDOW'
+        'baseline_window',
+        'analysis_window'
     ),
     '[-]Plot Options' = list(
         c('PLOT_TITLE'),
         'draw_decorator_labels',
         c('color_palette', 'background_plot_color_hint',
-        'invert_colors_in_palette', 'reverse_colors_in_palette'),
+        'reverse_colors_in_palette', 'invert_colors_in_palette'),
         c('max_zlim'),
         c('log_scale', 'sort_trials_by_type', 'collapse_using_median')
     ),

@@ -151,3 +151,168 @@ htmltable_coefmat <- function(
   
   re
 }
+
+htmltable_mat <- function(mat, ...) {
+  re = list()
+  tags = shiny::tags
+  
+  re$table = tags$div(
+    class = 'table-responsive',
+    tags$table(
+      class = 'table table-striped table-sm',
+      tags$thead(
+        tags$tr(
+          lapply(colnames(mat), tags$th)
+        )
+      ),
+      tags$tbody(
+        
+        apply(mat, 1, function(m) {
+          tags$tr(
+            lapply(m, tags$td)
+          )
+        })
+      )
+    )
+  )
+  return(re)
+}
+
+ravebuiltins_check_installation <- function(...) {
+  res <- ravebuiltins_finalize_installation(check_only = TRUE, upgrade = 'always')
+  
+  str <- FALSE
+  if(any(res)) {
+    msg = "Ravebuiltins is missing: " %&% paste(names(res), collapse=', ')
+    
+    attr(str, 'message') <- msg
+    
+  } else {
+    return (T)
+  }
+  
+  return(str)
+}
+
+
+ravebuiltins_finalize_installation <- function(
+    upgrade=c("ask", "config-only", "always", "never", "data-only"), ...,
+    new_timeout=60*10, check_only=FALSE) {
+  old_to <- options('timeout')
+  
+  on.exit({
+    options(timeout=old_to)
+  }, add=TRUE)
+  
+  options(timeout = new_timeout)
+  
+  upgrade <- upgrade[upgrade %in% c("ask", "config-only", "always", 
+                                    "never", "data-only")]
+  if (!length(upgrade)) {
+    upgrade <- "ask"
+  } else {
+    upgrade <- upgrade[[1]]
+  }
+  
+  mk.path <- function(...) {
+    normalizePath(file.path(...), mustWork = FALSE)
+  }
+
+  paths <- c(
+    'dsd' = mk.path(rave::rave_options('data_dir'), 'demo', 'DemoSubject'),
+    'srd' = mk.path(rave::rave_options('raw_data_dir'), 'DemoSubject'),
+    'dgd' = mk.path(rave::rave_options('data_dir'), 'demo', '_project_data', 'power_explorer', 'exports', 'YAB_demo_export-20210525-072121.fst'),
+    'rmrk' = mk.path('~', 'rave_data', 'others', 'ravebuiltins', 'markdown', 'powerexplorer-pptx.Rmd')
+  )
+  
+  checks <- list(
+    'Demo Subject Data' = dir.exists(paths['dsd']) && dir.exists(paths['srd']),
+    # 'Demo Subject Raw Data' = dir.exists(paths['srd']),
+    'Demo Group Data' = file.exists(paths['dgd']),
+    'RMarkdown Templates' = file.exists(paths['rmrk'])
+  )
+  
+  # needs <- mapply(function(ck, nm) {
+  #   if(ck) {
+  #     if(upgrade == 'ask') {
+  #       return (dipsaus::ask_yesno("Re-install " %&% nm %&% "?"))
+  #     } else if(upgrade == 'never') {
+  #       return (FALSE)
+  #     }
+  #   }
+  #   return (TRUE)
+  # }, checks, names(checks))
+  # 
+  # 
+  # 
+  # if(check_only) {
+  #   names(needs) <- names(checks)
+  #   return (needs)
+  # }
+  
+  warn_dl <- function(nm, url, to) {
+    dipsaus::cat2(level='WARNING',
+                  sprintf('Unable to download %s...\n\t\tTry to download them from here: %s \n \t\tand unzip into here %s\n',
+                    nm, url, to))
+  }
+  
+  ### Demo subject data files
+  upgrade_demodata <- !isTRUE(checks[[1]])
+  if( !upgrade_demodata ) {
+    if(upgrade %in% "ask") {
+      upgrade_demodata <- dipsaus::ask_yesno("Re-install Demo Subject Data?")
+    } else if (upgrade %in% c("always", "data-only")) {
+      upgrade_demodata <- TRUE
+    }
+  }
+  
+  upgrade_groupdata <- !isTRUE(checks[[2]])
+  if( !upgrade_groupdata ) {
+    if(upgrade %in% "ask") {
+      upgrade_groupdata <- dipsaus::ask_yesno("Re-install Demo Group Data?")
+    } else if (upgrade %in% c("always", "data-only")) {
+      upgrade_groupdata <- TRUE
+    }
+  }
+  
+  upgrade_markdowns <- !isTRUE(checks[[3]])
+  if( !upgrade_markdowns ) {
+    if(upgrade %in% "ask") {
+      upgrade_markdowns <- dipsaus::ask_yesno("Re-install RMarkdown Templates?")
+    } else if (upgrade %in% c("always", "config-only")) {
+      upgrade_markdowns <- TRUE
+    }
+  }
+  
+  
+  if(isTRUE(upgrade_demodata)) {
+    dipsaus::cat2(level='DEFAULT', 'Downloading demo subject data...')
+    rave::download_subject_data("https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectFull.zip", replace_if_exists = TRUE)
+  }
+  
+  if(upgrade_groupdata) {
+    ## Demo group data files
+    url_str = "https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoGroupData.zip"
+    res = utils::download.file(url_str,
+                               destfile = f <- tempfile(fileext = ".zip"))
+    extract_to = mk.path(rave::rave_options('data_dir'), 'demo')
+    if(res==0) {
+      utils::unzip(overwrite = TRUE, f, exdir = extract_to)
+    } else {
+      warn_dl('Demo Group Data', url_str, extract_to)
+    }
+  }
+  
+  if(upgrade_markdowns) {
+    rt_url = "https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/rmarkdown_templates.zip"
+    res = utils::download.file(rt_url,
+                               destfile = f <- tempfile(fileext = ".zip"))
+    if(res==0) {
+      extract_to = mk.path('~', 'rave_data', 'others')
+      raveio::dir_create2(extract_to)
+      utils::unzip(f, exdir = extract_to)
+    } else {
+      warn_dl("RMarkdown templates", rt_url, extract_to)
+    }
+  }
+}

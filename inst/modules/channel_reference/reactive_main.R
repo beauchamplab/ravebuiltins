@@ -79,7 +79,7 @@ observeEvent(input[[('bipolar_table_cell_edit')]], {
 
     # string match electrode
     v = str_match(v, '(ref_|[\\ ]{0})([0-9]*)')[3]
-    if(is_invalid(v, .invalids = c('null', 'na', 'blank'))){
+    if(!length(v) || is.na(v) || isTRUE(v=='')){
         v = ''
     }else{
         v = subject$filter_all_electrodes(as.integer(v))
@@ -101,56 +101,73 @@ observeEvent(input[[('bipolar_table_cell_edit')]], {
 
 
 output[['elec_loc']] <- threeBrain::renderBrain({
+    
     local_data$refresh
-    group_info = current_group() 
-    group_info %?<-% list(electrodes = NULL)
-    name = group_info$rg_name
-    ref_tbl = get_ref_table()
-    if(!length(name) || is.blank(name)){ name = 'Current Group' }
-
-    # join electrodes.csv with ref table
-    tbl = merge(ref_tbl, subject$electrodes[,c('Electrode', 'Coord_x','Coord_y','Coord_z', 'Label')], id = 'Electrode', suffixes = c('.x', ''))
-    tbl$Label[is.na(tbl$Label)] = 'No Label'
-
-    electrodes = group_info$electrodes
-    sapply(electrodes, function(e){
-        sel = tbl$Electrode == e
-        Group = tbl$Group[sel]
-        Type = tbl$Type[sel]
-        Reference = tbl$Reference[sel]
-        sprintf('Group - %s (%s)Reference to - %s', Group, Type, Reference)
-    }) ->
-        marker
-
-    lev = factor(c('Current Group', 'Bad Electrode'))
-    values = rep(lev[1], length(electrodes))
-    bad_electrodes = rave:::parse_selections(input[[('ref_bad')]])
-    values[electrodes %in% bad_electrodes] = lev[2]
-
-
-    # brain = rave_brain2(surfaces = 'pial', multiple_subject = F)
-    # brain$load_electrodes(subject)
+    brain = local_data$brain
     
-    # make a table
-    tbl = data.frame(
-        Electrode = electrodes,
-        Type = values,
-        Note = marker
-    )
-    brain$set_electrode_values( tbl )
-    
-    if( isTRUE(local_data$load_mesh) ){
-        brain$plot(volumes = FALSE, surfaces = TRUE, side_canvas = FALSE, control_panel = FALSE, palettes = list(
-            'Type' = c('red', 'navy')
-        ))
-    }else{
-        # Maybe load N27 brain if not exists
-        brain$plot(volumes = FALSE, surfaces = FALSE, side_canvas = FALSE, control_panel = FALSE, palettes = list(
-            'Type' = c('red', 'navy')
-        ))
+    if(is.null(brain)){
+        return()
     }
-    
-    # brain$view(value_range = c(-1,1), control_panel = F)
+    try({
+        group_info = current_group() 
+        group_info %?<-% list(electrodes = NULL)
+        name = group_info$rg_name
+        ref_tbl = get_ref_table()
+        if(!length(name) || is.blank(name)){ name = 'Current Group' }
+        
+        # join electrodes.csv with ref table
+        tbl = merge(ref_tbl, subject$electrodes[,c('Electrode', 'Coord_x','Coord_y','Coord_z', 'Label')],
+                    id = 'Electrode', suffixes = c('.x', ''))
+        tbl$Label[is.na(tbl$Label)] = 'No Label'
+        
+        electrodes = group_info$electrodes
+        sapply(electrodes, function(e){
+            sel = tbl$Electrode == e
+            Group = tbl$Group[sel]
+            Type = tbl$Type[sel]
+            Reference = tbl$Reference[sel]
+            sprintf('Group - %s (%s)Reference to - %s', Group, Type, Reference)
+        }) ->
+            marker
+        
+        lev = factor(c('Curr Group', 'Bad El'), levels = c('Curr Group', 'Bad El'))
+        values = rep(lev[1], length(electrodes))
+        bad_electrodes = dipsaus:::parse_svec(input[[('ref_bad')]])
+        values[electrodes %in% bad_electrodes] = lev[2]
+        
+        
+        # brain = rave_brain2(surfaces = 'pial', multiple_subject = F)
+        # brain$load_electrodes(subject)
+        
+        # make a table
+        tbl = data.frame(
+            Electrode = electrodes,
+            ElectrodeType = values,
+            Note = marker
+        )
+        if(!nrow(tbl)){ return() }
+        brain$set_electrode_values( tbl )
+        bg = ifelse('dark' %in% rave::get_rave_theme()$theme, '#1E1E1E', '#FFFFFF')
+        
+        if( isTRUE(local_data$load_mesh) ){
+            brain$plot(
+                volumes = FALSE, surfaces = TRUE, side_canvas = FALSE, 
+                background = bg,
+                control_panel = FALSE, palettes = list(
+                    'ElectrodeType' = c('navy', 'red')
+                ), side_display = FALSE, control_display = FALSE, cex = 0.5)
+        }else{
+            # Maybe load N27 brain if not exists
+            brain$plot(
+                volumes = FALSE, surfaces = FALSE, side_canvas = FALSE, 
+                background = bg,
+                control_panel = FALSE, palettes = list(
+                    'ElectrodeType' = c('navy', 'red')
+                ), side_display = FALSE, control_display = FALSE, cex = 0.5)
+        }
+        
+        # brain$view(value_range = c(-1,1), control_panel = F)
+    })
     
 })
 
@@ -162,14 +179,16 @@ observeEvent(input$load_mesh, {
 
 
 elec_loc_ui = function(){
-    div(
-        tags$style(
-            '.threejs-control, .threejs-control * {pointer-events: none !important; max-width: 150px !important; font-size: x-small !important;}'
-        ),
-        actionLink(ns('load_mesh'), 'Hide Mesh'),
-        threeBrain::threejsBrainOutput(ns('elec_loc'), height = '300px')
-        # threejsr::threejsOutput(ns('elec_loc'), height = '300px')
-    )
+    if(!length(local_data$brain)){
+        div(tags$small('[Cannot find surface files. Hide viewer.]'), style='color:#E2E2E2')
+    }else{
+        div(
+            actionLink(ns('load_mesh'), 'Hide Mesh'),
+            threeBrain::threejsBrainOutput(ns('elec_loc'), height = '300px')
+            # threejsr::threejsOutput(ns('elec_loc'), height = '300px')
+        )
+    }
+    
 
 }
 
@@ -180,7 +199,7 @@ observeEvent(input[[('cur_save')]], {
         return()
     }
     electrodes = group_info$electrodes
-    bad_electrodes = rave:::parse_selections(input[[('ref_bad')]])
+    bad_electrodes = dipsaus:::parse_svec(input[[('ref_bad')]])
 
     ref_table = get_ref_table()
     sel = ref_table$Electrode %in% electrodes
@@ -198,18 +217,27 @@ observeEvent(input[[('cur_save')]], {
     }
 }, priority = -1L)
 
+
+observeEvent(input$ref_group, {
+    n_groups <- max(length(input$ref_group), 1)
+    
+    shiny::updateSelectInput(session, 'cur_group', choices = as.character(seq_len(n_groups)), 
+                             selected = min(shiny::isolate(input$cur_group), n_groups))
+})
+
 # Customized UI
 cur_group_ui = function(){
     refresh = local_data$refresh
-    logger('cur_group_ui')
+    # dipsaus::cat2('cur_group_ui')
     new_ref = local_data$has_new_ref
+    cur_group <- as.integer(cur_group)
 
-    if(length(cur_group) && cur_group <= length(ref_group)){
+    if(isTRUE(cur_group <= length(ref_group))){
         group_number = as.integer(cur_group)
         group_info = ref_group[[group_number]]
         group_type = group_info$rg_type
         group_name = group_info$rg_name
-        electrodes = rave:::parse_selections(group_info$rg_electrodes)
+        electrodes = dipsaus:::parse_svec(group_info$rg_electrodes)
         if(length(electrodes) == 0){
             return(tagList(
                 hr(),
@@ -269,7 +297,7 @@ cur_group_ui = function(){
             ),
             column(
                 width = 5,
-                textInput(ns('ref_bad'), 'Bad Electrodes:', value = rave:::deparse_selections(ref_tbl$Electrode[sel & ref_tbl$Reference == ''])),
+                textInput(ns('ref_bad'), 'Bad Electrodes:', value = dipsaus:::deparse_svec(ref_tbl$Electrode[sel & ref_tbl$Reference == ''])),
                 div(
                     style = 'float: right',
                     actionButton(ns('cur_save'), 'Save Group')
@@ -288,10 +316,10 @@ cur_group_ui = function(){
 # })
 
 output[[('bad_electrodes_out')]] = renderText({
-    bad_electrodes = rave:::parse_selections(input[[('ref_bad')]])
+    bad_electrodes = dipsaus:::parse_svec(input[[('ref_bad')]])
     bad_electrodes = subject$filter_all_electrodes(bad_electrodes)
     if(length(bad_electrodes)){
-        bad_electrodes = rave:::deparse_selections(bad_electrodes)
+        bad_electrodes = dipsaus:::deparse_svec(bad_electrodes)
         bad_electrodes
     }else{
         'No bad electrode'
@@ -305,7 +333,7 @@ current_group = function(){
         return()
     }
     group_info = ref_group[[group_number]]
-    electrodes = rave:::parse_selections(group_info$rg_electrodes)
+    electrodes = dipsaus:::parse_svec(group_info$rg_electrodes)
     electrodes = subject$filter_all_electrodes(electrodes)
     if(!length(electrodes)){
         return()
@@ -321,7 +349,7 @@ get_ref_table = function(){
     ref_info = cache(key = list(
         ref_name_alt = ref_name_alt,
         subject = subject$id
-    ), import_external())
+    ), import_external(), name = 'ref_info')
     ref_table = ref_info$table
     ref_table
 }
@@ -335,7 +363,7 @@ save_ref_table = function(tbl, is_new = FALSE){
     old = cache(key = list(
         ref_name_alt = ref_name_alt,
         subject = subject$id
-    ), val, replace = T)
+    ), val, name = 'ref_info', replace = TRUE)
     if(nrow(old$table) != nrow(tbl)){
         stop("Refernce table doesn't match")
     }
@@ -381,7 +409,7 @@ load_reference = function(){
         subject = subject$id
     )
 
-    ref_info = cache(key = key, import_external())
+    ref_info = cache(key = key, import_external(), name = 'ref_info')
     ref_tbl = (ref_info$table)
 
     if(is.null(ref_tbl)){
@@ -413,10 +441,12 @@ load_reference = function(){
                 updateTextInput(
                     session,
                     (sprintf('%s_%s_%d', 'ref_group', 'rg_electrodes', i)),
-                    value = rave:::deparse_selections(merged$Electrode)
+                    value = dipsaus:::deparse_svec(merged$Electrode)
                 )
 
-                updateCompoundInput(session, ('ref_group'), to = nn)
+                dipsaus::updateCompoundInput2(
+                    session, inputId = 'ref_group', ncomp = nn
+                )
             })
 
         }
@@ -427,11 +457,11 @@ load_reference = function(){
         for(ii in seq_len(length(ref_group))){
             sub_group = ref_group[[ii]]
             sub_es = sub_group$rg_electrodes
-            sub_es = rave:::parse_selections(sub_es)
+            sub_es = dipsaus:::parse_svec(sub_es)
             if(any(sub_es %in% all_es)){
                 dup_es = sub_es[sub_es %in% all_es]
                 showNotification(
-                    p('Group [', sub_group$rg_name, '(', ii, ')] has duplicated electrode(s): ', rave:::deparse_selections(dup_es)),
+                    p('Group [', sub_group$rg_name, '(', ii, ')] has duplicated electrode(s): ', dipsaus:::deparse_svec(dup_es)),
                     type = 'warning'
                 )
             }
@@ -447,7 +477,7 @@ load_reference = function(){
         ref_info$table = ref_tbl
     }
 
-    cache(key = key, val = ref_info, replace = T)
+    cache(key = key, val = ref_info, name = 'ref_info', replace = TRUE)
 }
 
 gen_reference_blockwise = function(blockwise_table){
@@ -456,12 +486,12 @@ gen_reference_blockwise = function(blockwise_table){
     blocks = blockwise_table$Block
     refs = blockwise_table$Reference
 
-    involved_es = rave:::parse_selections(refs)
+    involved_es = dipsaus:::parse_svec(refs)
     if(length(involved_es) == 0){
         showNotification(p('No electrodes used. Why not use "noref"?'), type = 'error', session = session)
         return(FALSE)
     }
-    fname = 'ref_0,' %&% rave:::deparse_selections(involved_es) %&% '.h5'
+    fname = 'ref_0,' %&% dipsaus:::deparse_svec(involved_es) %&% '.h5'
 
     f = file.path(dirs$channel_dir, 'reference', fname)
     unlink(f)
@@ -475,7 +505,7 @@ gen_reference_blockwise = function(blockwise_table){
         b = blocks[[ii]]
         subprogress$reset()
         progress$inc('Loading data from block ' %&% b)
-        es = rave:::parse_selections(refs[ii])
+        es = dipsaus:::parse_svec(refs[ii])
 
         ref_data[[b]] = new.env()
         ref_data[[b]][['volt']] = 0
@@ -532,8 +562,8 @@ gen_reference = function(electrodes){
         return()
     }
     dirs = module_tools$get_subject_dirs()
-    fname_h5 = sprintf('ref_%s.h5', rave:::deparse_selections(electrodes))
-    fname_fst = sprintf('ref_%s.fst', rave:::deparse_selections(electrodes))
+    fname_h5 = sprintf('ref_%s.h5', dipsaus:::deparse_svec(electrodes))
+    fname_fst = sprintf('ref_%s.fst', dipsaus:::deparse_svec(electrodes))
     f = file.path(dirs$channel_dir, 'reference', fname_h5)
     # generate reference
     # Step 0: chunk matrix
@@ -548,7 +578,8 @@ gen_reference = function(electrodes){
     env$gen_coef = list()
 
 
-    progress = rave::progress(sprintf('Generating reference [%s]', fname_h5), max = length(electrodes)+1)
+    progress = rave::progress(sprintf('Generating reference [%s]', fname_h5), max = length(electrodes)+3)
+    progress$inc('Initializing...')
     on.exit(progress$close())
 
     blocks = subject$preprocess_info('blocks')
@@ -592,12 +623,12 @@ gen_reference = function(electrodes){
                     volt = volt,
                     coef = coef * phase
                 )
-            }, USE.NAMES = T, simplify = F) ->
+            }, USE.NAMES = TRUE, simplify = FALSE) ->
                 re
             gc()
             return(re)
         }, .call_back = function(i){
-            progress$inc(message = sprintf('Loading electrode %d', es[[i]]))
+            progress$inc(sprintf('Loading electrode %d', es[[i]]))
         }) ->
             re
 
@@ -617,7 +648,7 @@ gen_reference = function(electrodes){
         })
     })
 
-    progress$inc(message = 'Saving to disk.')
+    progress$inc('Saving to disk.')
 
     ref_dir = file.path(dirs$channel_dir, 'cache', 'reference')
 
@@ -661,7 +692,7 @@ get_refs = function(){
         return(list())
     }
     es = str_split_fixed(refs, '(ref_)|(\\.h5)', n = 3)[,2]
-    re = lapply(es, rave:::parse_selections)
+    re = lapply(es, dipsaus:::parse_svec)
     names(re) = 'ref_' %&% es
     re
 }
@@ -704,7 +735,7 @@ write_ref_table = function(){
 
 load_refchan = function(r, subject_channel_dir, blocks, ram = T){
     es = stringr::str_extract(r, '[0-9,\\-]+')
-    es = rave:::parse_selections(es)
+    es = dipsaus:::parse_svec(es)
 
     ref_file = file.path(subject_channel_dir, 'reference', sprintf('%s.h5', r))
     if(!file.exists(ref_file)){
@@ -857,26 +888,21 @@ observeEvent(input$do_export_cache, {
 
     removeModal()
 
-    fname = input[[('ref_export_name')]]
-    fname %?<-% 'default'
-    fname = str_replace_all(fname, '\\W', '')
-    fname = str_to_lower(fname)
-    module_tools$reload(reference = fname)
-    reloadUI()
+    shinyjs::alert(paste0('Reference table [', fname, 
+                          '] exported. Please reload subject to take effect.'))
 })
 
 observeEvent(input[[('do_export')]], {
     fname = write_ref_table()
-    showNotification(p('Reference table [', fname, '] exported. Reloading subject.'), type = 'message', id = ns('ref_export_cache_notification'))
+    showNotification(p('Reference table [', fname, 
+                       '] exported. Please reload subject to take effect.'), 
+                     type = 'message', 
+                     id = ns('ref_export_cache_notification'))
     removeModal()
+    
+    shinyjs::alert(paste0('Reference table [', fname, 
+                          '] exported. Please reload subject to take effect.'))
 
-    fname = input[[('ref_export_name')]]
-    fname %?<-% 'default'
-    fname = str_replace_all(fname, '\\W', '')
-    fname = str_to_lower(fname)
-    # showNotification(p("New reference table is created. It's time to reload the subject with the new reference."), type = 'message')
-    module_tools$reload(reference = fname)
-    reloadUI()
 })
 
 check_load_volt = function(){
@@ -917,14 +943,6 @@ console = function(){
     print(reactiveValuesToList(input))
 }
 
-ref_generator_ui = function(){
-    tagList(
-        textInput(ns('ref_electrodes'), label = 'Electrodes', value = '', placeholder = 'e.g. 1-3,5'),
-        actionButton(ns('ref_calc'), 'Generate Reference', width = '100%')
-        # hr(),
-        # actionButton(ns('ref_blockwise'), 'Generate Reference for Each Blocks', width = '100%')
-    )
-}
 
 observeEvent(input$ref_blockwise, {
 
@@ -967,13 +985,13 @@ observeEvent(input$ref_modal_tbl_cell_edit, {
 
     # string match electrode
     v = str_match(v, '(ref_|[\\ ]{0})([0-9,\\-]*)')[3]
-    if(is_invalid(v, .invalids = c('null', 'na', 'blank'))){
+    if(!length(v) || is.na(v) || isTRUE(v=='')){
         v = 'Zeros'
     }else{
-        v = rave:::parse_selections(v)
+        v = dipsaus:::parse_svec(v)
         v = subject$filter_all_electrodes(v)
         if(length(v)){
-            v = rave:::deparse_selections(v)
+            v = dipsaus:::deparse_svec(v)
         }else{
             v = 'Zeros'
         }
@@ -995,12 +1013,12 @@ observeEvent(input$ref_modal_ok, {
 
 observe({
     ref_calc_label = 'Generate Reference'
-    ref_es = rave:::parse_selections(input$ref_electrodes)
+    ref_es = dipsaus:::parse_svec(input$ref_electrodes)
     if(length(ref_es)){
         ref_es = subject$filter_all_electrodes(ref_es)
 
         if(length(ref_es)){
-            ref_calc_label = 'Generate [ref_' %&% rave:::deparse_selections(ref_es) %&% "]"
+            ref_calc_label = 'Generate [ref_' %&% dipsaus:::deparse_svec(ref_es) %&% "]"
         }
     }
 
@@ -1008,8 +1026,8 @@ observe({
 })
 
 observeEvent(input$ref_calc, {
-    ref_es = rave:::parse_selections(isolate(input$ref_electrodes))
-    ref_es = subject$filter_all_electrodes(ref_es)
+    ref_electrodes = dipsaus::parse_svec(ref_electrodes)
+    ref_es = subject$filter_all_electrodes(ref_electrodes)
 
     if(length(ref_es) == 0){
         showNotification(p('No electrode(s) selected'), type = 'error')
@@ -1017,7 +1035,7 @@ observeEvent(input$ref_calc, {
         # check conditions if we need to create reference
         old_files = list.files(env$ref_dir, pattern = 'ref_.*\\.h5')
         old_files = str_split_fixed(old_files, '(ref_)|(\\.h5)', 3)[,2]
-        new_file = rave:::deparse_selections(ref_es)
+        new_file = dipsaus:::deparse_svec(ref_es)
         if(new_file %in% old_files){
             showNotification(p('Reference [ref_', new_file, '.h5] already exists.'), type = 'message')
         }else{

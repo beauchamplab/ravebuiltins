@@ -1,7 +1,6 @@
+input = getDefaultReactiveInput()
 output = getDefaultReactiveOutput()
 session = getDefaultReactiveDomain()
-input = getDefaultReactiveInput(session = session)
-
 static_data = dipsaus::fastmap2()
 
 
@@ -26,7 +25,7 @@ local_data = reactiveValues(
 )
 
 # this is non-reactive because rave will trigger re-render for us
-ravebuiltins_power_explorer_plot_options <- build_plot_options(draw_decorator_labels=TRUE)
+ravebuiltins_power_explorer_plot_options <- build_plot_options()
 
 brain_proxy =  threeBrain::brain_proxy('power_3d_widget', session = session)
 
@@ -177,7 +176,7 @@ observeEvent(input$analysis_settings_load, {
     # Update analysis parameters
     updateSliderInput(session, 'analysis_window', value = conf$analysis_window)
     updateSliderInput(session, 'baseline_window', value = conf$baseline_window)
-    updateSliderInput(session, 'frequency_window', value = conf$frequency_window)
+    updateSliderInput(session, 'FREQUENCY', value = conf$FREQUENCY)
     updateSelectizeInput(session, 'unit_of_analysis', selected = conf$unit_of_analysis)
 })
 
@@ -341,7 +340,7 @@ update_electrode_category_select <- function(els) {
     .selected = unique(
         attr(labels, 'map')[which(selected_electrode_numbers %in% ecsv$Electrode)]
     )
-    
+    # 
     # assign('uecs', list(
     #     .selected, labels, col_name, electrodes_csv, selected_electrode_numbers, input$merge_hemisphere_labels
     # ), envir = globalenv())
@@ -412,15 +411,14 @@ observeEvent(input$reset_electrode_selectors, {
 
 observeEvent(input$select_good_electrodes, {
     if (!is.null(input$current_active_set)) {
+        updateTextInput(session, 'electrode_text',
+                        value = input$current_active_set)
+        
         local_data$current_active_set = dipsaus::parse_svec(input$current_active_set)
         
-        updateTextInput(session, 'electrode_text',
-                        value = local_data$current_active_set)
-        
-        
-        # if (!auto_recalculate()) {
-        #     trigger_recalculate()
-        # }
+        if (!auto_recalculate()) {
+            trigger_recalculate()
+        }
     }
 })
         
@@ -454,49 +452,33 @@ disable_save_button <- function() {
 }
 
 
-# observeEvent(input$do_quick_calculate_btn, {
-#     trigger_recalculate()
-# })
+observeEvent(input$do_quick_calculate_btn, {
+    trigger_recalculate()
+})
 
 update_click_information <- function() {
-    rave_context()
+    .loc <- local_data$windowed_by_trial_click_location
     
-    loc <- local_data$windowed_by_trial_click_location
-
-    # these data were cached by the plotter    
-    wcpd <- cache(key='current_rbn_windowed_comparison_plot_data',name = 'rbn_windowed_comparison_plot_data', val='none')
+    # first we determine which group is being clicked, then we drill down
+    # to determine the nearest point -- this should be faster than just looking
+    # through all the points across all the groups, n'est-ce pas?
+    .gi <- which.min(abs(.loc$x - sapply(scatter_bar_data, `[[`, 'xp')))
     
-    if(is.null(wcpd)) {
-        warning('no plot data available to identify')
-        
-        return()
-    }
+    # scaling the x-component distance as that should be the more discriminable of the two components?
+    wX <- 10
+    #TODO consider a minimum closeness value here?
+    .ind <- which.min(abs(wX*(scatter_bar_data[[.gi]]$x - .loc$x)) +
+                          abs(scatter_bar_data[[.gi]]$data - .loc$y))
     
-    # assign('wcpd', wcpd, envir = globalenv())
+    .trial <- scatter_bar_data[[.gi]]$Trial_num[.ind]
+    .val <- round(scatter_bar_data[[.gi]]$data[.ind],
+                  digits = abs(min(0, -1+floor(log10(max(abs(scatter_bar_data[[.gi]]$data)))))))
     
-    # scale x to have similar weight to y (akin to putting everything into pixel space)
-    wX <- diff(range(wcpd$y)) / diff(range(wcpd$x))
-    
-    ind <- which.min(
-        abs(wX * (loc$x - wcpd$x)) + abs(loc$y - wcpd$y)
-    )
-    
-    val <- wcpd$y[ind]
-    val <- round(val, digits = abs(min(0, -1+floor(log10(max(abs(val)))))))
-    
-    yy <- wcpd$y[(wcpd$group_name == wcpd$group_name[ind]) & (wcpd$is_clean)]
-    .msd = m_sd(yy)
-    zscore = round((val -.msd[1]) / .msd[2], 1)
-    .mad <- round(abs(val - median(yy)) / mad(yy), 1)
+    .type <- scatter_bar_data[[.gi]]$trials[.ind]
+    .click_info <- list('trial' = .trial, 'value' = .val, 'trial_type' = .type)
     
     # if(is.null(local_data$click_info)) {
-    local_data$click_info <- list('trial' = wcpd$orig_trial_number[ind],
-        'value' = val,
-        'zscore' = zscore,
-        'mad' = .mad,
-        'group_label' = as.character(wcpd$group_name[ind]),
-        'trial_type'= wcpd$trial_type[ind])
-    
+        local_data$click_info <- list('trial' = .trial, 'value' = .val, 'trial_type' = .type)
     # } else {
     #     # are we clicking a new location same place?
     #     if(.trial != local_data$click_info$trial) {
@@ -510,14 +492,14 @@ update_trial_outlier_list <- function() {
     last_click <- local_data$click_info
     
     if(!is.null(last_click)) {
-        tol <- input$trial_outliers_list
-        if(any(last_click$trial == tol)) {
-            tol <-  tol[tol != last_click$trial]
+        .tol <- input$trial_outliers_list
+        if(any(last_click$trial == .tol)) {
+            .tol <-  .tol[.tol != last_click$trial]
         } else {
-            tol <- c(tol, last_click$trial)
+            .tol <- c(.tol, last_click$trial)
         }
         
-        updateSelectInput(session, 'trial_outliers_list', selected = tol)
+        updateSelectInput(session, 'trial_outliers_list', selected = .tol)
     }
 }
 
@@ -574,11 +556,8 @@ observeEvent(input$GROUPS, {
 output$trial_click <- renderUI({
     .click <- local_data$click_info
     HTML(
-        "<div style='margin-left: 5px; min-height:375px'>Trial #: " %&%
-            .click$trial %&% '<br/>Value: ' %&% .click$value %&%
-            "(z: " %&% .click$zscore %&% ', MAD: ' %&% .click$mad %&% ')' %&%
-            '<br/>Condition name: ' %&% .click$trial_type %&%
-            '<br/>Group label: ' %&% .click$group_label %&%
+        "<div style='margin-left: 5px; min-height:375px'>Trial #: " %&% .click$trial %&% '<br/>Value: ' %&% .click$value %&%
+            '<br/>Label: ' %&% .click$trial_type %&%
             "<p style='margin-top:20px'>&mdash;<br/>" %&% local_data$condition_stats %&% '</p>' %&%
             "<p style='margin-top:20px'>&mdash;<br/>" %&% local_data$instruction_string %&% '</p>' %&%
             '</div>'

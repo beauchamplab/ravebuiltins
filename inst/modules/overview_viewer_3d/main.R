@@ -4,8 +4,8 @@
 devtools::document()
 ravebuiltins:::dev_ravebuiltins(T)
 mount_demo_subject()
-
-init_module(module_id = 'overview_viewer_3d', debug = TRUE)
+view_layout('overview_viewer_3d')
+# init_module(module_id = 'overview_viewer_3d', debug = TRUE)
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
@@ -18,16 +18,20 @@ project_dir = normalizePath(file.path(subject$dirs$rave_dir, '../../'))
 
 # Step 2. Read all csv files and combine them
 local_env$tables = list()
+
 selected_paths = lapply(data_files, function(p){
   path = normalizePath(file.path(project_dir, '_project_data', '3dviewer',  p), mustWork = FALSE)
   if(!file.exists(path)){ return() }
   
   # Read in path
   tryCatch({
-    dat = read.csv( path , stringsAsFactors = FALSE )
+    if(endsWith(path, 'csv')) {
+      dat = read.csv( path , stringsAsFactors = FALSE )
+    } else if (endsWith(path, 'fst')) {
+      dat = fst::read_fst(path)
+    }
     nms = names(dat)
     if( !nrow(dat) ){ return() }
-    
     # 1. Electrode
     if( !'Electrode' %in% nms ){ return() }
     
@@ -56,6 +60,7 @@ selected_paths = lapply(data_files, function(p){
     local_env$tables[[ path ]] = dat
     return(path)
   }, error = function(e){
+    print(e)
     NULL
   })
 })
@@ -81,7 +86,7 @@ combined_table = do.call('rbind', lapply(c('#$..^', selected_paths), function(pa
   re
 }))
 
-print(names(local_env$tables))
+# print(names(local_env$tables))
 
 # Step 3. generate combined csv tables
 combined_table = combined_table[, table_headers]
@@ -104,7 +109,7 @@ brain = lapply(subject_codes, function(subject_code){
 })
 
 # Step 5. if template, use it
-brain = rave::dropNulls(brain)
+brain = dipsaus::drop_nulls(brain)
 if( isTRUE(use_template) || length(brain) > 1 ){
   brain = threeBrain::merge_brain(.list = brain)
 }else if(length(brain)){
@@ -119,9 +124,14 @@ if( 'R6' %in% class(brain) && is.data.frame(combined_table) && nrow(combined_tab
 # Step 6. refresh UI
 local_data$viewer_result = Sys.time()
 
-# shiny::validate(
-#   shiny::need(length(brain), message = 'Cannot find any Brain object')
-# )
+# step 7. let viewer update
+ctx = rave::rave_context()
+# print(ctx$context)
+if(ctx$context %in% c('rave_running', 'rave_module_debug')) {
+  dipsaus::cat2("Updating 3D viewer")
+  dipsaus::set_shiny_input(session = session, inputId = 'brain_viewer_btn',
+                           value = 1, method = 'proxy', priority = 'event')
+}
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
@@ -135,14 +145,12 @@ mount_demo_subject(force_reload_subject = T)
 # module_id = 'overview_viewer_3d'
 module = ravebuiltins:::debug_module('overview_viewer_3d')
 
-result = module(ANALYSIS_WINDOW = 0)
-result$phase_histogram()
-result$itpc_plot()
-result$itpc_time_plot()
-result$phase_plot()
+# result = module(analysis_window = 0)
+# result$phase_histogram()
+# result$itpc_plot()
+# result$itpc_time_plot()
+# result$phase_plot()
+# results = result$results
 
-results = result$results
-
-rave_tools$view_layout('overview_viewer_3d', sidebar_width = 3, launch.browser = T)
-
+view_layout('overview_viewer_3d', sidebar_width = 3, launch.browser = T)
 

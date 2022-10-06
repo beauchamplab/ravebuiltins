@@ -1,17 +1,18 @@
 local_env = new.env(parent = emptyenv())
 input = getDefaultReactiveInput()
+output = getDefaultReactiveOutput()
 session = getDefaultReactiveDomain()
 local_data = reactiveValues()
 
 local_env$tables = list()
-
 
 find_csv <- function( project_dir, scodes ){
     scodes = '_project_data/3dviewer' #c('_project_data/3dviewer', scodes)
     # find all csv files within project folder
     res = lapply( scodes, function(scode){
         root_dir = file.path(project_dir, scode)
-        fs = list.files(root_dir, pattern = '\\.[cC][sS][vV]$', all.files = TRUE, recursive = TRUE)
+        fs = list.files(root_dir, pattern = '\\.(fst|csv)$', all.files = TRUE, recursive = TRUE)
+            #list.files(root_dir, pattern = '\\.[cC][sS][vV]$', all.files = TRUE, recursive = TRUE)
         fs
     })
     
@@ -86,7 +87,13 @@ observeEvent(input$csv_file, {
         notif = p('Cannot read ', htmltools::strong(file_info$name), '. Invalid csv table file.')
         
         tryCatch({
-            dat = read.csv(file_info$datapath, stringsAsFactors = FALSE)
+            
+            if(endsWith(tolower(file_info$datapath), 'csv')) {
+                dat = utils::read.csv(file_info$datapath, stringsAsFactors = FALSE)
+            } else if (endsWith(tolower(file_info$datapath), 'fst')) {
+                dat = fst::read_fst(file_info$datapath)
+            }
+            
             if(!all( c('Electrode', 'Subject') %in% names(dat) )){
                 notif = p('Table ', htmltools::strong(file_info$name), ' MUST has columns ', htmltools::strong('"Subject"'), '(character) and ', htmltools::strong('"Electrode"'), '(integer), case sensitive.')
                 stop()
@@ -102,8 +109,11 @@ observeEvent(input$csv_file, {
                 fname = stringr::str_replace(fname, '\\.csv$', strftime(Sys.time(), '[%y%m%d-%H%M%S].csv'))
                 save_path = file.path(dest_dir, fname)
             }
-            
-            utils::write.csv(dat, file = save_path, row.names = FALSE)
+            if(endsWith(tolower(file_info$datapath), 'csv')) {
+                utils::write.csv(dat, file = save_path, row.names = FALSE)
+            } else if (endsWith(tolower(file_info$datapath), 'fst')) {
+                fst::write_fst(dat, path = save_path, compress = 99)
+            }
             
             # s = file.path('_project_data', '3dviewer', save_path)
             # Force update selected data files

@@ -8,29 +8,31 @@ Description: This package provides builtin modules for `RAVE`. It aims at analyz
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 6.1.1
+RoxygenNote: 7.2.0
 Authors@R: c(
-    person(given = "Zhengjia", family = "Wang", role = c("cre", "aut"), email = "zhengjia.wang@rice.edu"),
-    person(given = "John", family = "Magnotti", role = "aut", email = "magnotti@bcm.edu")
+    person(given = "John", family = "Magnotti", role = c("cre", "aut"), email = "magnotti@bcm.edu"),
+    person(given = "Zhengjia", family = "Wang", role = c("aut"), email = "zhengjia.wang@rice.edu")
     )
 Imports:
     methods,
     stats,
+    grDevices,
     graphics,
     grid,
     abind,
     car,
     utils,
     data.table,
-    yaml (>= 2.2.0),
-    shiny (>= 1.2.0),
-    rlang (>= 0.3.0),
-    stringr (>= 1.3.1),
+    dipsaus,
     threeBrain (>= 0.1.3),
-    future (>= 0.14.0),
     magrittr (>= 1.5),
     circular (>= 0.4-93),
     lmerTest (>= 3.1-0),
+    emmeans (>= 1.4.8),
+    lme4 (>= 1.1.26),
+    rlang (>= 0.3.0),
+    stringr (>= 1.3.1),
+    shiny (>= 1.2.0),
     knitr,
     assertthat,
     shinyjs,
@@ -39,12 +41,17 @@ Imports:
     digest,
     DT,
     fst,
-    htmltools,
     rave,
+    raveio,
     rutabaga
 Suggests:
     devtools,
-    rstudioapi (>= 0.9.0)
+    htmltools,
+    fastmap,
+    lsmeans,
+    rstudioapi (>= 0.9.0),
+    yaml (>= 2.2.0),
+    future (>= 0.14.0)
 Remotes:
     github::dipterix/rutabaga,
     github::beauchamplab/rave

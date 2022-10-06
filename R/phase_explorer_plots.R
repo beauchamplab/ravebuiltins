@@ -16,7 +16,7 @@ phase_rave_color_bar <- function(zlim, actual_lim, clrs=rave_heat_map_colors, yl
     par(mar=mar)
     image(cbar[, sel, drop = F],
           col=clrs[sel], axes=F, ylab=ylab, main='',
-          cex.main=rave_cex.main, cex.lab=rave_cex.lab, cex.axis=rave_cex.axis, ...)
+          cex.main=rave_cex.main*get_cex_for_multifigure(), cex.lab=rave_cex.lab*get_cex_for_multifigure(), cex.axis=rave_cex.axis*get_cex_for_multifigure(), ...)
 
     rave_title(sprintf(
         '[%s]',
@@ -65,7 +65,7 @@ sine_phase_over_time_plot <- function(results, ...) {
         abline(h=2*yat, lwd=0.5, col='gray80')
 
         #TODO this should be done in a decorator
-        abline(v=results$get_value('ANALYSIS_WINDOW'), lty=2, lwd=2)
+        abline(v=results$get_value('analysis_window'), lty=2, lwd=2)
 
         apply(.res, 1, lines, x=time, col='gray30')
     })
@@ -85,7 +85,7 @@ phase_histogram <- function(results, ...) {
         x[x %>% is_match(xi)]
     }
 
-    time_range <- results$get_value('ANALYSIS_WINDOW')
+    time_range <- results$get_value('analysis_window')
     freq <- results$get_value('FREQUENCY')
 
 
@@ -134,7 +134,7 @@ phase_plot <- function(results, ...) {
         image(z=abs(.res), zlim=c(-pi,pi), col=rave_heat_map_colors %>% rev,
               x=time, xlab='Time',
               y=trials, ylab='Trial',
-              main = res$group_name %&% ' Abs Phase ' %&% deparse_selections(res$phase$dimnames$Frequency, max_lag = 10) %&% ' Hz',
+              main = res$group_name %&% ' Abs Phase ' %&% deparse_svec(res$phase$dimnames$Frequency, max_lag = 10) %&% ' Hz',
               bty='n', las=1, axes=F)
 
         rave_axis(1, pretty(time), tcl=0, lwd=0)
@@ -143,6 +143,7 @@ phase_plot <- function(results, ...) {
 }
 
 itpc_plot_heatmap = function(results, ...){
+    rave_context()
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
 
@@ -158,7 +159,7 @@ itpc_plot_heatmap = function(results, ...){
     #TODO make this first check if there is data here
     frequency = plot_data[[1]]$all_frequencies
 
-    max_zlim <- results$get_value('max_zlim')
+    max_zlim <- results$get_value('max_zlim', 0)
     if(max_zlim == 0) {
         max_zlim <- max(actual_lim)
     }
@@ -171,6 +172,7 @@ itpc_plot_heatmap = function(results, ...){
     # Plots
     # plot_data %>% sapply(function(x) x$data %>% class)
     lapply(plot_data, function(x){
+        # rave_context()
         x$has_trials %?<-% FALSE
         if(x$has_trials){
             make_image(x$full_data, x = time, y = frequency,
@@ -180,7 +182,7 @@ itpc_plot_heatmap = function(results, ...){
                      useRaster = F, add=FALSE)
 
             heat_map_axes(time,frequency)
-            abline(v = results$get_value('ANALYSIS_WINDOW'), lwd = 3, lty = 2)
+            abline(v = results$get_value('analysis_window'), lwd = 3, lty = 2)
             abline(h = results$get_value('FREQUENCY'), lwd = 3, lty = 2)
         }
     })
@@ -211,7 +213,7 @@ itpc_time_plot = function(results, ...){
         }
     })
 
-    cols = dropNulls(cols)
+    cols = dipsaus::drop_nulls(cols)
     mar = c(5.1, 5.1, 2, 2)
     par(mar = mar)
 
@@ -221,7 +223,7 @@ itpc_time_plot = function(results, ...){
 
         rave_axis(1, at=pretty(time))
         rave_axis(2, at=pretty(seq(0, 1, length.out = 11)))
-        abline(v = results$get_value('ANALYSIS_WINDOW'), lwd = 3, lty = 2)
+        abline(v = results$get_value('analysis_window'), lwd = 3, lty = 2)
         # legend at 0, 0.9
         col = sapply(cols, '[[', 'color')
         legend(x = 0, y = 1, legend = sapply(cols, '[[', 'group_name'), lty = 1,
@@ -252,7 +254,7 @@ itpc_time_plot = function(results, ...){
             plot_clean(time, c(0,1), xlab = 'Time (s)', ylab = 'Inter-Trial Coherence')
             rave_axis(1, at=pretty(time), tcl=0, lwd=1)
             rave_axis(2, at=pretty(seq(0, 1, length.out = 11)), tcl=0, lwd=1)
-            abline(v = results$get_value('ANALYSIS_WINDOW'), lwd = 3, lty = 2)
+            abline(v = results$get_value('analysis_window'), lwd = 3, lty = 2)
 
             legend(x = 0, y = 1, legend = ifelse(is.blank(x$group_name), sprintf('Group %d', ii),
                                                  x$group_name),

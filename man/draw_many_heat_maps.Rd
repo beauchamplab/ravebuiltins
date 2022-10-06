@@ -4,15 +4,36 @@
 \alias{draw_many_heat_maps}
 \title{Draw several heatmaps in a row and (optionally) a color bar}
 \usage{
-draw_many_heat_maps(hmaps, max_zlim = 0, log_scale = FALSE,
-  show_color_bar = TRUE, useRaster = TRUE, wide = FALSE,
-  PANEL.FIRST = NULL, PANEL.LAST = NULL, axes = c(TRUE, TRUE),
-  xrange = NULL, ...)
+draw_many_heat_maps(
+  hmaps,
+  max_zlim = 0,
+  percentile_range = FALSE,
+  log_scale = FALSE,
+  show_color_bar = TRUE,
+  useRaster = TRUE,
+  wide = FALSE,
+  PANEL.FIRST = NULL,
+  PANEL.LAST = NULL,
+  PANEL.COLOR_BAR = NULL,
+  axes = c(TRUE, TRUE),
+  plot_time_range = NULL,
+  special_case_first_plot = FALSE,
+  max_columns = 2,
+  decorate_all_plots = FALSE,
+  center_multipanel_title = FALSE,
+  ignore_time_range = NULL,
+  marginal_text_fields = c("Subject ID", "Electrode", "Frequency"),
+  extra_plot_parameters = NULL,
+  do_layout = TRUE,
+  ...
+)
 }
 \arguments{
 \item{hmaps}{data to draw heatmaps}
 
 \item{max_zlim}{zlim that trims z value}
+
+\item{percentile_range}{whether to draw in percentile}
 
 \item{log_scale}{draw y in log scale?}
 
@@ -29,9 +50,11 @@ Don't depend on this call order, use PANEL.LAST if you want to draw things on to
 
 \item{PANEL.LAST}{a function that is called after the rendering of each heat map. It is not called after the rendering of the color bar.}
 
+\item{PANEL.COLOR_BAR}{a function to adjust colorbar width}
+
 \item{axes}{vector of logicals, whether to draw axis}
 
-\item{xrange}{x range, similar to \code{xlim}}
+\item{plot_time_range}{x range, similar to \code{xlim}}
 }
 \description{
 Easy way to make a bunch of heatmaps with consistent look/feel and get a colorbar.
@@ -41,7 +64,4 @@ By default it is setup for time/freq, but by swapping labels and decorators you 
 layout_heat_maps
 
 draw_img
-}
-\author{
-John Magnotti
 }

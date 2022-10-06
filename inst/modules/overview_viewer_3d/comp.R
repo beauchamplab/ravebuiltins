@@ -1,4 +1,3 @@
-#' @author Zhengjia Wang
 #' This is UI component especially designed for 3D viewers which uses `threebrain`
 #' to visualize electrodes as well as surfaces via webgl.
 #' 
@@ -14,10 +13,7 @@ NULL
 # ----------------------------------- Debug ------------------------------------
 require(ravebuiltins)
 
-env = dev_ravebuiltins(T)
-
-## Load subject for debugging
-env$mount_demo_subject()
+dev_ravebuiltins(T, reload = TRUE)
 
 module_id <- 'overview_viewer_3d'
 
@@ -25,10 +21,15 @@ module_id <- 'overview_viewer_3d'
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
 
-load_scripts(rlang::quo({ DEBUG = FALSE }),
-             'inst/modules/overview_viewer_3d/reactives.R', 
-             'inst/modules/overview_viewer_3d/outputs.R', 
-             asis = TRUE)
+load_scripts(rlang::quo({
+    DEBUG = FALSE
+    eval_when_ready(function(...){
+        auto_recalculate( FALSE )
+    })
+}),
+'inst/modules/overview_viewer_3d/reactives.R', 
+'inst/modules/overview_viewer_3d/outputs.R', 
+asis = TRUE)
 
 
 define_initialization({
@@ -64,19 +65,34 @@ define_input(
     }
 )
 
-define_input(definition = shiny::checkboxInput(inputId = 'use_template', label = 'Use Template Brain', value = FALSE))
+define_input(
+    definition = shiny::checkboxInput(inputId = 'use_template', 
+                                      label = 'Use Template Brain', 
+                                      value = FALSE)
+)
 
-define_input(definition = rave::actionButtonStyled(inputId = 'viewer_result_btn2', type = 'success', 'Update Viewer', width = '100%'))
+define_input_auto_recalculate(
+    'viewer_result_btn2', label = 'Update data', type = 'button',
+    default_on = FALSE, button_type = 'success'
+)
+
+define_input_auto_recalculate(
+    'viewer_result_btn1', label = 'Generate viewer', type = 'button',
+    default_on = FALSE, button_type = 'primary'
+)
 
 
 # Add csv file
 define_input(
-    definition = shiny::fileInput('csv_file', label = 'Upload a csv Data File', accept = 'text/csv', multiple = TRUE)
+    definition = shiny::fileInput('csv_file', label = 'Upload fst or csv data files', 
+                                  accept = c('.csv', '.fst'), multiple = TRUE)
 )
 define_input(definition = customizedUI('file_check', width = '100%'))
 
 define_input(
-    definition = shiny::selectInput('data_files', label = 'Data Files', choices = NULL, selected = character(0), multiple = TRUE),
+    definition = shiny::selectInput('data_files', label = 'Data Files', 
+                                    choices = NULL, selected = character(0), 
+                                    multiple = TRUE),
     init_args = c('choices', 'selected'),
     init_expr = {
         # Find all csvs
@@ -87,27 +103,50 @@ define_input(
 )
 
 
-define_input_3d_viewer_generator('viewer_result', label = 'Open viewer in a new tab', reactive = 'local_data')
+define_input(
+    rave::customizedUI('download_ui')
+)
+
+define_input(
+    rave::customizedUI('electrode_details')
+)
+
+define_input(
+    definition = selectInput(inputId = 'heatmap_color_palette', label='Heatmap color palette', multiple=FALSE, 
+                             choices = get_heatmap_palette(get_palette_names = TRUE),
+                             selected = get_heatmap_palette(get_palette_names = TRUE)[1]),
+    
+    # cache the color palette across data reloads. needs init_args and init_expr
+    init_args = c('selected'),
+    init_expr = {
+        selected = cache_input('heatmap_color_palette',
+                               val = get_heatmap_palette(get_palette_names = TRUE)[1])
+    }
+)
 
 
 
 input_layout = list(
     'Subject & Surfaces' = list(
-        c('subject_codes'),
-        c('surface_types'),
-        c('use_template'),
-        'viewer_result_btn2'
+        c('subject_codes', 'surface_types'),
+        'use_template',
+        c('viewer_result_btn1', 'download_ui')
     ),
     'Data Source' = list(
         c('data_files'),
         c('csv_file'),
-        c('file_check')
+        c('file_check'),
+        c('viewer_result_btn2')
     ),
-    'Misc' = list(
-        c('viewer_result', 'viewer_result_ui')
+    'Viewer Controls' = list(
+        'heatmap_color_palette'
+    ),
+    'Data Inspector' = list(
+        'electrode_details'
     )
 )
-manual_inputs = c('subject_codes', 'surface_types', 'use_template', 'csv_file', 'viewer_result_download')
+
+manual_inputs = c('viewer_result_download')
 
 
 
@@ -118,24 +157,26 @@ manual_inputs = c('subject_codes', 'surface_types', 'use_template', 'csv_file', 
 # define_output_3d_viewer(outputId = 'viewer_result', title = 'Embedded Viewer',
 #                         order = 1, width = 12, hide_btn = TRUE, height = '82vh')
 
-define_output(
-    definition = rave::customizedUI('viewer_result_out_ui'),
+define_output_3d_viewer(
+    outputId = 'brain_viewer', 
     title = 'Viewer',
     width = 12L,
-    order = 1
+    order = 1,
+    hide_btn = TRUE,
+    height = '85vh'
 )
 
-define_output(
-    definition = rave::customizedUI('electrode_details'),
-    title = 'Details',
-    width = 4L,
-    order = 3
-)
+# define_output(
+#     definition = rave::customizedUI('electrode_details'),
+#     title = 'Details',
+#     width = 4L,
+#     order = 3
+# )
 
 define_output(
     definition = rave::customizedUI('electrode_table_ui'), #DT::dataTableOutput('electrode_table'),
     title = 'Combined Data File',
-    width = 8,
+    width = 12,
     order = 2
 )
 
@@ -159,4 +200,13 @@ define_output(
 module_id <- 'overview_viewer_3d'
 # quos = env$parse_components(module_id)
 
-view_layout(module_id, launch.browser = T, sidebar_width = 3)
+view_layout(module_id)
+
+
+m = to_module(module_id = module_id, sidebar_width = 3L, parse_context = 'rave_running_local')
+
+init_app(m, test.mode=TRUE)
+exec_env = m$private$exec_env$xD2CvLYFr1BNt9eOusVG
+exec_env$static_env$viewer_brain()
+e = environment(exec_env$static_env$viewer_brain)
+parent.env(e)$.__rave_context__.

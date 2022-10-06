@@ -9,7 +9,7 @@ observe({
 electrode_plot_ui = function(){
     ref_tbl = local_data$ref_tbl
     local_data$refresh
-    logger('electrode_plot_ui')
+    # dipsaus::cat2('electrode_plot_ui')
 
     group_info = current_group()
     if(is.null(group_info) || !is.data.frame(ref_tbl)){
@@ -17,18 +17,18 @@ electrode_plot_ui = function(){
     }
 
     blocks = subject$preprocess_info('blocks'); blocks %?<-% ''
-    electrode_plt_block = isolate(local_data$electrode_plt_block);
+    electrode_plt_block = isolate(local_data$electrode_plt_block)
     electrode_plt_block %?<-% blocks[1]; if(!electrode_plt_block %in% blocks){ electrode_plt_block = blocks[1] }
 
     electrodes = group_info$electrodes
-    electrode_plt_electrode = isolate(local_data$electrode_plt_electrode);
-    electrode_plt_electrode %?<-% electrodes[1]; electrode_plt_electrode = as.integer(electrode_plt_electrode);
-    if(!electrode_plt_electrode %in% electrodes){ electrode_plt_electrode = electrodes[1] };
+    electrode_plt_electrode = isolate(local_data$electrode_plt_electrode)
+    electrode_plt_electrode %?<-% electrodes[1]; electrode_plt_electrode = as.integer(electrode_plt_electrode)
+    if(!electrode_plt_electrode %in% electrodes){ electrode_plt_electrode = electrodes[1] }
 
     srate = subject$preprocess_info('srate')
     electrode_plt_win = isolate(local_data$electrode_plt_win); electrode_plt_win %?<-% ceiling(srate * 2)
 
-    electrode_plt_mfreq = isolate(local_data$electrode_plt_mfreq); electrode_plt_mfreq %?<-% min(300, srate/2);
+    electrode_plt_mfreq = isolate(local_data$electrode_plt_mfreq); electrode_plt_mfreq %?<-% min(300, srate/2)
 
 
     fluidRow(
@@ -100,7 +100,7 @@ load_ref = function(ref){
 
 
     es = stringr::str_extract(ref, '[0-9\\-,]+'); if(is.na(es)){es = ''}
-    e = rave:::parse_selections(es)
+    e = dipsaus:::parse_svec(es)
     e = subject$filter_all_electrodes(e)
 
     if(length(e) == 0){
@@ -141,6 +141,7 @@ load_ref = function(ref){
 }
 
 output$electrode_plot_raw = renderPlot({
+    set_rave_theme()
     ref_tbl = local_data$ref_tbl
 
 
@@ -201,7 +202,7 @@ output$electrode_plot_raw = renderPlot({
     )
 
     win_len = (local_data$electrode_plt_win); win_len %?<-% ceiling(srate * 2)
-    max_freq = (local_data$electrode_plt_mfreq); max_freq %?<-% min(300, srate/2);
+    max_freq = (local_data$electrode_plt_mfreq); max_freq %?<-% min(300, srate/2)
 
 
     rave::diagnose_signal(
@@ -222,7 +223,7 @@ observe({
     local_data$parallel_plt_block = block = input$parallel_plt_block
     local_data$parallel_plt_space = input$parallel_plt_space
     local_data$parallel_plt_duration = duration = input$parallel_plt_duration
-    local_data$parallel_plt_excl = rave:::parse_selections(input$parallel_plt_excl)
+    local_data$parallel_plt_excl = dipsaus:::parse_svec(input$parallel_plt_excl)
     local_data$parallel_plt_refed_hidden = input$parallel_plt_refed_hidden
 
     try({
@@ -238,7 +239,7 @@ observe({
 parallel_plot_ui = function(){
     ref_tbl = local_data$ref_tbl
     local_data$refresh
-    logger('parallel_plot_ui')
+    # dipsaus::cat2('parallel_plot_ui')
 
     group_info = current_group()
     if(is.null(group_info) || !is.data.frame(ref_tbl)){
@@ -247,19 +248,19 @@ parallel_plot_ui = function(){
 
 
     blocks = subject$preprocess_info('blocks'); blocks %?<-% ''
-    parallel_plt_block = isolate(local_data$parallel_plt_block);
+    parallel_plt_block = isolate(local_data$parallel_plt_block)
     parallel_plt_block %?<-% blocks[1]; if(!parallel_plt_block %in% blocks){ parallel_plt_block = blocks[1] }
 
     parallel_plt_space = isolate(local_data$parallel_plt_space)
     parallel_plt_space %?<-% 1000; parallel_plt_space = max(parallel_plt_space, 0)
 
     parallel_plt_start = isolate(local_data$parallel_plt_start)
-    parallel_plt_start %?<-% 0;
+    parallel_plt_start %?<-% 0
     parallel_plt_start_step = isolate(local_data$parallel_plt_start_step); parallel_plt_start_step %?<-% 5
     parallel_plt_start_max = isolate(local_data$parallel_plt_start_max); parallel_plt_start_max %?<-% 300
 
     parallel_plt_duration = isolate(local_data$parallel_plt_duration)
-    parallel_plt_duration %?<-% 5;
+    parallel_plt_duration %?<-% 5
 
     parallel_plt_excl = isolate(local_data$parallel_plt_excl)
     parallel_plt_excl = parallel_plt_excl[parallel_plt_excl %in% group_info$electrodes]
@@ -287,7 +288,7 @@ parallel_plot_ui = function(){
                          choiceNames = c('Show all', 'Show original signals only', 'Show referenced signals only'),
                          choiceValues = c('all', 'raw', 'ref'),
                          selected = parallel_plt_refed_hidden),
-            textInput(ns('parallel_plt_excl'), 'Hide Electrodes', value = rave:::deparse_selections(parallel_plt_excl))
+            textInput(ns('parallel_plt_excl'), 'Hide Electrodes', value = dipsaus:::deparse_svec(parallel_plt_excl))
         )
     )
 }
@@ -295,11 +296,14 @@ parallel_plot_ui = function(){
 channel_plot = function(){
     # Set par
     mai = par('mai')
+    set_rave_theme()
     on.exit({par(mai = mai)})
     par(mai = local({
         mai[3:4] = 0.01;
         mai
     }))
+    
+    fgcol = par('fg')
 
 
     group_info = current_group()
@@ -316,10 +320,16 @@ channel_plot = function(){
 
     sel_hide = group_info$electrodes %in% local_data$parallel_plt_excl
 
-    space = local_data$parallel_plt_space; space %?<-% 1000; if(space <= 0) space = 1000;
+    space = local_data$parallel_plt_space; space %?<-% 1000
+    if(space <= 0) space = 1000
+    
     block = local_data$parallel_plt_block
-    start = local_data$parallel_plt_start; start %?<-% 0; start = max(start, 0)
-    duration = local_data$parallel_plt_duration; duration %?<-% 1; duration = max(duration, 1)
+    start = local_data$parallel_plt_start; start %?<-% 0
+    start = max(start, 0)
+    duration = local_data$parallel_plt_duration
+    duration %?<-% 1
+    duration = max(duration, 1)
+    
     srate = subject$preprocess_info('srate')
 
 
@@ -335,7 +345,7 @@ channel_plot = function(){
         if(is.na(r)){
             return(rep(0, n_electrode_total))
         }
-        s = rave:::parse_selections(r)
+        s = dipsaus:::parse_svec(r)
         s = ref_tbl$Electrode %in% s
         s / sum(s)
     }) ->
@@ -354,7 +364,7 @@ channel_plot = function(){
         if(!length(r)){
             s_mean = s_na
         }else{
-            s_mean = colMeans(s[ref_tbl$Electrode %in% rave:::parse_selections(r), , drop = F])
+            s_mean = colMeans(s[ref_tbl$Electrode %in% dipsaus:::parse_svec(r), , drop = F])
         }
     }
 
@@ -369,7 +379,7 @@ channel_plot = function(){
                 rave::plot_signals(
                     rbind(s_mean, s_ref[!sel_hide, ]),
                     sample_rate = srate,
-                    col = c('black', col2[!sel_hide]),
+                    col = c(fgcol, col2[!sel_hide]),
                     space = space,
                     space_mode = ifelse(space <= 1, 'quantile', 'abs'),
                     channel_names = c('REF', group_info$electrodes[!sel_hide]),
@@ -381,7 +391,7 @@ channel_plot = function(){
                 rave::plot_signals(
                     rbind(s_na, s[sel, , drop = F][!sel_hide, ]),
                     sample_rate = srate,
-                    col = c('black', col[!sel_hide]),
+                    col = c(fgcol, col[!sel_hide]),
                     space = re$space,
                     space_mode = 'abs',
                     time_shift = start, new_plot = F
@@ -391,7 +401,7 @@ channel_plot = function(){
                 rave::plot_signals(
                     rbind(s_mean, s[sel, , drop = F][!sel_hide, ]),
                     sample_rate = srate,
-                    col = c('black', col[!sel_hide]),
+                    col = c(fgcol, col[!sel_hide]),
                     space = space,
                     space_mode = ifelse(space <= 1, 'quantile', 'abs'),
                     channel_names = c('REF', group_info$electrodes[!sel_hide]),
@@ -405,7 +415,7 @@ channel_plot = function(){
                 rave::plot_signals(
                     rbind(s_mean, s_ref[!sel_hide, ]),
                     sample_rate = srate,
-                    col = c('black', col2[!sel_hide]),
+                    col = c(fgcol, col2[!sel_hide]),
                     space = space,
                     space_mode = ifelse(space <= 1, 'quantile', 'abs'),
                     channel_names = c('REF', group_info$electrodes[!sel_hide]),
@@ -436,6 +446,7 @@ channel_plot = function(){
 }
 
 output$parallel_plot = renderPlot({
+    
     group_info = current_group()
     ref_tbl = local_data$ref_tbl
     local_data$do_parallel_plot

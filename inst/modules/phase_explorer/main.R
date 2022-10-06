@@ -23,12 +23,12 @@ init_module(module_id = 'phase_explorer', debug = TRUE)
 #     
 # }
 
-if(! (ANALYSIS_WINDOW %in% time_points)) {
-    new_aw <- time_points[..get_nearest(ANALYSIS_WINDOW, time_points)]
+if(! (analysis_window %in% time_points)) {
+    new_aw <- time_points[..get_nearest(analysis_window, time_points)]
 
-    showNotification(p('Chosen analysis point: ', strong(ANALYSIS_WINDOW),
+    showNotification(p('Chosen analysis point: ', strong(analysis_window),
                        "doesn't exist. Switching to: ", strong(new_aw)), type = 'warning', id='BAD_TP')
-    ANALYSIS_WINDOW <- new_aw
+    analysis_window <- new_aw
 }
 
 dat = phase$subset(Frequency = Frequency %within% FREQUENCY,
@@ -133,7 +133,7 @@ mount_demo_subject(force_reload_subject = T)
 # module_id = 'phase_explorer'
 module = ravebuiltins:::debug_module('phase_explorer')
 
-result = module(ANALYSIS_WINDOW = 0)
+result = module(analysis_window = 0)
 result$phase_histogram()
 result$itpc_plot_heatmap()
 result$itpc_time_plot()

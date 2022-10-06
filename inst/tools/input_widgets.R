@@ -45,12 +45,12 @@ define_input_3d_viewer_generator <- function(
         ...fun = function(){
           re = NULL
           f = get0(!!input_fun, envir = ..runtime_env, ifnotfound = function(...){
-            rutabaga::cat2('3D Viewer', !!outputId,  'cannot find function', !!input_fun, level = 'INFO')
+            cat2('3D Viewer', !!outputId,  'cannot find function', !!input_fun, level = 'INFO')
           })
           tryCatch({
             re = f()
           }, error = function(e){
-            rave::logger(e, level = 'ERROR')
+            dipsaus::cat2(e, level = 'ERROR')
           })
           re
         }
@@ -133,9 +133,8 @@ define_input_3d_viewer_generator <- function(
   
   parent_frame = parent.frame()
   
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
-
 
 define_input_multiple_electrodes <- function(inputId, label = 'Electrodes'){
   quo = rlang::quo({
@@ -146,20 +145,20 @@ define_input_multiple_electrodes <- function(inputId, label = 'Electrodes'){
 
         electrodes = preload_info$electrodes
 
-        last_input = cache_input(!!inputId, val = as.character(electrodes))
-        e = rave::parse_selections(last_input)
+        last_input = cache_input(!!inputId, val = as.character(electrodes)[1])
+        e = dipsaus::parse_svec(last_input)
         e = e[e %in% electrodes]
         if(!length(e)){
           e = electrodes[1]
         }
-        value = rave::deparse_selections(e)
-        label = paste0(!!label, ' (currently loaded: ', rave::deparse_selections(electrodes), ')')
+        value = dipsaus::deparse_svec(e)
+        label = paste0(!!label, ' (currently loaded: ', dipsaus::deparse_svec(electrodes), ')')
       }
     )
   })
 
   parent_frame = parent.frame()
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
 
 
@@ -184,7 +183,7 @@ define_input_single_electrode <- function(inputId, label = 'Electrode'){
 
   parent_frame = parent.frame()
 
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
 
 
@@ -227,7 +226,7 @@ define_input_frequency <- function(inputId, label = 'Frequency', is_range = TRUE
 
   parent_frame = parent.frame()
 
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
 
 define_srate_input_slider <- function(inputId, label) {
@@ -245,7 +244,7 @@ define_srate_input_slider <- function(inputId, label) {
   })
   parent_frame = parent.frame()
   
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
 
 
@@ -280,77 +279,69 @@ define_input_time <- function(inputId, label = 'Time Range', is_range = TRUE, ro
 
   parent_frame = parent.frame()
 
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
+
+# define_input_condition_groups <- function(
+#   inputId, label = 'Group', initial_groups = 1, 
+#   init_args, init_expr, quoted = FALSE, ...){
+#   
+#   if(missing(init_args)){
+#     init_args = c('initialize', 'value')
+#   }
+#   
+#   if(missing(init_expr)){
+#     init_expr = rlang::quo({
+#       cond = unique(preload_info$condition)
+#       
+#       initialize = list(
+#         group_conditions = list(
+#           choices = cond
+#         )
+#       )
+#       default_val = list(
+#         list(
+#           group_name = 'All Conditions',
+#           group_conditions = list(cond)
+#         )
+#       )
+#       value = cache_input(!!inputId, default_val)
+#       if( !length(value) || !length(value[[1]]$group_conditions) || !any(value[[1]]$group_conditions %in% cond)){
+#         value = default_val
+#       }
+#     })
+#   }else if (!quoted){
+#     init_expr = substitute(init_expr)
+#   }
+#   
+#   quo = rlang::quo({
+# 
+#     define_input(
+#       definition = compoundInput(
+#         inputId = !!inputId, prefix= !!label, inital_ncomp = !!initial_groups, components = {
+#           textInput('group_name', 'Name', value = '', placeholder = 'Condition Name')
+#           selectInput('group_conditions', ' ', choices = '', multiple = TRUE)
+#         }),
+# 
+#       init_args = !!init_args,
+# 
+#       init_expr = {
+#         eval(!!init_expr)
+#       }
+#     )
+#   })
+# 
+#   parent_frame = parent.frame()
+# 
+#   eval_dirty(quo, env = parent_frame)
+# 
+# }
 
 define_input_condition_groups <- function(
-  inputId, label = 'Group', initial_groups = 1, 
-  init_args, init_expr, quoted = FALSE, ...){
-  
-  if(missing(init_args)){
-    init_args = c('initialize', 'value')
-  }
-  
-  if(missing(init_expr)){
-    init_expr = rlang::quo({
-      cond = unique(preload_info$condition)
-      
-      initialize = list(
-        group_conditions = list(
-          choices = cond
-        )
-      )
-      default_val = list(
-        list(
-          group_name = 'All Conditions',
-          group_conditions = list(cond)
-        )
-      )
-      value = cache_input(!!inputId, default_val)
-      if( !length(value) || !length(value[[1]]$group_conditions) || !any(value[[1]]$group_conditions %in% cond)){
-        value = default_val
-      }
-    })
-  }else if (!quoted){
-    init_expr = substitute(init_expr)
-  }
-  
-  quo = rlang::quo({
-
-    define_input(
-      definition = compoundInput(
-        inputId = !!inputId, prefix= !!label, inital_ncomp = !!initial_groups, components = {
-          textInput('group_name', 'Name', value = '', placeholder = 'Condition Name')
-          selectInput('group_conditions', ' ', choices = '', multiple = TRUE)
-        }),
-
-      init_args = !!init_args,
-
-      init_expr = {
-        eval(!!init_expr)
-      }
-    )
-  })
-
-  parent_frame = parent.frame()
-
-  rave::eval_dirty(quo, env = parent_frame)
-
-}
-
-
-define_input_condition_groups2 <- function(
   inputId, label = 'Group', initial_groups = 1, max_group = 10, min_group = 1,
   label_color = rep('black', max_group), init_args, init_expr, quoted = FALSE, ...
 ){
-  if( !rutabaga::package_installed('dipsaus') ){
-    call = match.call()
-    call[[1]] = quote(define_input_condition_groups)
-    eval(call)
-    return()
-  }
-  
-  get_from_package('registerCompoundInput2', 'dipsaus', internal = TRUE)()
+  # get_from_package('registerCompoundInput2', 'dipsaus', internal = TRUE)()
   if(missing(init_args)){
     init_args = c('initialization', 'value')
   }
@@ -367,11 +358,15 @@ define_input_condition_groups2 <- function(
       default_val = list(
         list(
           group_name = 'All Conditions',
-          group_conditions = list(cond)
+          group_conditions = cond
         )
       )
       value = cache_input(!!inputId, default_val)
-      if( !length(value) || !length(value[[1]]$group_conditions) || !any(value[[1]]$group_conditions %in% cond)){
+      # print('asdasdasd')
+      # print(value)
+      if( !length(value) || 
+          !length(value[[1]]$group_conditions) || 
+          !any(value[[1]]$group_conditions %in% cond)){
         value = default_val
       }
     })
@@ -393,19 +388,19 @@ define_input_condition_groups2 <- function(
       
       init_args = !!init_args,
       
-      init_expr = eval(!!init_expr)
+      init_expr = !!init_expr
     )
   })
   
   parent_frame = parent.frame()
   
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
   
 }
 
-
 define_input_analysis_data_csv <- function(
   inputId, label, paths, reactive_target = sprintf('local_data[[%s]]', inputId),
+  file_match_string = '\\.(csv|fst)$',
   multiple = TRUE, label_uploader = '...', try_load_yaml = TRUE, allow_uploader = FALSE){
   
   input_ui = inputId
@@ -425,7 +420,7 @@ define_input_analysis_data_csv <- function(
       assign(!!input_ui, function(){
         project_dir = dirname(subject$dirs$subject_dir)
         search_paths = file.path(project_dir, !!paths)
-        choices = unlist(lapply(search_paths, list.files, pattern = '\\.[cC][sS][vV]$'))
+        choices = unlist(lapply(search_paths, list.files, pattern = !!file_match_string))
         # Order file names by date-time (descending order)
         dt = stringr::str_extract(choices, '[0-9]{8}-[0-9]{6}')
         od = order(strptime(dt, '%Y%m%d-%H%M%S'), decreasing = TRUE)
@@ -445,11 +440,11 @@ define_input_analysis_data_csv <- function(
           class = 'rave-grid-inputs',
           htmltools::div(
             style = 'flex-basis: 100%; min-height: 80px;',
-            selectInput(inputId = ns(!!input_selector), label = !!label, choices = choices, selected = character(0), multiple = !!multiple)
+            selectInput(inputId = ns(!!input_selector), label = !!label, choices = choices, selected = choices[1], multiple = !!multiple)
           ),
           htmltools::div(
             style = 'flex-basis: 100%',
-            actionButtonStyled(inputId = ns(!!input_btn), label = 'Load analysis data', width = '100%', type = 'primary')
+            actionButtonStyled(inputId = ns(!!input_btn), label = 'Load selected data', width = '100%', type = 'primary')
           ),
           uploader_tag
         )
@@ -468,7 +463,7 @@ define_input_analysis_data_csv <- function(
           if(!length(search_paths)){
             return(NULL)
           }
-          choices = unlist(lapply(search_paths, list.files, pattern = '\\.[cC][sS][vV]$'))
+          choices = unlist(lapply(search_paths, list.files, pattern = !!file_match_string))
           # Order file names by date-time (descending order)
           dt = stringr::str_extract(choices, '[0-9]{8}-[0-9]{6}')
           od = order(strptime(dt, '%Y%m%d-%H%M%S'), decreasing = TRUE)
@@ -508,8 +503,16 @@ define_input_analysis_data_csv <- function(
           path = input[[!!input_uploader]]$datapath
           group_analysis_src = .local_data$group_analysis_src
           tryCatch({
+            print('Observe input_uploader')
             # try to load as csv, check column names
-            dat = read.csv(path, header = TRUE, nrows = 10)
+            if(endsWith(path, 'csv')) {
+              dat = read.csv(path, header = TRUE, nrows = 3)
+            } else if (endsWith(path, 'fst')) {
+              dat = fst::read_fst(path, from = 1, 3)
+            } else {
+              stop('unable to parse file type: ', path)
+            }
+            
             if(all(csv_headers %in% names(dat))){
               now = strftime(Sys.time(), '-%Y%m%d-%H%M%S(manual).csv')
               # pass, write to group_analysis_src with name
@@ -531,9 +534,10 @@ define_input_analysis_data_csv <- function(
         }, event.env = .env, handler.env = .env)
         
         observeEvent(input[[!!input_btn]], {
+          # print('Observe input_btn')
           source_files = input[[!!input_selector]]
           search_paths = .local_data$search_paths
-          progress = rave::progress('Loading analysis', max = length(source_files) + 1)
+          progress = rave::progress('Loading data files', max = length(source_files) + 1)
           on.exit({ progress$close() })
           
           progress$inc('Checking files...')
@@ -541,20 +545,29 @@ define_input_analysis_data_csv <- function(
           metas = lapply(source_files, function(fpath){
             fpath = find_source(search_paths, fpath)
             if( is.null(fpath) ){ return(NULL) }
-            dat = read.csv( fpath , header = TRUE, nrows = 1)
+            if(endsWith(fpath, 'csv')) {
+              dat = read.csv( fpath , header = TRUE, nrows = 1)
+            } else {
+              dat = fst::read_fst(fpath, from=1, to=2)
+            }
             list(
               fpath = fpath,
               header = names(dat)
             )
           })
-          metas = rave::dropNulls(metas)
+          metas = dipsaus::drop_nulls(metas)
           headers = unique(unlist(lapply(metas, '[[', 'header')))
           
           # Read all data
           project_name = subject$project_name
-          tbls = rave::dropNulls(lapply(metas, function(x){
-            progress$inc('Loading...')
-            tbl = data.table::fread(file = x$fpath, stringsAsFactors = FALSE, header = TRUE)
+          tbls = dipsaus::drop_nulls(lapply(metas, function(x){
+            # print('trying to load ' %&% x$fpath)
+            progress$inc(rutabaga::get_filename(x$fpath))
+            if(endsWith(x$fpath, 'csv')) {
+              tbl = data.table::fread(file = x$fpath, stringsAsFactors = FALSE, header = TRUE)
+            } else {
+              tbl = fst::read_fst(x$fpath)
+            }
             tbl = tbl[tbl$Project %in% project_name, ]
             if(!nrow(tbl)){
               return(NULL)
@@ -572,7 +585,7 @@ define_input_analysis_data_csv <- function(
                 conf = yaml::read_yaml(yaml_path)
               }
             }
-            
+            # print('returning loaded data ')
             return(list(
               data = tbl,
               conf = conf,
@@ -620,10 +633,8 @@ define_input_analysis_data_csv <- function(
   })
   
   parent_frame = parent.frame()
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
-
-
 
 
 define_input_table_filters <- function(
@@ -928,10 +939,8 @@ define_input_table_filters <- function(
   })
   
   parent_frame = parent.frame()
-  rave::eval_dirty(quo, env = parent_frame)
+  eval_dirty(quo, env = parent_frame)
 }
-
-
 
 
 # options to save and load analysis parameters
@@ -964,12 +973,12 @@ define_input_analysis_yaml_chooser <- function(
           class = 'rave-grid-inputs', style='border:none',
           div(
             style = 'flex-basis:50%',
-            rave::actionButtonStyled(inputId = ns(!!save_btn),
+            actionButtonStyled(inputId = ns(!!save_btn),
                                      label=!!labels[[1]], icon = shiny::icon('save'), width = '100%')
           ),
           div(
             style = 'flex-basis:50%',
-            shinyFiles::shinyFilesButton(id = ns(!!load_btn), label = !!labels[[2]], title = 'Select Analysis Settings',
+            shinyFiles::shinyFilesButton(id = ns(!!load_btn), label = !!labels[[2]], title = 'Load Analysis Settings',
                                          multiple = FALSE, icon = shiny::icon('puzzle-piece'), style = 'width:100%')
           )
         )
@@ -1012,7 +1021,7 @@ define_input_analysis_yaml_chooser <- function(
               textInput(ns(!!save_text), label = 'Settings Name', value = paste0(!!name_prefix, tstmp)),
               tags$small('Will overwrite settings with the same name currently in RAVE settings folder'),
               footer = tagList(
-                rave::actionButtonStyled(ns(!!do_save), 'Save'),
+                actionButtonStyled(ns(!!do_save), 'Save'),
                 shiny::modalButton("Cancel")
               )
             ))
@@ -1039,5 +1048,44 @@ define_input_analysis_yaml_chooser <- function(
   })
 
   parent_env = parent.frame()
-  rave::eval_dirty(quo, env = parent_env)
+  eval_dirty(quo, env = parent_env)
 }
+
+
+
+define_input_auto_recalculate <- function(inputId, label, 
+  type = c('checkbox', 'button'), 
+  button_type = 'primary', 
+  default_on = FALSE){
+  type = match.arg(type)
+  widget_id = paste0(inputId, '_', type)
+  
+  quo = rlang::quo({
+    define_input(customizedUI(inputId = !!inputId))
+    load_scripts(rlang::quo({
+      assign(!!inputId, function(){
+        if( !!type == 'checkbox' ){
+          checkboxInput(ns(!!widget_id), label = !!label, value = !!default_on)
+        }else{
+          icon = NULL
+          if(!!(!default_on)){
+            icon = shiny::icon('arrow-right')
+          }
+          dipsaus::actionButtonStyled(
+            ns(!!widget_id), !!label, width = '100%', type = !!button_type,
+            icon = icon)
+        }
+      })
+      
+      register_auto_calculate_widget(!!widget_id, !!type, !!default_on)
+      
+    }))
+  })
+  parent_env = parent.frame()
+  dipsaus::eval_dirty(quo, env = parent_env)
+  
+  
+}
+
+
+

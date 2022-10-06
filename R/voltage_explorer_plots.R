@@ -9,8 +9,8 @@ erp_over_time_plot <- function(results, ...) {
     set_palette_helper(results)
 
     .time <- results$get_value('group_data')[[which.min(results$get_value('has_trials'))]]$all_data$dimnames$Time
-    .windows <- list(results$get_value('ANALYSIS_WINDOW'),
-                     results$get_value('BASELINE_WINDOW'))
+    .windows <- list(results$get_value('analysis_window'),
+                     results$get_value('baseline_window'))
     .wnames <- c('analysis', 'baseline')
 
     time_series_plot(plot_data = results$get_value('line_plot_data'),
@@ -23,6 +23,7 @@ erp_over_time_plot <- function(results, ...) {
 #' @param ... other parameters passed to module output
 #' @export
 by_trial_erp_map <- function(results, ...){
+    rave_context()
     has_data <- results$get_value('has_data', FALSE)
     validate(need(has_data, message="No Condition Specified"))
     
@@ -33,8 +34,8 @@ by_trial_erp_map <- function(results, ...){
 
     time_points <- results$get_value('voltage_sub')$dimnames$Time
 
-    .baseline <- results$get_value('BASELINE_WINDOW')
-    .analysis <- results$get_value('ANALYSIS_WINDOW')
+    .baseline <- results$get_value('baseline_window')
+    .analysis <- results$get_value('analysis_window')
 
     .max_zlim <- results$get_value('max_zlim')
 
@@ -55,7 +56,7 @@ by_condition_welch <- function(results, ...) {
     
     set_palette_helper(results)
 
-    .analysis <- results$get_value('ANALYSIS_WINDOW')
+    .analysis <- results$get_value('analysis_window')
     .frequencies <- results$get_value('frequencies')
     .sample_rate <- results$get_value('ERP_SAMPLE_RATE')
     .group_data <- results$get_value('group_data')
@@ -121,10 +122,10 @@ by_condition_welch <- function(results, ...) {
     par(mfrow=c(.row, .col))
     # have a parameter that controls whether we log the data or not
     for(ii in seq_along(.pws)) {
-        plot_clean(.xlim, c(0,.ylim), log='', ylab='dB', asp=1)
+        plot_clean(.xlim, c(0,.ylim), log='', ylab='dB')
         legend('topright', bty='n', inset=c(0.1, 0.1),
                text.col = c(grDevices::palette()[ii], 'black'), c(.group_data[[ii]]$name, 'baseline'),
-               cex = rave_cex.lab)
+               cex = rave_cex.lab*get_cex_for_multifigure())
         with(.pws[[ii]], {
             ebar_polygon(baseline$x, baseline$y[,1], baseline$y[,2], type='o', pch=16)
             ebar_polygon(analysis$x, analysis$y[,1], analysis$y[,2], type='o', pch=16, col=grDevices::palette()[ii])

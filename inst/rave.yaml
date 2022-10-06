@@ -1,9 +1,11 @@
 package_name: ravebuiltins
+finalize_installation: ravebuiltins_finalize_installation
+check_installation: ravebuiltins_check_installation
 dev_subject:
   project_name: demo
-  subject_code: sub_large
+  subject_code: DemoSubject
   electrodes: '14,15'
-  epoch: Auditory
+  epoch: auditory_onset
   time_range:
     pre: 1.0
     post: 2.0
@@ -11,30 +13,36 @@ dev_subject:
   frequency_range: ~
   data_types: ~
   load_brain: yes
-  download_url: https://s3-us-west-2.amazonaws.com/rave-demo-subject/sfn-demo/data-large.zip
+  download_url: https://github.com/beauchamplab/rave/releases/download/v0.1.9-beta/DemoSubjectData.zip
 modules:
 - module_id: power_explorer
   module_label: Power Explorer
   group_name: Condition Explorer
   order: 1
+- module_id: group_analysis_lme
+  module_label: Linear Mixed Effects Analysis
+  group_name: In-development
+  order: 6
+- module_id: overview_viewer_3d
+  module_label: Surface and Volume Viewer
+  group_name: Overview
+  order: 4
+- module_id: channel_reference
+  module_label: Reference Electrodes
+  group_name: Overview
+  order: 5
 - module_id: voltage_explorer
   module_label: Voltage Explorer
-  group_name: Condition Explorer
+  group_name: In-development
   order: 3
 - module_id: phase_explorer
   module_label: Phase Explorer
   group_name: Condition Explorer
   order: 2
-- module_id: group_analysis_lme
-  module_label: Linear Mixed Effect model
-  group_name: Group Analysis
-  order: 6
-- module_id: overview_viewer_3d
-  module_label: 3D Viewer
-  group_name: Overview
-  order: 4
-- module_id: channel_reference
-  module_label: Reference
-  group_name: Overview
-  order: 5
+disabled_modules:
+- module_id: spike_explorer
+  module_label: Spike Explorer
+  group_name: In-development
+  order: 7
+
 

@@ -43,10 +43,10 @@ any_trials <- any(has_trials)
 
 # Subset data
 bl_power <- cache(
-  key = list(subject$id, ELECTRODE, BASELINE_WINDOW, preload_info$time_points, combine_method,
+  key = list(subject$id, ELECTRODE, baseline_window, preload_info$time_points, combine_method,
              any_trials, preload_info$epoch_name, preload_info$reference_name),
   val = baseline(power$subset(Electrode = Electrode == ELECTRODE), 
-                 from=BASELINE_WINDOW[1], to= BASELINE_WINDOW[2],
+                 from=baseline_window[1], to= baseline_window[2],
                  hybrid = FALSE, mem_optimize = FALSE)
 )
 
@@ -64,7 +64,7 @@ flat_data <- data.frame()
 #relies on .transform as defined above
 if(combine_method != 'none') {
   transformed_power <- cache(
-    key = list(combine_method, subject$id, ELECTRODE, BASELINE_WINDOW, preload_info$time_points,
+    key = list(combine_method, subject$id, ELECTRODE, baseline_window, preload_info$time_points,
                any_trials, preload_info$epoch_name, preload_info$reference_name),
     
     val = {
@@ -124,9 +124,10 @@ for(ii in which(has_trials)){
   
   attr(heat_map_data[[ii]]$data, 'xlab') <- 'Time (s)'
   attr(heat_map_data[[ii]]$data, 'ylab') <- 'Frequency'
-  attr(heat_map_data[[ii]]$data, 'zlab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
-                                                            'Mean '  %&% combine_method %&% ' %SC')
-  
+  attr(heat_map_data[[ii]]$data, 'zlab') <- 'Mean ' %&% unit_of_analysis
+  # ifelse(combine_method=='none', 'Mean % Signal Change',
+  #                                                           'Mean '  %&% combine_method %&% ' %SC')
+  # 
   # the x value for the hmd is time
   heat_map_data[[ii]]$x <- .power_all$dimnames$Time
   
@@ -150,9 +151,10 @@ for(ii in which(has_trials)){
   
   attr(by_trial_heat_map_data[[ii]]$data, 'xlab') <- 'Time (s)'
   attr(by_trial_heat_map_data[[ii]]$data, 'ylab') <- 'Trial'
-  attr(by_trial_heat_map_data[[ii]]$data, 'zlab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
-                                                            'Mean '  %&% combine_method %&% ' %SC')
-  
+  attr(by_trial_heat_map_data[[ii]]$data, 'zlab') <- 'Mean ' %&% unit_of_analysis
+  # ifelse(combine_method=='none', 'Mean % Signal Change',
+  #                                                           'Mean '  %&% combine_method %&% ' %SC')
+
   # 3 Time only
   # coll freq and trial for line plot w/ ebar. Because we're doing error bars, we have to know whether we have 1 vs. >1 electrodes
   # if(length(requested_electrodes) == 1){
@@ -164,22 +166,23 @@ for(ii in which(has_trials)){
   )))
   
   attr(line_plot_data[[ii]]$data, 'xlab') <- 'Time (s)'
-  attr(line_plot_data[[ii]]$data, 'ylab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
-                                                    'Mean '  %&% combine_method %&% ' %SC')
+  attr(line_plot_data[[ii]]$data, 'ylab') <- 'Mean ' %&% unit_of_analysis
+  # ifelse(combine_method=='none', 'Mean % Signal Change',
+  #                                                   'Mean '  %&% combine_method %&% ' %SC')
   line_plot_data[[ii]]$N <- Nclean
   
   # scatter bar data -- here we want all of the data because we are going to highlight (or not) the outliers -- same for by-trial heatmap
   if(show_outliers_on_plots) {
     scatter_bar_data[[ii]] = append(scatter_bar_data[[ii]], wrap_data(
       rowMeans(.power_freq$subset(
-        Time = (Time %within% ANALYSIS_WINDOW),
+        Time = (Time %within% analysis_window),
         data_only = TRUE
       ))
     ))
   } else {
     scatter_bar_data[[ii]] = append(scatter_bar_data[[ii]], wrap_data(
       rowMeans(.power_freq_clean$subset(
-        Time = (Time %within% ANALYSIS_WINDOW),
+        Time = (Time %within% analysis_window),
         data_only = TRUE
       ))
     ))
@@ -199,8 +202,9 @@ for(ii in which(has_trials)){
   scatter_bar_data[[ii]]$x <- .xp[ii] + runif(length(scatter_bar_data[[ii]]$data), -.r, .r)
   
   attr(scatter_bar_data[[ii]]$data, 'xlab') <- 'Group'
-  attr(scatter_bar_data[[ii]]$data, 'ylab') <- ifelse(combine_method=='none', 'Mean % Signal Change',
-                                                      'Mean '  %&% combine_method %&% ' %SC')
+  attr(scatter_bar_data[[ii]]$data, 'ylab') <- 'Mean ' %&% unit_of_analysis
+  # ifelse(combine_method=='none', 'Mean % Signal Change',
+  #                                                     'Mean '  %&% combine_method %&% ' %SC')
   
   # we want to make a special range for the line plot data that takes into account mean +/- SE
   line_plot_data[[ii]]$range <- .fast_range(plus_minus(line_plot_data[[ii]]$data[,1],
@@ -216,7 +220,7 @@ for(ii in which(has_trials)){
                                   'y' = scatter_bar_data[[ii]] %$% {data[is_clean]}))
 }
 
-# .power_freq[,, preload_info$time_points %within% ANALYSIS_WINDOW, ]$data
+# .power_freq[,, preload_info$time_points %within% analysis_window, ]$data
 
 # for baseline you want to have only the baseline times
 flat_data$group %<>% factor
@@ -260,7 +264,7 @@ result = module(GROUPS = list(list(group_name='A', group_conditions=c('known_a',
                               list(group_name='YY', group_conditions=c()),
                               list(group_name='', group_conditions=c('known_v', 'last_v', 'drive_v', 'meant_v'))),
                 FREQUENCY = c(75,150), max_zlim = 0,
-                sort_trials_by_type = T, combine_method = 'none')
+                sort_trials_by_type = T)
 results = result$results
 # attachDefaultDataRepository()
 

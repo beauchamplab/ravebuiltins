@@ -16,12 +16,15 @@ if(F) {
 
 
 # >>>>>>>>>>>> Start ------------- [DO NOT EDIT THIS LINE] ---------------------
-    # requested_electrodes = parse_selections(ELECTRODE_TEXT %>% str_replace_all(':', '-'))
+    # requested_electrodes = parse_svec(ELECTRODE_TEXT %>% str_replace_all(':', '-'))
     # requested_electrodes %<>% get_by(`%in%`, electrodes)
 
     # this will be NA if the only requested electrodes are not available
     # electrode <- requested_electrodes[1]
-    # assertthat::assert_that(length(requested_electrodes) >= 1 && all(not_NA(requested_electrodes)),msg = 'No electrode selected')
+    assertthat::assert_that(exists('ERP_SAMPLE_RATE') && length(ERP_SAMPLE_RATE) == 1 , msg = 'No electrode selected')
+
+
+  print(ERP_SAMPLE_RATE)
 
     # downsample as requested
     s = voltage$dimnames$Time[1]
@@ -53,14 +56,14 @@ if(F) {
     # Do % change (x-mean(b)) /mean(b) or pure subtractive baseline (x-mean(b))
     # if(do_baseline) {
     #   bl_power <- cache(
-    #     key = list(preload_info, requested_electrodes, BASELINE_WINDOW, 'voltage', BASELINE_TYPE, keepers),
+    #     key = list(preload_info, requested_electrodes, baseline_window, 'voltage', BASELINE_TYPE, keepers),
     #     val = baseline(voltage_sub, unit = match_baseline_unit(BASELINE_TYPE),
-    #                    BASELINE_WINDOW[1],  BASELINE_WINDOW[2], hybrid = FALSE, mem_optimize = FALSE)
+    #                    baseline_window[1],  baseline_window[2], hybrid = FALSE, mem_optimize = FALSE)
     #   )
     # }
 
-    analysis_voltage <- voltage_sub$subset(Time = Time %within% ANALYSIS_WINDOW)
-    baseline_voltage <- voltage_sub$subset(Time = Time %within% BASELINE_WINDOW)
+    analysis_voltage <- voltage_sub$subset(Time = Time %within% analysis_window)
+    baseline_voltage <- voltage_sub$subset(Time = Time %within% baseline_window)
 
     group_data = lapply(seq_along(GROUPS), function(idx){
         g = GROUPS[[idx]]
@@ -88,6 +91,7 @@ if(F) {
     has_data <- any(has_trials)
     line_plot_data <- group_data
     # lpd <- line_plot_data[[1]]
+    dipsaus::cat2('make line_plot_data l:91')
     line_plot_data <- lapply(line_plot_data, function(lpd) {
       .d <- lpd$all_data$collapse(keep=1:2)
       lpd$x <- lpd$all_data$dimnames$Time
@@ -100,6 +104,7 @@ if(F) {
       return(lpd)
     })
 
+    dipsaus::cat2('make group data l:103')
     group_data %<>% lapply(function(d) {
       d$analysis_data <- d$analysis_data$collapse(keep=1:2)
       # d$analysis_data_mean <- rowMeans(d$analysis_data)
@@ -125,7 +130,23 @@ if(F) {
     
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
+rm(list = ls(all.names=T)); rstudioapi::restartSession()
+require(ravebuiltins)
+ravebuiltins:::dev_ravebuiltins(T)
+rave:::mount_demo_subject(force_reload_subject = T)
+view_layout('voltage_explorer')
+    
 # Debug
+reload_module_package()
+
+module = rave::get_module(module='voltage_explorer', package = 'ravebuiltins', local=TRUE)
+res <- module()
+
+res$by_trial_erp_map()
+res$erp_over_time_plot()
+res$by_condition_welch()
+res$results$get_variables()
+
 require(ravebuiltins)
 dev_toolbox = dev_ravebuiltins(T)
 reload_this_package(expose = T, clear_env = F)
