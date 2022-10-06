@@ -1,16 +1,16 @@
- 
+
 matrix_to_table <- function(mat, row_label=' ') {
     cnms <- colnames(mat)
     rnms <- rownames(mat)
-
+    
     str <- '<div style="width:100%;overflow-x:scroll;"><table style = "width:900px">'
-
+    
     #header row
     str <- str %&%
         '<tr style="border-bottom:1px solid #333"><td style="font-weight:bold"> '%&%
         paste0(c(row_label, cnms), collapse='</td><td style="font-weight:bold">') %&%
         '</td><tr>'
-
+    
     # all the rows
     for(ii in seq_len(nrow(mat))) {
         #one of the things we want to do is fix the row names so that instead of A:B they are A &times; B
@@ -20,10 +20,10 @@ matrix_to_table <- function(mat, row_label=' ') {
             '</td></tr>'
     }
     str <- str %&% '</table></div>'
-
+    
     return(str)
 }
- 
+
 text_to_range = function(str) {
     r = suppressWarnings({
         range(as.numeric(unlist(stringr::str_split(str, ',| |:'))), na.rm=TRUE)
@@ -34,7 +34,6 @@ text_to_range = function(str) {
     } else if(diff(r) == 0) {
         r = c(-1, 1) * max(abs(r))
     }
-    
     
     return (r)
 }
@@ -80,8 +79,8 @@ multiple_comparisons <- function() {
     }
     # local_data = ..local_data
     
-    lmer_results = local_data$lmer_results
-    lmer_summary = local_data$lmer_results_summary
+    lmer_results = model_params$get('lmer_results')
+    lmer_summary = model_params$get('lmer_results_summary')
     
     lmer_cond = data.frame('No main effects are possible' = 0)
     lmer_compare = data.frame('No comparisons are possible' = 0)
@@ -90,23 +89,23 @@ multiple_comparisons <- function() {
         look_for_vars = attr(terms(lmer_results), 'term.labels')
         main_effects_only = look_for_vars[!grepl(':', look_for_vars, fixed = TRUE)]
         
-        
         emm.opts <- list(infer=c(F,T), adjust='fdr')
         
         res = NULL
         if('ROI' %in% main_effects_only) {
-            if(model_params$how_to_model_roi == 'Stratify (Random+Fixed)') {
+            if(model_params$get('how_to_model_roi') == RAVE_ROI_TYPES['ROI_TYPE_I']) {
                 wo_roi <- main_effects_only[-which('ROI' == main_effects_only)]
                 .fo <- as.formula('pairwise ~ ' %&% paste0(wo_roi, collapse='*') %&% "|ROI")
                 
                 res = emmeans::emmeans(lmer_results,
-                                       specs = .fo, options=list(infer=c(F,T), adjust='fdr'),
-                                       adjust='fdr', lmer.df='satterthwaite')
+                    specs = .fo, options=list(infer=c(F,T), adjust='fdr'),
+                    adjust='fdr', lmer.df='satterthwaite')
+                
                 .fo <- as.formula('pairwise ~ ROI | ' %&% paste0(wo_roi, collapse='*'))
                 
                 res2 = emmeans::emmeans(lmer_results,
-                                        specs = .fo, options=list(infer=c(F,T), adjust='fdr'),
-                                        adjust='fdr', lmer.df='satterthwaite')
+                    specs = .fo, options=list(infer=c(F,T), adjust='fdr'),
+                    adjust='fdr', lmer.df='satterthwaite')
                 class(res) = 'list'
                 
                 res$emmeans = as.data.frame(res$emmeans)
@@ -129,36 +128,39 @@ multiple_comparisons <- function() {
                     df2$contrast[ii] = 
                         paste(paste0(as.matrix(df2[c(wo_roi)])[ii,], collapse=','), df2$contrast[ii], sep=': ')
                 }
-                df2[[wo_roi]] = NULL
+                
+                if(length(wo_roi) > 1) {
+                    df2[wo_roi] <- NULL
+                } else {
+                    df2[[wo_roi]] = NULL
+                }
                 res$contrasts = rbind(contrast_df, df2)
                 
                 ..roi = as.character(res$emmeans$ROI)
                 res$emmeans$ROI = NULL
                 res$emmeans = cbind('ROI'=..roi, res$emmeans,
-                                    stringsAsFactors=FALSE)
+                    stringsAsFactors=FALSE)
                 
                 # p.adjust(
                 # str(summary(res2$contrasts))[,'p.value']
                 # , method = 'fdr')
-            } else if(model_params$how_to_model_roi == 'All possible ITX (Random+Fixed)') {
+            } else if(model_params$get('how_to_model_roi') == RAVE_ROI_TYPES['ROI_TYPE_II']) {
                 .fo <- as.formula('pairwise ~ ' %&% paste0(main_effects_only, collapse='*'))
                 res = emmeans::emmeans(lmer_results, specs = .fo,
-                                       options=emm.opts,
-                                       adjust='fdr', lmer.df='satterthwaite')
+                    options=emm.opts,
+                    adjust='fdr', lmer.df='satterthwaite')
             }
-        } else if (length(main_effects_only)){
+        } else if (length(main_effects_only)) {
             res = emmeans::emmeans(lmer_results,
-                                   specs = as.formula(paste0('pairwise ~ ', paste0(main_effects_only, collapse='*'))),
-                                   options=emm.opts,
-                                   adjust='fdr', lmer.df='satterthwaite')
+                specs = as.formula(paste0('pairwise ~ ', paste0(main_effects_only, collapse='*'))),
+                options=emm.opts,
+                adjust='fdr', lmer.df='satterthwaite')
         } else {
             res = list('emmeans' = emmeans::emmeans(lmer_results, specs = ~ 1,
-                                   options=emm.opts,
-                                   adjust='fdr', lmer.df='satterthwaite')
+                options=emm.opts,
+                adjust='fdr', lmer.df='satterthwaite')
             )
         }
-        
-        
         
         lmer_cond <- fix_rownames(
             do_if(inherits(res$emmeans, 'emmGrid'), summary(res$emmeans), res$emmeans)
@@ -186,10 +188,10 @@ multiple_comparisons <- function() {
         ### do something for regular lm output?
     }
     
-    local_data$test_conditions = lmer_cond
+    model_params$set('test_conditions', lmer_cond)
     test_conditions <- htmltable_mat(lmer_cond)
     
-    local_data$compare_conditions= lmer_compare
+    model_params$set('compare_conditions', lmer_compare)
     if(is.null(lmer_compare)) {
         lmer_compare = matrix(" ", nrow = 1, ncol = 6)
         # htmltable_mat(m)
@@ -200,13 +202,13 @@ multiple_comparisons <- function() {
         h4('Compare condition means against 0'),
         test_conditions$table,
         hr(),
-        h4('All pairwise comparisons (if applicable)'),
+        h4('Pairwise comparisons'),
         compare_conditions$table
     )
 }
 
 fix_rownames <- function(m, regression=FALSE, lmer_results) {
-    lmer_results %?<-% local_data$lmer_results
+    lmer_results %?<-% model_params$get('lmer_results')
     look_for_vars = attr(terms(lmer_results), 'term.labels')
     
     # character vector with find=>replace structure
@@ -220,6 +222,11 @@ fix_rownames <- function(m, regression=FALSE, lmer_results) {
     })
     
     if(length(remove_var_name) > 0) {
+        # shorter names might replace a subset of a longer name :( 
+        # sort the replacements by length prior to replace_all
+        names(remove_var_name) = names(remove_var_name)[order(nchar(names(remove_var_name)),
+            decreasing = TRUE)]
+        
         rownames(m) %<>% str_replace_all(remove_var_name)
     }
     
@@ -229,7 +236,7 @@ fix_rownames <- function(m, regression=FALSE, lmer_results) {
         look_for_vars = look_for_vars[!str_detect(look_for_vars, ':')]
         
         bsl = paste0(sapply(lmer_results@frame[look_for_vars], 
-                            function(x) levels(x)[1]), collapse=':')
+            function(x) levels(x)[1]), collapse=':')
         
         rownames(m) %<>% str_replace_all('\\(Intercept\\)', paste(bsl, '(INT)'))
         rownames(m)[contains_lfv] = paste(rownames(m)[contains_lfv], 'vs', bsl)
@@ -246,18 +253,18 @@ lme_out <- function() {
     
     # local_data = ..local_data
     
-    lmer_results = local_data$lmer_results
-    lmer_summary = local_data$lmer_results_summary
-
-    ss_type = 2    
+    lmer_results = model_params$get('lmer_results')
+    lmer_summary = model_params$get('lmer_results_summary')
+    
+    ss_type = 2   
     if(length(attr(terms(lmer_results), 'term.labels')) <1) {
         ss_type = 3
     }
     
     deviance_summary = car::Anova(lmer_results, type=ss_type)
-        
-    anova_html = htmltable_coefmat(deviance_summary)
-    local_data$anova_summary <- deviance_summary
+    
+    anova_html = htmltable_coefmat(deviance_summary, has.Pvalue = TRUE, signif.stars = FALSE)
+    model_params$set('anova_summary', deviance_summary)
     
     
     # dipsaus::cat2('in lme_out::building final output', level='info')
@@ -278,20 +285,18 @@ regression_output <- function() {
         return(htmltools::div(style='color:#a1a1a1; text-align:center; ', 'No model calculated yet'))
     }
     
-    lmer_results = local_data$lmer_results
-    lmer_summary = local_data$lmer_results_summary
-    
+    lmer_results = model_params$get('lmer_results')
+    lmer_summary = model_params$get('lmer_results_summary')
     
     lmer_summary$coefficients %<>% fix_rownames(regression=TRUE)
-    local_data$lmer_summary_coefficients <- lmer_summary$coefficients
+    model_params$set('lmer_summary_coefficients', lmer_summary$coefficients)
     
+    string_formula = deparse(formula(lmer_results))
+    # string_formula = paste(string_formula[2], string_formula[1], string_formula[3])
     
-    string_formula = as.character(formula(lmer_results))
-    string_formula = paste(string_formula[2], string_formula[1], string_formula[3])
-
     lme_message = tryCatch({
         ifelse(is.null(lmer_results@optinfo$conv$lme4$messages),
-               'No Message', lmer_results@optinfo$conv$lme4$messages)
+            'No Message', lmer_results@optinfo$conv$lme4$messages)
     }, error=function(e) {
         'No Message'
     })
@@ -305,39 +310,39 @@ regression_output <- function() {
     }
     
     htmltools::p(
-    lmer_summary$methTitle, sprintf(' (%s)', lmer_summary$objClass), br(),
-    'LME call: ', strong(string_formula), br(),
-    'Number of obs: ', strong(lmer_summary$devcomp$dims[["n"]]), 'groups: ', 
-    strong(paste(paste(names(lmer_summary$ngrps), lmer_summary$ngrps, sep = ', '), collapse = '; ')), br(),
-    
-    br(),
-    # Convergence criteria
-    local({
-        res = NULL
-        aictab = lmer_summary$AICtab
-        if(!is.null(aictab)) {
-            t.4 <- round(aictab, 1)
-            if (length(aictab) == 1 && names(aictab) == "REML") 
-                res = tagList(paste("REML criterion at convergence:", t.4), br())
-        }
-        res
-    }),
-    
-    # residual
-    do.call('sprintf', c(
-        list('Scaled residual: %.4g (min), %.4g (25%%), %.4g (median), %.4g (75%%), %.4g (max)'),
-        structure(as.list(quantile(lmer_summary$residuals, na.rm = TRUE)), names = NULL)
-    )),
-    div(
-        p('LME Message: ', lme_message)
-    ),
-    hr(),
-    h4('Random Effects Table'),
-    rand_eff_table,
-    hr(),
-    # coef table
-    h4('LME Regression Table'),
-    tbl_html$table
+        lmer_summary$methTitle, sprintf(' (%s)', lmer_summary$objClass), br(),
+        'LME call: ', strong(string_formula), br(),
+        'Number of obs: ', strong(lmer_summary$devcomp$dims[["n"]]), 'groups: ', 
+        strong(paste(paste(names(lmer_summary$ngrps), lmer_summary$ngrps, sep = ', '), collapse = '; ')), br(),
+        
+        br(),
+        # Convergence criteria
+        local({
+            res = NULL
+            aictab = lmer_summary$AICtab
+            if(!is.null(aictab)) {
+                t.4 <- round(aictab, 1)
+                if (length(aictab) == 1 && names(aictab) == "REML") 
+                    res = tagList(paste("REML criterion at convergence:", t.4), br())
+            }
+            res
+        }),
+        
+        # residual
+        do.call('sprintf', c(
+            list('Scaled residual: %.4g (min), %.4g (25%%), %.4g (median), %.4g (75%%), %.4g (max)'),
+            structure(as.list(quantile(lmer_summary$residuals, na.rm = TRUE)), names = NULL)
+        )),
+        div(
+            p('LME Message: ', lme_message)
+        ),
+        hr(),
+        h4('Random Effects Table'),
+        rand_eff_table,
+        hr(),
+        # coef table
+        h4('LME Regression Table'),
+        tbl_html$table
     )
 }
 
@@ -345,8 +350,8 @@ regression_output <- function() {
 round_pval <- function(pval) {
     lpval = pmax(-16, log10(pval))
     ifelse(lpval > -3.5,
-           formatC(round(pval,4),width = 4, digits=4),
-           paste0('1e', formatC(round(lpval), width=3,flag=0)))
+        formatC(round(pval,4),width = 4, digits=4),
+        paste0('1e', formatC(round(lpval), width=3,flag=0)))
 }
 
 round_test_statistic <- function(df) round(df, 2)
@@ -357,7 +362,7 @@ round_df <- function(df) round(df, 1)
 
 build_stat_names <- function(lbls, stat.vars = c('m', 't', 'p')) {
     c(outer(c(stat.vars %&% '('),
-            lbls, paste0)) %&% ')'
+        lbls, paste0)) %&% ')'
 }
 
 flatten_emmeans_pairwise <- function(summ) {
@@ -381,6 +386,9 @@ flatten_emmeans_pairwise <- function(summ) {
 }
 
 # the idea here is to add terms while ensuring no duplicates
+# because we're adding at the end, add_term should _not_ change the order of the 
+# terms. HOWEVER, we're dropping duplicate terms, so if you have duplicates
+# in the original (why would you do this?!) they'll be dropped from the result
 add_term <- function(x, value) {
     unique(c(x, value))
 }
@@ -389,10 +397,11 @@ remove_term <- function(x, value) {
     x[x!=value]
 }
 
-analyze_single_electrode <- function(bed) {
+analyze_single_electrode <- function(bed, fixed_effects) {
     # note that for single electrode analyses, between-electrode variables (e.g., freesurferlabel) 
     # don't make sense
-    fes <- local_data$var_fixed_effects
+    fes <- fixed_effects#input$model_fixed_effects
+    
     lens = sapply(fes, function(vfe) {
         length(unique(bed[[vfe]]))
     })
@@ -414,7 +423,7 @@ analyze_single_electrode <- function(bed) {
         emmeans::emm_options('lmer.df' = 'satterthwaite')
         
     } else {
-        .lm = lm(as.formula('y ~ 1' %?&% fe), data=bed)
+        .lm = lm(as.formula('y ~ 1' %?&% str_collapse(fe, '+')), data=bed)
         omni.mat = as.matrix(car::Anova(.lm)[,c('F value', 'Pr(>F)')])
         omni.mat = omni.mat[str_detect(rownames(omni.mat),'Residuals', negate = 1),,drop=FALSE]
         
@@ -428,8 +437,8 @@ analyze_single_electrode <- function(bed) {
     # main effects
     bed.mains = lapply(fes, function(vfe) {
         m =summary(emmeans::emmeans(.lm,
-                                    as.formula('~' %&% vfe)),
-                   infer=c(F,T))[,c(1:2, 5:6)]
+            as.formula('~' %&% vfe)),
+            infer=c(F,T))[,c(1:2, 5:6)]
         nms = as.character(m[,1])
         c(t(m[,-1])) %>% set_names(build_stat_names(nms))
     }) %>% unlist
@@ -438,7 +447,7 @@ analyze_single_electrode <- function(bed) {
     bed.pairwise = NULL
     if(length(fes) > 0) {
         bed.pairwise = summary(emmeans::emmeans(
-            .lm, as.formula('pairwise ~ 1' %?&% fe)),
+            .lm, as.formula('pairwise ~ 1' %?&% str_collapse(fe, '+'))),
             infer=c(FALSE, TRUE)) %>% flatten_emmeans_pairwise
     }
     
@@ -452,5 +461,142 @@ analyze_single_electrode <- function(bed) {
         res[names(bed.pairwise)] = bed.pairwise
     }
     
-    res
+    
+    ## add in the Condition means (this needs to take account TimeWindow(s))
+    if('TimeWindow' %in% names(bed)) {
+        means <- aggregate(y ~ TimeWindow + Condition, mean, data=bed) %$% 
+            set_names(y, sprintf('m(%s:%s)', TimeWindow, Condition))
+    } else {
+        means <- aggregate(y ~ Condition, mean, data=bed) %$% set_names(y, paste0('m(', Condition, ')'))
+    }
+    
+    # put the means up front?
+    ind = which(names(res) %in% c('Project', 'Subject', 'ROI', 'Electrode', 'TimeWindow'))
+    res = cbind(res[,ind], t(means), res[,-ind])
+    
+    return(res)
 }
+
+if(!exists('str_collapse')) {
+    str_collapse <- function(x, by=', ', ...) {
+        paste0(x, collapse=by, ...)
+    }
+}
+
+
+call_or_function <- function(expr){
+    expr <- as.list(expr)
+    if(!length(expr)){ return(TRUE) }
+    while (expr[[1]] == "{") {
+        expr <- as.list(expr[-1])
+        if(length(expr) == 1){
+            expr <- as.list(expr[[1]])
+        }
+    }
+    if(length(expr) <= 1 || expr[[1]] == "function"){
+        return(FALSE)
+    }
+    return(TRUE)
+}
+
+create_frames <- function(
+    layout, common = NULL, bottom = NULL, left = NULL, top = NULL, 
+    right = NULL, env = parent.frame(), exclude = NULL) {
+    
+    if(!is.matrix(layout) && length(layout) == 2){
+        layout <- matrix(seq_len(prod(layout)),
+                         nrow = layout[[1]], byrow = TRUE)
+    }
+    if(length(exclude)){
+        layout[layout %in% exclude] <- NA
+    }
+    
+    expr <- substitute(common)
+    if(!call_or_function(expr)){ expr <- eval(expr) }
+    common <- expr
+    
+    expr <- substitute(bottom)
+    if(!call_or_function(expr)){ expr <- eval(expr) }
+    bottom <- expr
+    
+    expr <- substitute(left)
+    if(!call_or_function(expr)){ expr <- eval(expr) }
+    left <- expr
+    
+    expr <- substitute(top)
+    if(!call_or_function(expr)){ expr <- eval(expr) }
+    top <- expr
+    
+    expr <- substitute(right)
+    if(!call_or_function(expr)){ expr <- eval(expr) }
+    right <- expr
+    
+    force(env)
+    
+    # is_bottom <-  is_left <-  is_top <-  is_right <- FALSE
+    suppressWarnings({
+        bottom_counts <- apply(layout, 2, max, na.rm = TRUE)
+        left_counts <- apply(layout, 1, min, na.rm = TRUE)
+        top_counts <- apply(layout, 2, min, na.rm = TRUE)
+        right_counts <- apply(layout, 1, max, na.rm = TRUE)
+    })
+    
+    
+    count <- 1
+    
+    list(
+        cur_count = function(){ count },
+        
+        #the ... is passed to functions
+        add_frame = function(skip = FALSE, force = NULL, ...){
+            eval_or_call <- function(.x, envir) {
+                if(is.function(.x)) {
+                    do.call(match.fun(.x), list(...), envir =envir)
+                } else {
+                    eval(.x, envir = envir)
+                }
+            }
+            
+            if(skip || !count %in% layout){
+                count <<- count + 1
+                # if we've gone past the max frame, then recycle
+                if(count > max(layout)) {
+                    count <<- 1
+                }
+                return(invisible())
+            }
+            eval_or_call(common, envir=env)
+            
+            # check if count (current figure is the bottom)
+            is_bottom <- count %in% bottom_counts || 1 %in% force
+            if(is_bottom){
+                eval_or_call(bottom, envir = env)
+            }
+            
+            is_left <- count %in% left_counts || 2 %in% force
+            if(is_left){
+                eval_or_call(left, envir = env)
+            }
+            
+            is_top <- count %in% top_counts || 3 %in% force
+            if(is_top){
+                eval_or_call(top, envir = env)
+            }
+            
+            is_right <- count %in% right_counts || 4 %in% force
+            if(is_right){
+                eval_or_call(right, envir = env)
+            }
+            
+            count <<- count + 1
+            
+            # if we've gone past the max frame, then recycle
+            if(count > max(layout)) {
+                count <<- 1
+            }
+            
+            invisible(c(is_bottom, is_left, is_top, is_right))
+        }
+    )
+}
+

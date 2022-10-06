@@ -100,8 +100,6 @@ define_input(definition = checkboxInput('omnibus_plots_roi_as_lattice',
                                         label='Trellis-style ROI plot', value=FALSE)
 )
 
-
-
 define_input(definition = selectInput('omnibus_plots_color_palette', label="ConditionGroup color palette",
                                       choices = get_palette(get_palette_names = TRUE),
                                       selected = 'Beautiful Field'))
@@ -115,6 +113,54 @@ define_input(selectInput('omnibus_plots_plot_aesthetics', label='Plot aesthetic'
                          choices = c('border', 'jittered points', 'points', 'filled', 'connect means', 'show means', 'connect points'), multiple = TRUE,
                          selected=c('border', 'jittered points'))
 )
+
+
+
+define_input(selectInput('omnibus_plots_plot_aesthetics', label='Plot aesthetic',
+                         choices = c('border', 'jittered points', 'points', 'filled', 'connect means', 'show means', 'connect points'), multiple = TRUE,
+                         selected=c('border', 'jittered points'))
+)
+
+
+define_input(selectInput('custom_plot_types', label='Plot features',
+                         choices = c('bars', 'borders',
+                                     'points', 'jitter points', 'connect points',
+                                     'means', 'connect means',
+                                     'densities', 'density polygons',
+                                     'rugs',
+                                     'ebars', 'ebar polygons'),
+                         multiple = TRUE,
+                         selected=c('density polygons', 'means', 'jitter points'))
+)
+
+define_input(selectInput('custom_plot_xvar', label='Inner variable',
+                         choices = c('ConditionGroup'),
+                         selected=c('ConditionGroup'))
+)
+
+define_input(selectInput('custom_plot_gvar', label='Outer variable',
+                         choices = c('none'),
+                         selected=c('none'))
+)
+
+define_input(selectInput('custom_plot_panelvar', label='Panel variable',
+                         choices = c('none'),
+                         selected=c('none'))
+)
+
+define_input(selectInput('custom_plot_overlay', label='Inner variable display type',
+                         choices = c('overlay', 'grouped'),
+                         selected=c('grouped'))
+)
+
+define_input(textInput('custom_plot_ylim', label='Y-axis range', placeholder = "-1,2"))
+
+
+define_input(selectInput('custom_plot_templates', label='Common plots',
+                         choices = c(), multiple = FALSE,
+                         selected=c('density poly', '', 'jittered points'))
+)
+
 
 define_input(
   sliderInput('omnibus_plots_time_range', label = 'Plot time window', min = 0, max = 1, value = 0:1, step = 0.01, round = -2)
@@ -144,8 +190,8 @@ define_input(
 
 define_input(
   selectInput('how_to_model_roi', 'ROI analysis type',
-              choices = c('Stratify (Random+Fixed)',  'All possible ITX (Random+Fixed)',  'Random effect only', 'Average electrodes w/n ROI', 'Filter Only'),
-              selected = 'Filter Only', multiple = FALSE)
+              choices = unname(RAVE_ROI_TYPES),
+              selected = unname(RAVE_ROI_TYPES['ROI_TYPE_V']), multiple = FALSE)
 )
 
 define_input(
@@ -223,12 +269,68 @@ define_input(numericInput('post_hoc_plot_width_hint', label='Plot Width', value 
 define_input(numericInput('post_hoc_plot_column_count', label='# Columns', value = 4, min = 1, max=10, step=1))
 
 
-define_input_condition_groups(
-  inputId = 'cond_group', label = 'Condition Group', initial_groups = 2,
-  max_group = 20, min_group = 2, label_color = 'grey40', 
-  init_args = NULL, init_expr = NULL
+# define_input_condition_groups(
+#   inputId = 'cond_group', label = 'First Condition Group', initial_groups = 2,
+#   max_group = 20, min_group = 2, label_color = 'grey40', 
+#   init_args = NULL, init_expr = NULL
+# )
+
+define_input(
+  textInput('first_factor_name', 'Name of variable', value='Var1', placeholder = 'Variable name')
 )
 
+define_input(
+  definition = dipsaus::compoundInput2(
+    inputId = 'cond_group', label = 'First Condition Group',
+    label_color = 'black',
+    inital_ncomp = 2, 
+    components = htmltools::div(
+      textInput('group_name', 'Name', value = '', placeholder = 'Condition Name'),
+      selectInput('group_conditions', ' ', choices = '', multiple = TRUE)
+    )
+  )
+)
+
+
+
+### condition group2
+define_input(
+  textInput('second_factor_name', label = 'Name of variable', value='Var2', placeholder = 'Variable name')
+)
+
+define_input(
+  definition = dipsaus::compoundInput2(
+    inputId = 'second_factor', label = 'Second Condition Group', inital_ncomp = 2, 
+    label_color = 'black',
+    components = htmltools::div(
+      textInput('name', 'Name', value = '', placeholder = 'Condition Name'),
+      selectInput('grouping', ' ', choices = '', multiple = TRUE)
+    )
+  ))
+
+
+### Build ROIS
+define_input(selectInput('roi_builder_variable',
+                         label = 'ROI Column',
+                         choices=NULL, selected=NULL)
+)
+
+define_input(
+  definition = dipsaus::compoundInput2(
+    inputId = 'roi_group', label = 'ROI Grouping', inital_ncomp = 2,
+    min_ncomp = 1, max_ncomp = 20,
+    label_color = 'grey40', 
+    components = htmltools::div(
+      textInput('roi_group_name', 'Name', value = '', placeholder = 'Name of ROI'),
+      selectInput('roi_grouping', label = 'Labels w/n ROI',
+                  choices=NULL, selected=NULL, multiple=TRUE)
+      # sliderInput('analysis_window', ' ', value =0:1, post = 's', min=-2, max=2, step = 0.01),
+      # checkboxInput('window_is_active', 'Active', value = FALSE)
+    )
+  )
+)
+
+#### 
 define_input(
   definition = sliderInput('analysis_window', 'Analysis Window',
                            min = 0, max = 1, value=c(0,1), round=-2, step=0.01)
@@ -295,18 +397,19 @@ define_input(
                            selected = 'PurpleWhiteGreen')
 )
 
-
-define_input(
-  definition = checkboxInput('pes_group_by_roi', label = 'Group electrodes by ROI', value = TRUE)
-)
+# define_input(
+#   definition = checkboxInput('pes_group_by_roi', label = 'Group electrodes by ROI', value = TRUE)
+# )
 
 define_input(
   definition = selectInput('pes_sort_by_metric', label = 'How should electrodes be sorted?',
-                           choices = c('Clustering', 'Lexical', 'Anatomical'), selected='Lexical')
+                           choices = c('Response Similarity', 'Spatial Similarity', 'Lexical'
+                                       #, 'Anatomical'
+                           ), selected='Lexical')
 )
 
 define_input(
-  definition = numericInput('pes_max_for_means', 'Plot max for condition means (0: data range)',
+  definition = numericInput('pes_max_for_means', 'Max for means (0: data range)',
                             min=0, max=1e3, step = 1, value = 99)
 )
 
@@ -315,7 +418,7 @@ define_input(
                              value = TRUE))
 
 define_input(
-  definition = numericInput('pes_max_for_contrasts', 'Plot max for condition contrasts (0: data range)',
+  definition = numericInput('pes_max_for_contrasts', 'Max for contrasts (0: data range)',
                             min=0, max=1e3, step = 1, value = 99)
 )
 define_input(
@@ -324,34 +427,63 @@ define_input(
 
 define_input(definition = customizedUI('download_pes'))
 
-
 manual_inputs = c('source_files', 'csv_file', 'load_csvs', 'analysis_window', 'single_analysis_window',
-                  'post_hoc_plot_xlim', 'post_hoc_plot_ylim', 'multi_window_is_active', 'model_dependent',
-                  'model_fixed_effects', 'model_random_effects', 'model_splinetime',
-                  'model_formula', 'model_embedsubject', 'run_analysis','download_all_results',
-                  'model_roi_variable', 'filter_by_roi', 'how_to_model_roi', 'roi_ignore_hemisphere', 'roi_ignore_gyrus_sulcus',
-                  
-                  'pes_scaling_type', 'pes_group_by_roi', 'pes_sort_by_metric', 'pes_separate_colorbar',
-                  'pes_max_for_means', 'pes_max_for_means_is_percentile',
-                  'pes_max_for_contrasts', 'pes_max_for_contrasts_is_percentile', 'pes_contrasts_heatmap_palette', 'pes_means_heatmap_palette')
+  'post_hoc_plot_xlim', 'post_hoc_plot_ylim', 'multi_window_is_active', 'model_dependent',
+  'model_fixed_effects', 'model_random_effects', 'model_splinetime',
+  'model_formula', 'model_embedsubject', 'run_analysis','download_all_results',
+  'model_roi_variable', 'filter_by_roi', 'how_to_model_roi', 'roi_ignore_hemisphere', 'roi_ignore_gyrus_sulcus',
+  
+    'cond_group', 'second_factor', 'first_factor_name', 'second_factor_name',
+  'pes_scaling_type', 'pes_group_by_roi', 'pes_sort_by_metric', 'pes_separate_colorbar',
+  
+  'roi_group', 'roi_builder_variable',
+  
+  'pes_max_for_means', 'pes_max_for_means_is_percentile',
+  'pes_max_for_contrasts', 'pes_max_for_contrasts_is_percentile', 'pes_contrasts_heatmap_palette', 'pes_means_heatmap_palette'
+)
+
+render_inputs <- c("custom_plot_panelvar", "custom_plot_gvar", "custom_plot_overlay", 
+                   "custom_plot_xvar", "custom_plot_ylim", "custom_plot_types", 
+                   "custom_plot_templates", "omnibus_plots_time_range", "omnibus_plots_color_palette", 
+                   "omnibus_plots_legend_location", "omnibus_plots_use_common_range",
+                   "custom_plot_panelvar", "custom_plot_gvar", "custom_plot_overlay", 
+                   "custom_plot_xvar", "custom_plot_ylim", "custom_plot_types", 
+                   "custom_plot_templates", "omnibus_plots_time_range", "omnibus_plots_color_palette", 
+                   "omnibus_plots_legend_location", "omnibus_plots_use_common_range",
+                   "post_hoc_plot_xlim", "post_hoc_plot_ylim", "post_hoc_plot_width_hint", 
+                   "post_hoc_plot_column_count", "post_hoc_plot_highlight_subject", 
+                   "post_hoc_plot_highlight_subject_color_palette", "post_hoc_plot_vertical_reference_line", 
+                   "post_hoc_plot_horizontal_reference_line", "post_hoc_plot_vertical_reference_line_custom", 
+                   "post_hoc_plot_horizontal_reference_line_custom", "post_hoc_plot_regression_line", 
+                   "post_hoc_plot_equality_line", "post_hoc_plot_show_stats", "post_hoc_plot_legend_location"
+)
 
 input_layout = list(
-    'Data import' = list(
-        'analysis_data'
-    ),
-    'Build condition groups' = list(
-      'cond_group',
-      'cond_group_ui'
-      ),
-    'Single time window analysis' = list(
-      'analysis_window',
-      'single_analysis_window'
-    ),
-    '[-]Multiple time window analysis' = list(
-      'multi_window_is_active', 
-      'multi_window_analysis'
-    ),
-    'Build model' = list(
+  'Data import' = list(
+    'analysis_data'
+  ),
+  '[-]Build ROIs' = list(
+    'roi_builder_variable',
+    'roi_group'
+  ),
+  '[-]Build first grouping factor' = list(
+    'first_factor_name',
+    'cond_group'
+    # 'cond_group_ui'
+  ),
+  '[-]Build second grouping factor' = list(
+    'second_factor_name',
+    'second_factor'
+  ),
+  'Single time window analysis' = list(
+    'analysis_window',
+    'single_analysis_window'
+  ),
+  '[-]Multiple time window analysis' = list(
+    'multi_window_is_active', 
+    'multi_window_analysis'
+  ),
+  'Build model' = list(
         c('model_dependent'),
         c('model_roi_variable'),
         c('how_to_model_roi'),
@@ -364,12 +496,17 @@ input_layout = list(
         'download_all_results'
     ),
     '[-]Configure group plots' = list(
+      c('custom_plot_panelvar', 'custom_plot_gvar'),
+      c('custom_plot_overlay', 'custom_plot_xvar'),
+      'custom_plot_ylim',
+      'custom_plot_types', 
+      'custom_plot_templates',
       'omnibus_plots_time_range',
-      'omnibus_plots_plot_aesthetics',
+      # 'omnibus_plots_plot_aesthetics',
       'omnibus_plots_color_palette',
       'omnibus_plots_legend_location',
-      c('omnibus_plots_use_common_range',
-        'omnibus_plots_roi_as_lattice')
+      c('omnibus_plots_use_common_range')
+        #'omnibus_plots_roi_as_lattice')
     ),
     '[-]Plot post-hoc variables' = list(
       'hide_everything_but_post_hoc_plot',
@@ -389,7 +526,7 @@ input_layout = list(
       c('post_hoc_plot_regression_line', 'post_hoc_plot_equality_line'),
         'post_hoc_plot_show_stats', 'post_hoc_plot_legend_location'
     ),
-    '[-]Download per-electrode statistics' = list(
+    '[-]Configure/Export electrode-level results' = list(
       c('pes_sort_by_metric'),
         'pes_group_by_roi', 
       'pes_scaling_type',
@@ -441,44 +578,51 @@ define_output(
   order = 200
 )
 
-
-
 define_output(
   definition = plotOutput('power_over_time', height='500px'),
-  title = 'Activity over time',
-  width = 8,
+  title = 'Group-level activity over time',
+  width = 12,
   order = 60
 )
 
+# define_output(
+#   definition = plotOutput('windowed_activity', height='500px'),
+#   title = 'Group-level mean activity in analysis window',
+#   width = 4,
+#   order = 61
+# )
+
+
 define_output(
-  definition = plotOutput('windowed_activity', height='500px'),
+  definition = plotOutput('custom_windowed_activity', height='500px'),
   title = 'Mean activity in analysis window',
-  width = 4,
-  order = 61
+  width = 12,
+  order = 1e4
 )
+
 
 define_output(
   definition = customizedUI('mass_univariate_results', style='min-height:500px'),
-  title = 'Univariate stat output',
+  title = 'Electrode-level results table',
   width = 12, order=20
 )
 
 define_output(
   customizedUI('effect_overview_plot_ui'),
-  title = 'Results overview heatmap',
+  title = 'Electrode-level results overview',
   width=12,
   order=-1e5
 )
 
 define_output(
   definition = plotOutput('electrode_inspector_time_series', height='500px'),
-  title = 'Subset time series',
+  title = 'Electrode subset activity over time',
   width = 6, order=51
 )
 
 define_output(
   definition = plotOutput('electrode_inspector_trial_heat_map_plot', height='500px'),
-  title = 'Subset by-trial plot',
+  title = 'Electrode subset activity by-trial',
   width = 6, order=50
 )
 
@@ -491,32 +635,29 @@ define_output(
 define_output_3d_viewer(
     outputId = 'lme_3dviewer',
     message = 'Reload Viewer',
-    title = 'Statistical results by electrode',
+    title = 'Electrode-level results on template brain',
     height = '500px', 
-    additional_ui = htmltools::tagList(' | ', downloadLink(ns('download_3dv_colobar'), 'Download color bar')),
+    additional_ui = htmltools::tagList(' | ', downloadLink(ns('download_3dv_colobar'), 'Download color bar'), '. Double-click an electrode to update analysis. Single-click for electrode details'),
     order = -1
 )
 
-# 'Multiple Comparisons' = c('multiple_comparisons'),
-
-
-# this is for the multiple-tabbed layout
-# output_layout = list(
-#   'Model Results' = list(
-#     'Results across electrodes' = c('power_over_time', 'windowed_activity', 'lme_out'),
-#     'Results by electrode' = c('lme_3dviewer', 'mass_univariate_results',
-#                                'electrode_inspector_time_series',
-#                                'electrode_inspector_barplot')#,
-#     # 'Data description' = c('src_data_snapshot')
-#   )
-#   # 'Multiple Output' = 'src_data_snapshot'
-# )
+# this is for the multi-tab layout
+output_layout = list(
+  'Single-electrode results' = list('Tabular' = 'mass_univariate_results', '3dViewer' = 'lme_3dviewer', 'Heatmap'='effect_overview_plot_ui'),
+  'Across-electrode results' = list('Over-time results' = c('power_over_time'),
+      'Windowed activity' = 'custom_windowed_activity',
+      'Subset inspector' = c('electrode_inspector_trial_heat_map_plot', 'electrode_inspector_time_series')),
+  'LME model results' = list(
+    'Summary'='lme_out',
+    'Contrasts' = 'multiple_comparisons',
+    'Regression table' = 'regression_output'
+  )
+)
 
 # <<<<<<<<<<<< End ----------------- [DO NOT EDIT THIS LINE] -------------------
 
 
 # -------------------------------- View layout ---------------------------------
-module_id <- 'group_analysis_lme'
 quos = env$parse_components(module_id)
 
-view_layout(module_id, launch.browser = T, sidebar_width = 3)
+view_layout('group_analysis_lme', launch.browser = T, sidebar_width = 3)
