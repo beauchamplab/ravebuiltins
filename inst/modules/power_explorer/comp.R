@@ -251,7 +251,7 @@ define_input(
   definition = selectInput('sort_trials_by_type', 'How should trials be sorted?',
                            choices = '', selected = ''), init_args = c('choices', 'selected'), init_expr = {
                              choices = c('Trial Number', 'Condition', epoch_event_types[-1])
-                             selected = 'Trial Number'
+                             selected = ifelse(length(unique(epoch_data$Condition)) > 1, 'Condition', 'Trial Number')
                            })
 
 # define_input(
