@@ -416,7 +416,7 @@ analyze_single_electrode <- function(bed) {
     } else {
         .lm = lm(as.formula('y ~ 1' %?&% fe), data=bed)
         omni.mat = as.matrix(car::Anova(.lm)[,c('F value', 'Pr(>F)')])
-        omni.mat = omni.mat[str_detect(rownames(omni.mat),'Residuals', negate = 1),,drop=FALSE]
+        omni.mat = omni.mat[str_detect(rownames(omni.mat),'Residuals', negate = TRUE),,drop=FALSE]
         
         bed.omni = c(t(omni.mat)) %>% set_names(
             build_stat_names(rownames(omni.mat), c('F', 'p'))
