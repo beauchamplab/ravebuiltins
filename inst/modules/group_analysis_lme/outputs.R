@@ -1153,7 +1153,7 @@ custom_plot_download_renderers <- function(plot_name, ...) {
         'Activity over time' = power_over_time,
         'Mean activity in analysis window' = windowed_activity,
         'Subset time series' = electrode_inspector_time_series,
-        'Subset barplot' = electrode_inspector_barplot,
+        'Subset by-trial plot' = electrode_inspector_trial_heat_map_plot,
         'Compare post-hoc variables' = post_hoc_plot
     )
     nm = match.arg(plot_name, names(FUNS))
@@ -1164,7 +1164,7 @@ custom_plot_download <- custom_plot_download_impl(
     module_id = 'group_analysis_lme',
     choices=c(
         'Activity over time', 'Mean activity in analysis window', 'Subset time series', 
-        'Subset barplot', 'Compare post-hoc variables')
+        'Subset by-trial plot', 'Compare post-hoc variables')
 )
 
 output$btn_custom_plot_download <- downloadHandler(
