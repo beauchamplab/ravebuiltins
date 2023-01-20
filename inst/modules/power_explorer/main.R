@@ -9,7 +9,7 @@ ravebuiltins:::dev_ravebuiltins(T)
 
 
 
-# view_layout('power_explorer', theme='gold')
+view_layout('power_explorer', theme='red')
 # mount_demo_subject(subject_code = 'YCZ', 'Sentences', epoch='YCZ_gingko', electrodes=50:56, time_range=c(1.5, 4), force_reload_subject=TRUE)
 
 if(FALSE) {
@@ -660,32 +660,17 @@ omnibus_results <- cache(
   name = 'omnibus_results'
 )
 
-# grab all the details needed for plotting and put them in a list that
-# can be passed around (and I guess modified?)
-
-# plot_options <- build_plot_options()
-## is this safe???
-# to_copy = names(plot_options) %in% ls(envir=globalenv())
-# if(any(to_copy)) {
-#   for(ii in which(to_copy)) {
-#     plot_options[[names(plot_options)[ii]]] = get(names(plot_options)[ii], envir = global_env())
-#   }
-# }
-
-# plot time range isn't being set correctly...
-# plot_options$plot_time_range = plot_time_range
-# plot_options$sort_trials_by_type = sort_trials_by_type
-# plot_options$draw_decorator_labels = draw_decorator_labels
-# local_data$plot_options = plot_options
-
-
 # load up local data the plot data and the plot options
 local_data$over_time_data = over_time_data
 local_data$heat_map_data = heat_map_data
 local_data$scatter_bar_data = scatter_bar_data
+local_data$flat_data = flat_data
 local_data$by_electrode_heat_map_data = by_electrode_heat_map_data
 local_data$by_trial_heat_map_data = by_trial_heat_map_data
 local_data$electrodes_csv = electrodes_csv
+
+local_data$f1_analysis_settings = f1_analysis_settings
+local_data$f2_analysis_settings = f2_analysis_settings
 
 if(!is.null(local_data$current_active_set)) {
   pass = electrodes %in% local_data$current_active_set
