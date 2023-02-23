@@ -53,6 +53,7 @@ local_data %?<-% reactiveValues(
     show_by_electrode_results_rows_selected = NULL,
     omnibus_plots_legend_location = 'topleft'
 )
+
 local_filters = reactiveValues(
     filter_count = 0,
     filter_observers = 0
@@ -657,9 +658,17 @@ observeEvent(input$run_analysis, {
         collapsed_data$TimeWindow %<>% factor(levels=window_names_in_order)
     }
     local_data$collapsed_data = collapsed_data
-    local_data$agg_over_trial = aggregate(as.formula('y ~ Time + Subject + Electrode' %?&% fe %?&% roi),
-                                          data = local_data$over_time_data, FUN=mean) %>%
-                                do_aggregate(as.formula('y ~ Time' %?&% fe %?&% roi), .fast_mse)
+    
+    # if we're using ROI as just a filter, then ignore it at the collapse step
+    if( model_params$how_to_model_roi %in% c('Stratify (Random+Fixed)', 'All possible ITX (Random+Fixed)'))  {
+        local_data$agg_over_trial = aggregate(as.formula('y ~ Time + Subject + Electrode' %?&% fe %?&% roi),
+                                              data = local_data$over_time_data, FUN=mean) %>%
+            do_aggregate(as.formula('y ~ Time' %?&% fe %?&% roi), .fast_mse)
+    } else {
+        local_data$agg_over_trial = aggregate(as.formula('y ~ Time + Subject + Electrode' %?&% fe),
+                                              data = local_data$over_time_data, FUN=mean) %>%
+            do_aggregate(as.formula('y ~ Time' %?&% fe), .fast_mse)
+    }
     
     # for the per-electrode plots, we're going back to the over_time data because we need the individual trials
     if(isTRUE(input$multi_window_is_active)) {
