@@ -1,7 +1,7 @@
 Package: ravebuiltins
 Type: Package
 Title: Builtin Modules for `RAVE`
-Version: 1.0.4
+Version: 1.0.5
 Description: This package provides builtin modules for `RAVE`. It aims at analyze 
     and visualize `iEEG` data from different perspectives.
 License: MIT + file LICENSE

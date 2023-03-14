@@ -978,9 +978,10 @@ output$btn_download_all_results <- downloadHandler(
                     wrp("lmer_coefficients"), 
                     wrp('lmer_omnibus'),
                     wrp('compare_conditions_to_0'),
-                    wrp('pairwise_comparisons'), 
-                    'windowed_activity.pdf',
-                    'power_over_time.pdf')
+                    wrp('pairwise_comparisons')#, 
+                    # 'windowed_activity.pdf',
+                    # 'power_over_time.pdf'
+                    )
         
         wcsv(local_data$lmer_summary_coefficients, fnames[2])
         
@@ -990,20 +991,20 @@ output$btn_download_all_results <- downloadHandler(
         wcsv(local_data$compare_conditions, fnames[5])
         
         #trying to set the width of the plot based on the number of groups in the data
-        H=6
-        WFAC = 8/H
-        .w = WFAC * nlevels(local_data$collapsed_data$Group)
-        as_pdf(file.path(tmp_dir, fnames[6]), w=.w, h=H, {
-            par(mar=.1 + c(5,4,1,1))
-            # call_with_local_data(windowed_activity)
-            windowed_activity()
-        })
-        
-        as_pdf(file.path(tmp_dir, fnames[7]), w=8, h=4, {
-            par(mar=.1 + c(5,4,1,1))
-            # call_with_local_data(power_over_time)
-            power_over_time()
-        })
+        # H=6
+        # WFAC = 8/H
+        # .w = WFAC * nlevels(local_data$collapsed_data$Group)
+        # as_pdf(file.path(tmp_dir, fnames[6]), w=.w, h=H, {
+        #     par(mar=.1 + c(5,4,1,1))
+        #     # call_with_local_data(windowed_activity)
+        #     windowed_activity()
+        # })
+        # 
+        # as_pdf(file.path(tmp_dir, fnames[7]), w=8, h=4, {
+        #     par(mar=.1 + c(5,4,1,1))
+        #     # call_with_local_data(power_over_time)
+        #     power_over_time()
+        # })
         
         
         wd = getwd()
