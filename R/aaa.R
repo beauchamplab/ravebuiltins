@@ -433,12 +433,13 @@ determine_shift_amount <- function(available_shift, event_time, data_env = rave:
   stopifnot(exists("module_tools", envir = data_env))
   mt = data_env$module_tools
   
-  new_range_ind = abs(round(available_shift*mt$get_sample_rate()))
+  new_range_ind = abs(
+      round(available_shift*mt$get_sample_rate())
+  )
   
-  # we need to add one here to account for 0
   # time_points = mt$get_power()$dimnames$Time
   time_points = data_env$preload_info$time_points
-  new_0_ind = 1 + round(mt$get_sample_rate()*(event_time - min(time_points)))
+  new_0_ind = round(mt$get_sample_rate()*(event_time - min(time_points)))
   
   return(new_0_ind - new_range_ind[1])
 }
